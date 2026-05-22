@@ -1,7 +1,8 @@
 // Wrapper around IndexedDB for video/srt/plan file storage
 // Replaces the global window.FileStore from the old js/core/file_store.js
 
-const DB_NAME    = 'P43FileStore';
+// MUST match the DB name in public/js/core/file_store.js
+const DB_NAME    = 'p43_file_store';
 const STORE_NAME = 'files';
 const DB_VERSION = 1;
 
@@ -39,7 +40,13 @@ export function useFileStore() {
   return { save: saveFile, remove: removeFile, get: getFile };
 }
 
-// Expose to window for legacy JS compatibility (editor.html JS modules)
+// Expose to window so legacy file_store.js doesn't override our version
+// (file_store.js is loaded AFTER React, so we expose ours first)
 if (typeof window !== 'undefined') {
-  (window as unknown as Record<string, unknown>)['FileStore'] = { save: saveFile, remove: removeFile, get: getFile };
+  (window as unknown as Record<string, unknown>)['FileStore'] = {
+    save:   saveFile,
+    load:   getFile,   // legacy alias used by editor JS
+    remove: removeFile,
+    get:    getFile,
+  };
 }
