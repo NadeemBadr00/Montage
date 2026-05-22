@@ -46,8 +46,8 @@
     <!-- Loading Screen (shown while reading video from IndexedDB) -->
     <div id="editor-loading" class="fixed inset-0 z-[10000] bg-gray-900 flex flex-col items-center justify-center gap-4">
         <div style="width:52px;height:52px;border:3px solid rgba(99,102,241,0.2);border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-        <p class="text-indigo-300 font-bold text-base font-cairo">╪¼╪º╪▒┘ì ╪¬╪¡┘à┘è┘ä ╪º┘ä┘à╪┤╪▒┘ê╪╣...</p>
-        <p class="text-gray-500 text-xs" id="loading-status">┘è╪¬┘à ┘é╪▒╪º╪í╪⌐ ┘à┘ä┘ü ╪º┘ä┘ü┘è╪»┘è┘ê</p>
+        <p class="text-indigo-300 font-bold text-base font-cairo">جارٍ تحميل المشروع...</p>
+        <p class="text-gray-500 text-xs" id="loading-status">يتم قراءة ملف الفيديو</p>
         <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
     </div>
 
@@ -55,10 +55,10 @@
     <header class="bg-gray-800 border-b border-gray-700 py-2 shadow-lg z-50 flex-shrink-0 h-12">
         <div class="container mx-auto px-4 flex justify-between items-center h-full">
             <div class="flex items-center gap-3">
-                <!-- ≡ƒöÑ ╪▓╪▒ ╪º┘ä╪╡┘ü╪¡╪⌐ ╪º┘ä╪▒╪ª┘è╪│┘è╪⌐ -->
-                <a href="index.html" class="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-2 py-1 rounded text-xs transition-all border border-gray-600 hover:border-indigo-500/50" title="╪º┘ä╪╡┘ü╪¡╪⌐ ╪º┘ä╪▒╪ª┘è╪│┘è╪⌐">
+                <!-- 🔥 زر الصفحة الرئيسية -->
+                <a href="index.html" class="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-2 py-1 rounded text-xs transition-all border border-gray-600 hover:border-indigo-500/50" title="الصفحة الرئيسية">
                     <i class="fa-solid fa-house text-indigo-400"></i>
-                    <span class="hidden sm:inline">╪º┘ä╪▒╪ª┘è╪│┘è╪⌐</span>
+                    <span class="hidden sm:inline">الرئيسية</span>
                 </a>
                 <div class="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded flex items-center justify-center glow animate-pulse">
                     <i class="fa-solid fa-brain text-lg text-white"></i>
@@ -68,37 +68,37 @@
                 </div>
             </div>
             <div class="flex gap-3 items-center">
-                <!-- ≡ƒöÑ Toggle CMD Button -->
+                <!-- 🔥 Toggle CMD Button -->
                 <button onclick="app.toggleCommandConsole()" class="bg-gray-900 hover:bg-gray-700 text-green-400 px-3 py-1 rounded text-xs font-mono font-bold flex items-center gap-2 transition-all border border-green-500/30" title="Toggle Command Center">
                     <i class="fa-solid fa-terminal"></i> CMD
                 </button>
 
-                <!-- ≡ƒöÑ NEW: Plan Toggle Button + Hidden Upload -->
+                <!-- 🔥 NEW: Plan Toggle Button + Hidden Upload -->
                 <div class="relative group">
                     <button onclick="window.geminiPlan.showLastPlan()" class="bg-purple-900 hover:bg-purple-800 text-purple-100 px-3 py-1 rounded text-xs font-bold flex items-center gap-2 transition-all border border-purple-500/30" title="Show/Hide Plan">
-                        <i class="fa-solid fa-clipboard-list"></i> ╪º┘ä╪«╪╖╪⌐
+                        <i class="fa-solid fa-clipboard-list"></i> الخطة
                     </button>
                     <!-- Small Upload trigger for Plan -->
-                    <button onclick="document.getElementById('header-plan-upload').click()" class="absolute -bottom-6 right-0 text-[9px] text-gray-500 hover:text-purple-400" title="╪▒┘ü╪╣ ╪«╪╖╪⌐">
+                    <button onclick="document.getElementById('header-plan-upload').click()" class="absolute -bottom-6 right-0 text-[9px] text-gray-500 hover:text-purple-400" title="رفع خطة">
                         <i class="fa-solid fa-upload"></i>
                     </button>
                     <input type="file" id="header-plan-upload" accept=".json" class="hidden" onchange="window.geminiPlan.handlePlanUpload(this)">
                 </div>
 
-                <!-- ≡ƒöÑ NEW: SRT Splitter Button (Header) -->
+                <!-- 🔥 NEW: SRT Splitter Button (Header) -->
                 <button onclick="openSrtSplitter()" class="bg-teal-700 hover:bg-teal-600 text-teal-100 px-3 py-1 rounded text-xs font-bold flex items-center gap-2 transition-all border border-teal-500/30 shadow-lg shadow-teal-900/20" title="Split long subtitles">
                     <i class="fa-solid fa-scissors"></i> SRT Splitter
                 </button>
 
                 <button onclick="app.exportToMP4()" id="export-mp4-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs font-bold flex items-center gap-2 transition-all">
-                    <i class="fa-solid fa-film"></i> ╪¬╪╡╪»┘è╪▒ MP4
+                    <i class="fa-solid fa-film"></i> تصدير MP4
                 </button>
                 <button onclick="app.downloadXML()" class="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1 rounded text-xs font-bold flex items-center gap-2 transition-all">
                     <i class="fa-solid fa-file-code"></i> XML
                 </button>
 
-                <!-- ≡ƒöÑ User Avatar (┘à┘å ╪¿┘è╪º┘å╪º╪¬ ╪¬╪│╪¼┘è┘ä ╪º┘ä╪»╪«┘ê┘ä) -->
-                <a href="index.html" id="header-user-avatar" title="╪¡╪│╪º╪¿┘è" class="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center overflow-hidden border border-indigo-500/40 hover:border-indigo-400 transition-all flex-shrink-0 cursor-pointer" style="text-decoration:none;">
+                <!-- 🔥 User Avatar (من بيانات تسجيل الدخول) -->
+                <a href="index.html" id="header-user-avatar" title="حسابي" class="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center overflow-hidden border border-indigo-500/40 hover:border-indigo-400 transition-all flex-shrink-0 cursor-pointer" style="text-decoration:none;">
                     <i class="fa-solid fa-user text-white text-[10px]"></i>
                 </a>
             </div>
@@ -217,7 +217,7 @@
             <!-- Assets Panel -->
             <div id="assets-panel" class="w-80 bg-gray-800 flex flex-col border-r border-gray-700 flex-shrink-0">
                 <div class="p-2 bg-gray-700 font-bold text-[11px] text-gray-300 flex justify-between items-center shadow-md">
-                    <span><i class="fa-solid fa-photo-film text-yellow-400"></i> ╪º┘ä┘à┘â╪¬╪¿╪⌐ (Assets)</span>
+                    <span><i class="fa-solid fa-photo-film text-yellow-400"></i> المكتبة (Assets)</span>
                     <input type="file" id="file-upload" class="hidden" multiple accept="image/*,video/*">
                     <button onclick="document.getElementById('file-upload').click()" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-0.5 rounded text-[10px]"><i class="fa-solid fa-plus"></i></button>
                 </div>
@@ -249,13 +249,13 @@
             <h2 class="text-2xl font-bold font-cairo text-green-400 text-center mb-6">XML Ready</h2>
             <div class="bg-black/50 p-4 rounded-lg font-mono text-[10px] text-blue-300 overflow-x-auto mb-6 border border-gray-700 max-h-40" id="xml-preview"></div>
             <div class="flex gap-3">
-                <button onclick="document.getElementById('export-modal').classList.add('hidden')" class="flex-1 py-3 bg-gray-700 rounded-lg">╪Ñ╪║┘ä╪º┘é</button>
-                <a id="download-link" href="#" class="flex-1 py-3 bg-primary rounded-lg text-white flex justify-center items-center gap-2">╪¬╪¡┘à┘è┘ä XML</a>
+                <button onclick="document.getElementById('export-modal').classList.add('hidden')" class="flex-1 py-3 bg-gray-700 rounded-lg">إغلاق</button>
+                <a id="download-link" href="#" class="flex-1 py-3 bg-primary rounded-lg text-white flex justify-center items-center gap-2">تحميل XML</a>
             </div>
         </div>
     </div>
 
-    <!-- ≡ƒöÑ NEW: SRT Splitter Iframe Modal (Overlay) -->
+    <!-- 🔥 NEW: SRT Splitter Iframe Modal (Overlay) -->
     <div id="srt-tool-modal" class="hidden fixed inset-0 z-[10000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl w-full max-w-4xl h-[80vh] relative overflow-hidden shadow-2xl animate-fade-in-up">
             <button onclick="document.getElementById('srt-tool-modal').classList.add('hidden')" class="absolute top-4 right-4 z-50 bg-gray-200 hover:bg-gray-300 text-gray-700 w-8 h-8 rounded-full flex items-center justify-center transition shadow-md">
@@ -265,14 +265,14 @@
         </div>
     </div>
 
-    <!-- ≡ƒöÑ Command Console (CLI) - UPDATED (Hidden by Default) -->
+    <!-- 🔥 Command Console (CLI) - UPDATED (Hidden by Default) -->
     <div id="cmd-console" class="fixed bottom-20 right-4 bg-gray-900/95 border border-green-500/30 text-green-400 font-mono p-4 rounded-lg shadow-2xl z-[9999] min-w-[400px] backdrop-blur-md transition-opacity duration-300 max-h-[80vh] overflow-y-auto custom-scrollbar hidden" dir="ltr">
         <!-- Header (Draggable) -->
         <div id="cmd-header" class="flex justify-between items-center mb-2 border-b border-green-500/20 pb-1 cursor-move select-none sticky top-0 bg-gray-900/95 pt-1 z-10">
-            <span class="text-xs font-bold text-green-500 flex items-center gap-2"><i class="fa-solid fa-terminal"></i> ┘à╪▒┘â╪▓ ╪º┘ä╪ú┘ê╪º┘à╪▒ (CMD)</span>
+            <span class="text-xs font-bold text-green-500 flex items-center gap-2"><i class="fa-solid fa-terminal"></i> مركز الأوامر (CMD)</span>
             <div class="flex items-center gap-2">
-                <button onclick="app.minimizeConsole()" class="text-green-700 hover:text-green-400" title="╪¬╪╡╪║┘è╪▒"><i class="fa-solid fa-minus"></i></button>
-                <button onclick="app.toggleCommandConsole()" class="text-green-700 hover:text-green-400" title="╪Ñ╪║┘ä╪º┘é"><i class="fa-solid fa-xmark"></i></button>
+                <button onclick="app.minimizeConsole()" class="text-green-700 hover:text-green-400" title="تصغير"><i class="fa-solid fa-minus"></i></button>
+                <button onclick="app.toggleCommandConsole()" class="text-green-700 hover:text-green-400" title="إغلاق"><i class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
         <!-- Content -->
@@ -282,125 +282,125 @@
             <span class="w-2 h-4 bg-green-500 animate-pulse"></span>
         </div>
         
-        <!-- ≡ƒöÑ ╪»┘ä┘è┘ä ╪º┘ä┘à╪│╪º╪╣╪»╪⌐ ╪º┘ä┘à┘ü╪╡┘ä ╪¿╪º┘ä╪╣╪▒╪¿┘è╪⌐ -->
+        <!-- 🔥 دليل المساعدة المفصل بالعربية -->
         <div class="text-[10px] text-gray-400 space-y-2 font-cairo" dir="rtl">
             <div class="grid grid-cols-2 gap-4">
-                <!-- ╪╣┘à┘ê╪» ╪ú┘ê╪º┘à╪▒ CLI -->
+                <!-- عمود أوامر CLI -->
                 <div>
-                    <p class="font-bold text-green-500 border-b border-green-500/20 pb-1 mb-2">╪ú┘ê╪º┘à╪▒ ╪│╪╖╪▒ ╪º┘ä╪ú┘ê╪º┘à╪▒ (CLI):</p>
+                    <p class="font-bold text-green-500 border-b border-green-500/20 pb-1 mb-2">أوامر سطر الأوامر (CLI):</p>
                     <div class="space-y-1.5">
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">c20sv1</code></div>
-                            <span class="text-gray-500">┘é╪╡ ╪╣┘å╪» ╪º┘ä╪½╪º┘å┘è╪⌐ 20</span>
+                            <span class="text-gray-500">قص عند الثانية 20</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">c1m30sv1</code></div>
-                            <span class="text-gray-500">┘é╪╡ ╪╣┘å╪» ╪º┘ä╪»┘é┘è┘é╪⌐ 1:30</span>
+                            <span class="text-gray-500">قص عند الدقيقة 1:30</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">u10s:20sv1</code></div>
-                            <span class="text-gray-500">╪▒┘ü╪╣ (┘à┘å 10╪½ ┘ä┘Ç 20╪½)</span>
+                            <span class="text-gray-500">رفع (من 10ث لـ 20ث)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">u5sv1</code></div>
-                            <span class="text-gray-500">╪▒┘ü╪╣ ╪╣┘å╪» 5╪½ (┘à╪»╪⌐ ┘â╪º┘à┘ä╪⌐)</span>
+                            <span class="text-gray-500">رفع عند 5ث (مدة كاملة)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">mv0x100y2v1</code></div>
-                            <span class="text-gray-500">╪¬╪¡╪▒┘è┘â ╪¿╪Ñ╪¡╪»╪º╪½┘è╪º╪¬ (x,y)</span>
+                            <span class="text-gray-500">تحريك بإحداثيات (x,y)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5">
                                 <code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">mvlxuy2v1</code>
                             </div>
-                            <span class="text-gray-500">╪¬╪¡╪▒┘è┘â (┘è╪│╪º╪▒╪î ┘ü┘ê┘é)</span>
+                            <span class="text-gray-500">تحريك (يسار، فوق)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">mvcxcy2v1</code></div>
-                            <span class="text-gray-500">╪¬┘ê╪│┘è╪╖ (Center)</span>
+                            <span class="text-gray-500">توسيط (Center)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">rmsa1ea2v3</code></div>
-                            <span class="text-gray-500">╪¡╪░┘ü ╪╡┘à╪¬ A1 (╪¬╪¼╪º┘ç┘ä A2)</span>
+                            <span class="text-gray-500">حذف صمت A1 (تجاهل A2)</span>
                         </div>
-                        <!-- ≡ƒöÑ ╪ú┘ê╪º┘à╪▒ ╪º┘ä╪¬╪¡┘ê┘è┘ä ┘ê╪º┘ä╪┤┘ü╪º┘ü┘è╪⌐ ╪º┘ä╪¼╪»┘è╪»╪⌐ -->
+                        <!-- 🔥 أوامر التحويل والشفافية الجديدة -->
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sc70%1v4</code></div>
-                            <span class="text-gray-500">╪¬╪¡╪¼┘è┘à 70% (Uniform Scale)</span>
+                            <span class="text-gray-500">تحجيم 70% (Uniform Scale)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sx150%1v4</code></div>
-                            <span class="text-gray-500">┘à╪╖ ╪ú┘ü┘é┘è (Scale X)</span>
+                            <span class="text-gray-500">مط أفقي (Scale X)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sy50%1v4</code></div>
-                            <span class="text-gray-500">┘à╪╖ ╪▒╪ú╪│┘è (Scale Y)</span>
+                            <span class="text-gray-500">مط رأسي (Scale Y)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sz500x300y1v4</code></div>
-                            <span class="text-gray-500">╪ú╪¿╪╣╪º╪» ╪½╪º╪¿╪¬╪⌐ (Fixed Size)</span>
+                            <span class="text-gray-500">أبعاد ثابتة (Fixed Size)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">op50%1v4</code></div>
-                            <span class="text-gray-500">╪┤┘ü╪º┘ü┘è╪⌐ (Opacity)</span>
+                            <span class="text-gray-500">شفافية (Opacity)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">ro90d1v4</code></div>
-                            <span class="text-gray-500">╪¬╪»┘ê┘è╪▒ (Rotation)</span>
+                            <span class="text-gray-500">تدوير (Rotation)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">d10s:20sv3</code></div>
-                            <span class="text-gray-500">╪¡╪░┘ü ┘å╪╖╪º┘é ╪▓┘à┘å┘è</span>
+                            <span class="text-gray-500">حذف نطاق زمني</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">d1v2</code></div>
-                            <span class="text-gray-500">╪¡╪░┘ü ┘à┘é╪╖╪╣ ╪¿╪▒┘é┘à (Index)</span>
+                            <span class="text-gray-500">حذف مقطع برقم (Index)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-red-400 px-1 rounded font-mono" dir="ltr">dv2</code></div>
-                            <span class="text-gray-500">╪¬┘ü╪▒┘è╪║ ╪¬╪▒╪º┘â ┘â╪º┘à┘ä</span>
+                            <span class="text-gray-500">تفريغ تراك كامل</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- ╪╣┘à┘ê╪» ╪º╪«╪¬╪╡╪º╪▒╪º╪¬ ╪º┘ä┘â┘è╪¿┘ê╪▒╪» -->
+                <!-- عمود اختصارات الكيبورد -->
                 <div>
-                    <p class="font-bold text-yellow-500 border-b border-yellow-500/20 pb-1 mb-2">╪º╪«╪¬╪╡╪º╪▒╪º╪¬ ╪º┘ä┘â┘è╪¿┘ê╪▒╪»:</p>
+                    <p class="font-bold text-yellow-500 border-b border-yellow-500/20 pb-1 mb-2">اختصارات الكيبورد:</p>
                     <div class="space-y-1.5">
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪¬╪┤╪║┘è┘ä/╪Ñ┘è┘é╪º┘ü</span>
+                            <span class="text-gray-400">تشغيل/إيقاف</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Space / K</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪¬╪│╪▒┘è╪╣/╪Ñ╪▒╪¼╪º╪╣</span>
+                            <span class="text-gray-400">تسريع/إرجاع</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">J / L</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪ú╪»╪º╪⌐ ╪º┘ä┘é╪╡</span>
+                            <span class="text-gray-400">أداة القص</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">C</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪ú╪»╪º╪⌐ ╪º┘ä╪¬╪¡╪»┘è╪»</span>
+                            <span class="text-gray-400">أداة التحديد</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">V</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪¡╪░┘ü</span>
+                            <span class="text-gray-400">حذف</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Del</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪¡╪░┘ü ┘ê╪¬┘à┘ê╪¼</span>
+                            <span class="text-gray-400">حذف وتموج</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Shift+Del</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪¬╪▒╪º╪¼╪╣</span>
+                            <span class="text-gray-400">تراجع</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Ctrl+Z</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪Ñ╪╣╪º╪»╪⌐</span>
+                            <span class="text-gray-400">إعادة</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Ctrl+Y</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪º┘ä╪¿╪»╪º┘è╪⌐/╪º┘ä┘å┘ç╪º┘è╪⌐</span>
+                            <span class="text-gray-400">البداية/النهاية</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Home / End</code>
                         </div>
                     </div>
@@ -409,25 +409,25 @@
             
             <div class="mt-2 text-[9px] text-gray-500 pt-2 border-t border-gray-700">
                 <i class="fa-solid fa-circle-info text-blue-400 ml-1"></i>
-                <span class="opacity-75">╪º┘ä╪ú┘ê╪º┘à╪▒ ╪¬╪»╪╣┘à ┘â╪¬╪º╪¿╪⌐ ╪º┘ä┘ê┘é╪¬ ╪¿╪º┘ä╪½┘ê╪º┘å┘è (s) ┘ê╪º┘ä╪»┘é╪º╪ª┘é (m) ┘ê╪º┘ä╪│╪º╪╣╪º╪¬ (h).</span> 
+                <span class="opacity-75">الأوامر تدعم كتابة الوقت بالثواني (s) والدقائق (m) والساعات (h).</span> 
             </div>
         </div>
     </div>
 
-    <!-- ≡ƒöÑ Minimized Floating Icon (Hidden by default) -->
+    <!-- 🔥 Minimized Floating Icon (Hidden by default) -->
     <div id="cmd-minimized" class="fixed bottom-20 right-4 w-10 h-10 bg-gray-900/90 border border-green-500/50 rounded-full shadow-2xl z-[9999] hidden flex items-center justify-center cursor-pointer hover:scale-110 transition-transform group" title="Restore Command Center" onclick="app.restoreConsole()">
         <i class="fa-solid fa-terminal text-green-400 text-sm group-hover:text-green-300"></i>
         <div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full hidden" id="cmd-notification-dot"></div>
     </div>
 
     <!-- Scripts -->
-    <!-- ΓòÉΓòÉΓòÉ Core Engine ΓòÉΓòÉΓòÉ -->
+    <!-- ═══ Core Engine ═══ -->
     <script src="js/core/editing_engine.js"></script>
     <script src="js/core/assets.js"></script>
     <script src="js/core/timeline.js"></script>
     <script src="js/core/video_preview.js"></script>
 
-    <!-- ΓòÉΓòÉΓòÉ Features ΓòÉΓòÉΓòÉ -->
+    <!-- ═══ Features ═══ -->
     <script src="js/features/command_center.js"></script>
     <script src="js/features/xml_exporter.js"></script>
     <script src="js/features/pro_features.js"></script>
@@ -436,7 +436,7 @@
     <script src="js/features/bubble_feature.js"></script>
     <script src="js/features/grid_feature.js"></script>
 
-    <!-- ΓòÉΓòÉΓòÉ AI Modules (ES Modules) ΓòÉΓòÉΓòÉ -->
+    <!-- ═══ AI Modules (ES Modules) ═══ -->
     <script type="module" src="js/ai/gemini_chat.js"></script>
     <script type="module" src="js/ai/gemini_plan.js"></script>
     <script type="module" src="js/ai/ai.js"></script>
@@ -450,25 +450,25 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // ΓöÇΓöÇ 1. Init Editor App ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 1. Init Editor App ──────────────────────────────────────
             if (window.EditorApp) {
                 try { window.app = new EditorApp(); }
                 catch (e) { console.error(e); }
             }
 
-            // ΓöÇΓöÇ 2. Read settings from sessionStorage ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 2. Read settings from sessionStorage ────────────────────
             const raw = sessionStorage.getItem('p43_settings');
             if (!raw) {
-                // No settings ΓåÆ redirect back to startup
-                window.parent.location.href = '/startup';
+                // No settings → redirect back to startup
+                window.location.href = 'startup.html';
                 return;
             }
 
             const settings = JSON.parse(raw);
             document.getElementById('loading-status').textContent =
-                `╪¼╪º╪▒┘ì ╪¬╪¡┘à┘è┘ä "${settings.videoName || '╪º┘ä┘ü┘è╪»┘è┘ê'}"...`;
+                `جارٍ تحميل "${settings.videoName || 'الفيديو'}"...`;
 
-            // ΓöÇΓöÇ 3. Read video file from IndexedDB ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 3. Read video file from IndexedDB ───────────────────────
             let videoFile = null;
             try {
                 videoFile = await window.FileStore.load('p43_video');
@@ -477,38 +477,38 @@
             }
 
             if (!videoFile) {
-                window.parent.location.href = '/startup';
+                window.location.href = 'startup.html';
                 return;
             }
 
-            // ΓöÇΓöÇ 4. Apply Gemini API key if provided ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 4. Apply Gemini API key if provided ─────────────────────
             if (settings.apiKey) {
                 sessionStorage.setItem('p43_gemini_key', settings.apiKey);
                 window._geminiAPIKey = settings.apiKey;
             }
 
-            // ΓöÇΓöÇ 5. Configure Gemini Chat ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 5. Configure Gemini Chat ─────────────────────────────────
             const applyGemini = () => {
                 if (window.geminiChat) {
                     window.geminiChat.enabled = settings.aiEnabled !== false;
                     if (window.geminiChat.enabled) window.geminiChat.init();
                 }
             };
-            // Modules load async ΓÇö try now, also set a delayed fallback
+            // Modules load async — try now, also set a delayed fallback
             applyGemini();
             setTimeout(applyGemini, 800);
 
-            // ΓöÇΓöÇ 6. Init project with video file ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-            document.getElementById('loading-status').textContent = '╪¼╪º╪▒┘ì ╪¿┘å╪º╪í ╪º┘ä╪¬╪º┘è┘à ┘ä╪º┘è┘å...';
+            // ── 6. Init project with video file ─────────────────────────
+            document.getElementById('loading-status').textContent = 'جارٍ بناء التايم لاين...';
             window.app.initProject(videoFile, settings.mode, settings.autoTranscribe);
 
-            // ΓöÇΓöÇ 7. Hide loading screen ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 7. Hide loading screen ───────────────────────────────────
             const loader = document.getElementById('editor-loading');
             loader.style.transition = 'opacity 0.4s';
             loader.style.opacity = '0';
             setTimeout(() => loader.remove(), 450);
 
-            // ΓöÇΓöÇ 8. Apply SRT file if any ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 8. Apply SRT file if any ─────────────────────────────────
             if (settings.hasSRT) {
                 setTimeout(async () => {
                     const srtFile = await window.FileStore.load('p43_srt').catch(() => null);
@@ -518,7 +518,7 @@
                 }, 1500);
             }
 
-            // ΓöÇΓöÇ 9. Apply Plan file if any ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 9. Apply Plan file if any ────────────────────────────────
             if (settings.hasPlan) {
                 setTimeout(async () => {
                     const planFile = await window.FileStore.load('p43_plan').catch(() => null);
@@ -533,7 +533,7 @@
                 }, 2000);
             }
 
-            // ΓöÇΓöÇ 10. Clean up IndexedDB after successful load ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 10. Clean up IndexedDB after successful load ─────────────
             setTimeout(async () => {
                 try { await window.FileStore.remove('p43_video'); } catch(e) {}
                 sessionStorage.removeItem('p43_settings');
@@ -542,7 +542,7 @@
     </script>
 
 
-    <!-- ≡ƒöÑ Auth Check: ╪¬╪¡┘é┘é ┘à┘å ╪¬╪│╪¼┘è┘ä ╪º┘ä╪»╪«┘ê┘ä -->
+    <!-- 🔥 Auth Check: تحقق من تسجيل الدخول -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
         import { getAuth, onAuthStateChanged }
@@ -566,11 +566,11 @@
             onAuthStateChanged(auth, (user) => {
                 const cached = localStorage.getItem('p43_user');
                 if (!user && !cached) {
-                    // ╪║┘è╪▒ ┘à╪│╪¼┘æ┘ä - ┘ê╪¼┘æ┘ç┘ç ┘ä╪╡┘ü╪¡╪⌐ ╪¬╪│╪¼┘è┘ä ╪º┘ä╪»╪«┘ê┘ä
-                    window.parent.location.href = '/login';
+                    // غير مسجّل - وجّهه لصفحة تسجيل الدخول
+                    window.location.href = 'login.html';
                     return;
                 }
-                // ╪ú╪╕┘ç╪▒ ╪╡┘ê╪▒╪⌐ ╪º┘ä┘à╪│╪¬╪«╪»┘à ┘ü┘è ╪º┘ä┘ç┘è╪»╪▒
+                // أظهر صورة المستخدم في الهيدر
                 const userData = user
                     ? { photoURL: user.photoURL, displayName: user.displayName }
                     : (cached ? JSON.parse(cached) : null);
@@ -586,7 +586,7 @@
             // Firebase init error - check localStorage fallback
             const cached = localStorage.getItem('p43_user');
             if (!cached) {
-                window.parent.location.href = '/login';
+                window.location.href = 'login.html';
             }
         }
     </script>
@@ -709,7 +709,7 @@
             <!-- Assets Panel -->
             <div id="assets-panel" class="w-80 bg-gray-800 flex flex-col border-r border-gray-700 flex-shrink-0">
                 <div class="p-2 bg-gray-700 font-bold text-[11px] text-gray-300 flex justify-between items-center shadow-md">
-                    <span><i class="fa-solid fa-photo-film text-yellow-400"></i> ╪º┘ä┘à┘â╪¬╪¿╪⌐ (Assets)</span>
+                    <span><i class="fa-solid fa-photo-film text-yellow-400"></i> المكتبة (Assets)</span>
                     <input type="file" id="file-upload" class="hidden" multiple accept="image/*,video/*">
                     <button onclick="document.getElementById('file-upload').click()" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-0.5 rounded text-[10px]"><i class="fa-solid fa-plus"></i></button>
                 </div>
@@ -741,13 +741,13 @@
             <h2 class="text-2xl font-bold font-cairo text-green-400 text-center mb-6">XML Ready</h2>
             <div class="bg-black/50 p-4 rounded-lg font-mono text-[10px] text-blue-300 overflow-x-auto mb-6 border border-gray-700 max-h-40" id="xml-preview"></div>
             <div class="flex gap-3">
-                <button onclick="document.getElementById('export-modal').classList.add('hidden')" class="flex-1 py-3 bg-gray-700 rounded-lg">╪Ñ╪║┘ä╪º┘é</button>
-                <a id="download-link" href="#" class="flex-1 py-3 bg-primary rounded-lg text-white flex justify-center items-center gap-2">╪¬╪¡┘à┘è┘ä XML</a>
+                <button onclick="document.getElementById('export-modal').classList.add('hidden')" class="flex-1 py-3 bg-gray-700 rounded-lg">إغلاق</button>
+                <a id="download-link" href="#" class="flex-1 py-3 bg-primary rounded-lg text-white flex justify-center items-center gap-2">تحميل XML</a>
             </div>
         </div>
     </div>
 
-    <!-- ≡ƒöÑ NEW: SRT Splitter Iframe Modal (Overlay) -->
+    <!-- 🔥 NEW: SRT Splitter Iframe Modal (Overlay) -->
     <div id="srt-tool-modal" class="hidden fixed inset-0 z-[10000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl w-full max-w-4xl h-[80vh] relative overflow-hidden shadow-2xl animate-fade-in-up">
             <button onclick="document.getElementById('srt-tool-modal').classList.add('hidden')" class="absolute top-4 right-4 z-50 bg-gray-200 hover:bg-gray-300 text-gray-700 w-8 h-8 rounded-full flex items-center justify-center transition shadow-md">
@@ -757,14 +757,14 @@
         </div>
     </div>
 
-    <!-- ≡ƒöÑ Command Console (CLI) - UPDATED (Hidden by Default) -->
+    <!-- 🔥 Command Console (CLI) - UPDATED (Hidden by Default) -->
     <div id="cmd-console" class="fixed bottom-20 right-4 bg-gray-900/95 border border-green-500/30 text-green-400 font-mono p-4 rounded-lg shadow-2xl z-[9999] min-w-[400px] backdrop-blur-md transition-opacity duration-300 max-h-[80vh] overflow-y-auto custom-scrollbar hidden" dir="ltr">
         <!-- Header (Draggable) -->
         <div id="cmd-header" class="flex justify-between items-center mb-2 border-b border-green-500/20 pb-1 cursor-move select-none sticky top-0 bg-gray-900/95 pt-1 z-10">
-            <span class="text-xs font-bold text-green-500 flex items-center gap-2"><i class="fa-solid fa-terminal"></i> ┘à╪▒┘â╪▓ ╪º┘ä╪ú┘ê╪º┘à╪▒ (CMD)</span>
+            <span class="text-xs font-bold text-green-500 flex items-center gap-2"><i class="fa-solid fa-terminal"></i> مركز الأوامر (CMD)</span>
             <div class="flex items-center gap-2">
-                <button onclick="app.minimizeConsole()" class="text-green-700 hover:text-green-400" title="╪¬╪╡╪║┘è╪▒"><i class="fa-solid fa-minus"></i></button>
-                <button onclick="app.toggleCommandConsole()" class="text-green-700 hover:text-green-400" title="╪Ñ╪║┘ä╪º┘é"><i class="fa-solid fa-xmark"></i></button>
+                <button onclick="app.minimizeConsole()" class="text-green-700 hover:text-green-400" title="تصغير"><i class="fa-solid fa-minus"></i></button>
+                <button onclick="app.toggleCommandConsole()" class="text-green-700 hover:text-green-400" title="إغلاق"><i class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
         <!-- Content -->
@@ -774,125 +774,125 @@
             <span class="w-2 h-4 bg-green-500 animate-pulse"></span>
         </div>
         
-        <!-- ≡ƒöÑ ╪»┘ä┘è┘ä ╪º┘ä┘à╪│╪º╪╣╪»╪⌐ ╪º┘ä┘à┘ü╪╡┘ä ╪¿╪º┘ä╪╣╪▒╪¿┘è╪⌐ -->
+        <!-- 🔥 دليل المساعدة المفصل بالعربية -->
         <div class="text-[10px] text-gray-400 space-y-2 font-cairo" dir="rtl">
             <div class="grid grid-cols-2 gap-4">
-                <!-- ╪╣┘à┘ê╪» ╪ú┘ê╪º┘à╪▒ CLI -->
+                <!-- عمود أوامر CLI -->
                 <div>
-                    <p class="font-bold text-green-500 border-b border-green-500/20 pb-1 mb-2">╪ú┘ê╪º┘à╪▒ ╪│╪╖╪▒ ╪º┘ä╪ú┘ê╪º┘à╪▒ (CLI):</p>
+                    <p class="font-bold text-green-500 border-b border-green-500/20 pb-1 mb-2">أوامر سطر الأوامر (CLI):</p>
                     <div class="space-y-1.5">
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">c20sv1</code></div>
-                            <span class="text-gray-500">┘é╪╡ ╪╣┘å╪» ╪º┘ä╪½╪º┘å┘è╪⌐ 20</span>
+                            <span class="text-gray-500">قص عند الثانية 20</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">c1m30sv1</code></div>
-                            <span class="text-gray-500">┘é╪╡ ╪╣┘å╪» ╪º┘ä╪»┘é┘è┘é╪⌐ 1:30</span>
+                            <span class="text-gray-500">قص عند الدقيقة 1:30</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">u10s:20sv1</code></div>
-                            <span class="text-gray-500">╪▒┘ü╪╣ (┘à┘å 10╪½ ┘ä┘Ç 20╪½)</span>
+                            <span class="text-gray-500">رفع (من 10ث لـ 20ث)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">u5sv1</code></div>
-                            <span class="text-gray-500">╪▒┘ü╪╣ ╪╣┘å╪» 5╪½ (┘à╪»╪⌐ ┘â╪º┘à┘ä╪⌐)</span>
+                            <span class="text-gray-500">رفع عند 5ث (مدة كاملة)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">mv0x100y2v1</code></div>
-                            <span class="text-gray-500">╪¬╪¡╪▒┘è┘â ╪¿╪Ñ╪¡╪»╪º╪½┘è╪º╪¬ (x,y)</span>
+                            <span class="text-gray-500">تحريك بإحداثيات (x,y)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5">
                                 <code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">mvlxuy2v1</code>
                             </div>
-                            <span class="text-gray-500">╪¬╪¡╪▒┘è┘â (┘è╪│╪º╪▒╪î ┘ü┘ê┘é)</span>
+                            <span class="text-gray-500">تحريك (يسار، فوق)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">mvcxcy2v1</code></div>
-                            <span class="text-gray-500">╪¬┘ê╪│┘è╪╖ (Center)</span>
+                            <span class="text-gray-500">توسيط (Center)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">rmsa1ea2v3</code></div>
-                            <span class="text-gray-500">╪¡╪░┘ü ╪╡┘à╪¬ A1 (╪¬╪¼╪º┘ç┘ä A2)</span>
+                            <span class="text-gray-500">حذف صمت A1 (تجاهل A2)</span>
                         </div>
-                        <!-- ≡ƒöÑ ╪ú┘ê╪º┘à╪▒ ╪º┘ä╪¬╪¡┘ê┘è┘ä ┘ê╪º┘ä╪┤┘ü╪º┘ü┘è╪⌐ ╪º┘ä╪¼╪»┘è╪»╪⌐ -->
+                        <!-- 🔥 أوامر التحويل والشفافية الجديدة -->
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sc70%1v4</code></div>
-                            <span class="text-gray-500">╪¬╪¡╪¼┘è┘à 70% (Uniform Scale)</span>
+                            <span class="text-gray-500">تحجيم 70% (Uniform Scale)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sx150%1v4</code></div>
-                            <span class="text-gray-500">┘à╪╖ ╪ú┘ü┘é┘è (Scale X)</span>
+                            <span class="text-gray-500">مط أفقي (Scale X)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sy50%1v4</code></div>
-                            <span class="text-gray-500">┘à╪╖ ╪▒╪ú╪│┘è (Scale Y)</span>
+                            <span class="text-gray-500">مط رأسي (Scale Y)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sz500x300y1v4</code></div>
-                            <span class="text-gray-500">╪ú╪¿╪╣╪º╪» ╪½╪º╪¿╪¬╪⌐ (Fixed Size)</span>
+                            <span class="text-gray-500">أبعاد ثابتة (Fixed Size)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">op50%1v4</code></div>
-                            <span class="text-gray-500">╪┤┘ü╪º┘ü┘è╪⌐ (Opacity)</span>
+                            <span class="text-gray-500">شفافية (Opacity)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">ro90d1v4</code></div>
-                            <span class="text-gray-500">╪¬╪»┘ê┘è╪▒ (Rotation)</span>
+                            <span class="text-gray-500">تدوير (Rotation)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">d10s:20sv3</code></div>
-                            <span class="text-gray-500">╪¡╪░┘ü ┘å╪╖╪º┘é ╪▓┘à┘å┘è</span>
+                            <span class="text-gray-500">حذف نطاق زمني</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">d1v2</code></div>
-                            <span class="text-gray-500">╪¡╪░┘ü ┘à┘é╪╖╪╣ ╪¿╪▒┘é┘à (Index)</span>
+                            <span class="text-gray-500">حذف مقطع برقم (Index)</span>
                         </div>
                         <div class="group">
                             <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-red-400 px-1 rounded font-mono" dir="ltr">dv2</code></div>
-                            <span class="text-gray-500">╪¬┘ü╪▒┘è╪║ ╪¬╪▒╪º┘â ┘â╪º┘à┘ä</span>
+                            <span class="text-gray-500">تفريغ تراك كامل</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- ╪╣┘à┘ê╪» ╪º╪«╪¬╪╡╪º╪▒╪º╪¬ ╪º┘ä┘â┘è╪¿┘ê╪▒╪» -->
+                <!-- عمود اختصارات الكيبورد -->
                 <div>
-                    <p class="font-bold text-yellow-500 border-b border-yellow-500/20 pb-1 mb-2">╪º╪«╪¬╪╡╪º╪▒╪º╪¬ ╪º┘ä┘â┘è╪¿┘ê╪▒╪»:</p>
+                    <p class="font-bold text-yellow-500 border-b border-yellow-500/20 pb-1 mb-2">اختصارات الكيبورد:</p>
                     <div class="space-y-1.5">
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪¬╪┤╪║┘è┘ä/╪Ñ┘è┘é╪º┘ü</span>
+                            <span class="text-gray-400">تشغيل/إيقاف</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Space / K</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪¬╪│╪▒┘è╪╣/╪Ñ╪▒╪¼╪º╪╣</span>
+                            <span class="text-gray-400">تسريع/إرجاع</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">J / L</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪ú╪»╪º╪⌐ ╪º┘ä┘é╪╡</span>
+                            <span class="text-gray-400">أداة القص</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">C</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪ú╪»╪º╪⌐ ╪º┘ä╪¬╪¡╪»┘è╪»</span>
+                            <span class="text-gray-400">أداة التحديد</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">V</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪¡╪░┘ü</span>
+                            <span class="text-gray-400">حذف</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Del</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪¡╪░┘ü ┘ê╪¬┘à┘ê╪¼</span>
+                            <span class="text-gray-400">حذف وتموج</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Shift+Del</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪¬╪▒╪º╪¼╪╣</span>
+                            <span class="text-gray-400">تراجع</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Ctrl+Z</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪Ñ╪╣╪º╪»╪⌐</span>
+                            <span class="text-gray-400">إعادة</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Ctrl+Y</code>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-gray-400">╪º┘ä╪¿╪»╪º┘è╪⌐/╪º┘ä┘å┘ç╪º┘è╪⌐</span>
+                            <span class="text-gray-400">البداية/النهاية</span>
                             <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Home / End</code>
                         </div>
                     </div>
@@ -901,25 +901,25 @@
             
             <div class="mt-2 text-[9px] text-gray-500 pt-2 border-t border-gray-700">
                 <i class="fa-solid fa-circle-info text-blue-400 ml-1"></i>
-                <span class="opacity-75">╪º┘ä╪ú┘ê╪º┘à╪▒ ╪¬╪»╪╣┘à ┘â╪¬╪º╪¿╪⌐ ╪º┘ä┘ê┘é╪¬ ╪¿╪º┘ä╪½┘ê╪º┘å┘è (s) ┘ê╪º┘ä╪»┘é╪º╪ª┘é (m) ┘ê╪º┘ä╪│╪º╪╣╪º╪¬ (h).</span> 
+                <span class="opacity-75">الأوامر تدعم كتابة الوقت بالثواني (s) والدقائق (m) والساعات (h).</span> 
             </div>
         </div>
     </div>
 
-    <!-- ≡ƒöÑ Minimized Floating Icon (Hidden by default) -->
+    <!-- 🔥 Minimized Floating Icon (Hidden by default) -->
     <div id="cmd-minimized" class="fixed bottom-20 right-4 w-10 h-10 bg-gray-900/90 border border-green-500/50 rounded-full shadow-2xl z-[9999] hidden flex items-center justify-center cursor-pointer hover:scale-110 transition-transform group" title="Restore Command Center" onclick="app.restoreConsole()">
         <i class="fa-solid fa-terminal text-green-400 text-sm group-hover:text-green-300"></i>
         <div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full hidden" id="cmd-notification-dot"></div>
     </div>
 
     <!-- Scripts -->
-    <!-- ΓòÉΓòÉΓòÉ Core Engine ΓòÉΓòÉΓòÉ -->
+    <!-- ═══ Core Engine ═══ -->
     <script src="js/core/editing_engine.js"></script>
     <script src="js/core/assets.js"></script>
     <script src="js/core/timeline.js"></script>
     <script src="js/core/video_preview.js"></script>
 
-    <!-- ΓòÉΓòÉΓòÉ Features ΓòÉΓòÉΓòÉ -->
+    <!-- ═══ Features ═══ -->
     <script src="js/features/command_center.js"></script>
     <script src="js/features/xml_exporter.js"></script>
     <script src="js/features/pro_features.js"></script>
@@ -928,7 +928,7 @@
     <script src="js/features/bubble_feature.js"></script>
     <script src="js/features/grid_feature.js"></script>
 
-    <!-- ΓòÉΓòÉΓòÉ AI Modules (ES Modules) ΓòÉΓòÉΓòÉ -->
+    <!-- ═══ AI Modules (ES Modules) ═══ -->
     <script type="module" src="js/ai/gemini_chat.js"></script>
     <script type="module" src="js/ai/gemini_plan.js"></script>
     <script type="module" src="js/ai/ai.js"></script>
@@ -942,25 +942,25 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // ΓöÇΓöÇ 1. Init Editor App ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 1. Init Editor App ──────────────────────────────────────
             if (window.EditorApp) {
                 try { window.app = new EditorApp(); }
                 catch (e) { console.error(e); }
             }
 
-            // ΓöÇΓöÇ 2. Read settings from sessionStorage ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 2. Read settings from sessionStorage ────────────────────
             const raw = sessionStorage.getItem('p43_settings');
             if (!raw) {
-                // No settings ΓåÆ redirect back to startup
-                window.parent.location.href = '/startup';
+                // No settings → redirect back to startup
+                window.location.href = 'startup.html';
                 return;
             }
 
             const settings = JSON.parse(raw);
             document.getElementById('loading-status').textContent =
-                `╪¼╪º╪▒┘ì ╪¬╪¡┘à┘è┘ä "${settings.videoName || '╪º┘ä┘ü┘è╪»┘è┘ê'}"...`;
+                `جارٍ تحميل "${settings.videoName || 'الفيديو'}"...`;
 
-            // ΓöÇΓöÇ 3. Read video file from IndexedDB ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 3. Read video file from IndexedDB ───────────────────────
             let videoFile = null;
             try {
                 videoFile = await window.FileStore.load('p43_video');
@@ -969,38 +969,38 @@
             }
 
             if (!videoFile) {
-                window.parent.location.href = '/startup';
+                window.location.href = 'startup.html';
                 return;
             }
 
-            // ΓöÇΓöÇ 4. Apply Gemini API key if provided ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 4. Apply Gemini API key if provided ─────────────────────
             if (settings.apiKey) {
                 sessionStorage.setItem('p43_gemini_key', settings.apiKey);
                 window._geminiAPIKey = settings.apiKey;
             }
 
-            // ΓöÇΓöÇ 5. Configure Gemini Chat ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 5. Configure Gemini Chat ─────────────────────────────────
             const applyGemini = () => {
                 if (window.geminiChat) {
                     window.geminiChat.enabled = settings.aiEnabled !== false;
                     if (window.geminiChat.enabled) window.geminiChat.init();
                 }
             };
-            // Modules load async ΓÇö try now, also set a delayed fallback
+            // Modules load async — try now, also set a delayed fallback
             applyGemini();
             setTimeout(applyGemini, 800);
 
-            // ΓöÇΓöÇ 6. Init project with video file ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-            document.getElementById('loading-status').textContent = '╪¼╪º╪▒┘ì ╪¿┘å╪º╪í ╪º┘ä╪¬╪º┘è┘à ┘ä╪º┘è┘å...';
+            // ── 6. Init project with video file ─────────────────────────
+            document.getElementById('loading-status').textContent = 'جارٍ بناء التايم لاين...';
             window.app.initProject(videoFile, settings.mode, settings.autoTranscribe);
 
-            // ΓöÇΓöÇ 7. Hide loading screen ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 7. Hide loading screen ───────────────────────────────────
             const loader = document.getElementById('editor-loading');
             loader.style.transition = 'opacity 0.4s';
             loader.style.opacity = '0';
             setTimeout(() => loader.remove(), 450);
 
-            // ΓöÇΓöÇ 8. Apply SRT file if any ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 8. Apply SRT file if any ─────────────────────────────────
             if (settings.hasSRT) {
                 setTimeout(async () => {
                     const srtFile = await window.FileStore.load('p43_srt').catch(() => null);
@@ -1010,7 +1010,7 @@
                 }, 1500);
             }
 
-            // ΓöÇΓöÇ 9. Apply Plan file if any ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 9. Apply Plan file if any ────────────────────────────────
             if (settings.hasPlan) {
                 setTimeout(async () => {
                     const planFile = await window.FileStore.load('p43_plan').catch(() => null);
@@ -1025,7 +1025,7 @@
                 }, 2000);
             }
 
-            // ΓöÇΓöÇ 10. Clean up IndexedDB after successful load ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            // ── 10. Clean up IndexedDB after successful load ─────────────
             setTimeout(async () => {
                 try { await window.FileStore.remove('p43_video'); } catch(e) {}
                 sessionStorage.removeItem('p43_settings');
@@ -1034,7 +1034,7 @@
     </script>
 
 
-    <!-- ≡ƒöÑ Auth Check: ╪¬╪¡┘é┘é ┘à┘å ╪¬╪│╪¼┘è┘ä ╪º┘ä╪»╪«┘ê┘ä -->
+    <!-- 🔥 Auth Check: تحقق من تسجيل الدخول -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
         import { getAuth, onAuthStateChanged }
@@ -1058,11 +1058,11 @@
             onAuthStateChanged(auth, (user) => {
                 const cached = localStorage.getItem('p43_user');
                 if (!user && !cached) {
-                    // ╪║┘è╪▒ ┘à╪│╪¼┘æ┘ä - ┘ê╪¼┘æ┘ç┘ç ┘ä╪╡┘ü╪¡╪⌐ ╪¬╪│╪¼┘è┘ä ╪º┘ä╪»╪«┘ê┘ä
-                    window.parent.location.href = '/login';
+                    // غير مسجّل - وجّهه لصفحة تسجيل الدخول
+                    window.location.href = 'login.html';
                     return;
                 }
-                // ╪ú╪╕┘ç╪▒ ╪╡┘ê╪▒╪⌐ ╪º┘ä┘à╪│╪¬╪«╪»┘à ┘ü┘è ╪º┘ä┘ç┘è╪»╪▒
+                // أظهر صورة المستخدم في الهيدر
                 const userData = user
                     ? { photoURL: user.photoURL, displayName: user.displayName }
                     : (cached ? JSON.parse(cached) : null);
@@ -1078,7 +1078,7 @@
             // Firebase init error - check localStorage fallback
             const cached = localStorage.getItem('p43_user');
             if (!cached) {
-                window.parent.location.href = '/login';
+                window.location.href = 'login.html';
             }
         }
     </script>

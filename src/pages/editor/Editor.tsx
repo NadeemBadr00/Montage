@@ -6,7 +6,7 @@
 export default function Editor() {
   return (
     <iframe
-      src="/editor.html"
+      src="/editor.html?v=2"
       style={{
         position: 'fixed',
         inset: 0,
