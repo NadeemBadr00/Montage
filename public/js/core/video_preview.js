@@ -1,0 +1,495 @@
+/**
+ * 🎬 Advanced Playback Engine (video_preview.js)
+ * ✨ UPDATES: 
+ * 1. FULL WebGL Pipeline Integration.
+ * 2. Predictive Lookahead Triggers.
+ * 3. Robust Player Management.
+ * 🔥 PERFORMANCE UPDATE: Dirty Check & Efficient Loops.
+ * 🔥 FIX: Bounding Box respects Aspect Fill & Non-Uniform Scaling (sx/sy).
+ * 🔥 FIX: Removed dependency on "43.mp4". Now waits for user upload to set dimensions.
+ */
+
+EditorApp.prototype.TRACK_HEADER_WIDTH_PREVIEW = 140;
+EditorApp.prototype.FPS = 30;
+
+EditorApp.prototype.setupVideoSync = function() {
+    this.canvas = document.getElementById('preview-canvas');
+    if (!this.canvas) return;
+    this.ctx = this.canvas.getContext('2d', { alpha: false }); 
+    
+    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    this.players = [
+        document.getElementById('source-video-a'), document.getElementById('source-video-b'),
+        document.getElementById('source-video-c'), document.getElementById('source-video-d'),
+        document.getElementById('source-video-e'), document.getElementById('source-video-f')
+    ];
+    this.assignedPlayers = new Map(); 
+    this.imgCache = new Map(); 
+    this.hoveredClip = null; 
+    this.isDragging = false; 
+    this.playbackRate = 0; 
+    this.isPlaying = false;
+    this.isScrubbing = false; 
+
+    this.players.forEach(p => { 
+        if(!p) return;
+        p.onerror = () => {
+            // Ignore empty src errors
+            if(p.getAttribute('src')) console.warn(`⚠️ Source Error on ${p.id}.`);
+        };
+        p.addEventListener('seeked', () => {
+            if (!this.isPlaying) this.requestRedraw();
+        });
+        
+        // 🔥 FIX: Auto-detect Dimensions from Primary Video (Upload)
+        // This replaces the hardcoded "43.mp4" logic
+        p.addEventListener('loadedmetadata', () => {
+            if (p.id === 'source-video-a') {
+                this.duration = p.duration || this.duration || 300;
+                if (p.videoWidth && p.videoHeight) {
+                    this.canvas.width = p.videoWidth;
+                    this.canvas.height = p.videoHeight;
+                    this.log(`📏 Project resized to source: ${this.canvas.width}x${this.canvas.height}`);
+                }
+                this.requestRedraw();
+            }
+        });
+
+        try {
+            const source = this.audioCtx.createMediaElementSource(p);
+            source.connect(this.audioCtx.destination);
+        } catch(e) { /* Already connected */ }
+    });
+
+    // 🔥 FIX: Set Safe Default Dimensions (Start Clean)
+    // No more "this.players[0].src = '43.mp4'"
+    this.canvas.width = 1080; // Default Vertical (Safe start)
+    this.canvas.height = 1920;
+    this.duration = 300;
+
+    this.lastTick = performance.now();
+    this.playbackLoop = this.playbackLoop.bind(this);
+    requestAnimationFrame(this.playbackLoop);
+    this.setupPlayheadScrubbing();
+    this.setupCanvasInteraction(); 
+    this.bindKeyboardShortcuts(); 
+};
+
+EditorApp.prototype.getImageFromCache = function(src) {
+    if (this.imgCache.has(src)) return this.imgCache.get(src);
+    const img = new Image(); img.src = src; img.crossOrigin = "Anonymous"; 
+    img.onload = () => this.requestRedraw();
+    this.imgCache.set(src, img); return img;
+};
+
+// Playback Logic
+EditorApp.prototype.togglePlay = function() { 
+    if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+    if (this.playbackRate !== 0) this.pausePlayback(); 
+    else this.startPlayback(); 
+};
+
+EditorApp.prototype.startPlayback = function() {
+    this.playbackRate = 1; 
+    this.isPlaying = true; 
+    
+    // 🔥 Stop Lookahead when playing to save resources
+    if(this.stopPredictiveCaching) this.stopPredictiveCaching();
+
+    this.lastTick = performance.now();
+    this.playbackStartTime = this.audioCtx.currentTime - this.currentTime;
+    this.updatePlayStateUI();
+    this.players.forEach(p => { 
+        if(p.getAttribute('data-key') && p.paused) p.play().catch(()=>{}); 
+        p.playbackRate = 1; 
+    });
+    this.requestRedraw();
+};
+
+EditorApp.prototype.pausePlayback = function() {
+    this.playbackRate = 0; 
+    this.isPlaying = false;
+    this.players.forEach(p => p.pause()); 
+    this.updatePlayStateUI();
+    this.requestRedraw();
+
+    // 🔥 Trigger Predictive Lookahead on Idle (Background task)
+    if(this.startPredictiveCaching) {
+        setTimeout(() => {
+            if(!this.isPlaying && !this.isScrubbing) this.startPredictiveCaching();
+        }, 500);
+    }
+};
+
+EditorApp.prototype.updatePlayStateUI = function() {
+    const btn = document.getElementById('play-pause-btn'); if (!btn) return;
+    btn.innerHTML = this.playbackRate === 0 ? '<i class="fa-solid fa-play ml-0.5 text-sm"></i>' : '<i class="fa-solid fa-pause text-sm"></i>';
+};
+
+EditorApp.prototype.handleJKL = function(key) {
+    const overlay = document.getElementById('jkl-overlay'); let msg = "";
+    if (key === 'k') { this.pausePlayback(); msg = "⏸️ Pause"; } 
+    else if (key === 'l') {
+        if (this.playbackRate < 0) this.playbackRate = 0; else if (this.playbackRate === 0) this.playbackRate = 1; else if (this.playbackRate < 8) this.playbackRate *= 2; 
+        msg = `⏩ x${this.playbackRate}`;
+    } else if (key === 'j') {
+        if (this.playbackRate > 0) this.playbackRate = 0; else if (this.playbackRate === 0) this.playbackRate = -1; else if (this.playbackRate > -8) this.playbackRate *= 2; 
+        msg = `⏪ x${Math.abs(this.playbackRate)}`;
+    }
+    this.isPlaying = (this.playbackRate !== 0); 
+    if(this.isPlaying) {
+        if(this.stopPredictiveCaching) this.stopPredictiveCaching();
+        this.playbackStartTime = performance.now() / 1000 - this.currentTime;
+    }
+    this.updatePlayStateUI();
+    this.players.forEach(p => { if (this.playbackRate > 0) p.playbackRate = this.playbackRate; });
+    if(overlay) { overlay.innerText = msg; overlay.style.opacity = 1; clearTimeout(this.jklTimer); this.jklTimer = setTimeout(() => overlay.style.opacity = 0, 800); }
+    this.requestRedraw();
+};
+
+EditorApp.prototype.bindKeyboardShortcuts = function() {
+    document.addEventListener('keydown', (e) => {
+        // Ignore if typing in input fields
+        if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        // Command Buffer Guard
+        if (window.app && window.app.commandBuffer && window.app.commandBuffer.length > 0) {
+            return;
+        }
+
+        if (['j', 'k', 'l'].includes(e.key.toLowerCase())) this.handleJKL(e.key.toLowerCase());
+        if (e.code === 'Space') { e.preventDefault(); this.togglePlay(); }
+    });
+};
+
+EditorApp.prototype.playbackLoop = function(now) {
+    if (!this.lastTick) this.lastTick = now;
+    this.lastTick = now;
+
+    if (this.isPlaying) {
+        if (this.playbackRate === 1) {
+            this.currentTime = this.audioCtx.currentTime - this.playbackStartTime;
+        } else {
+             const dt = (now - this.lastTimePerf || now) / 1000;
+             this.currentTime += dt * this.playbackRate;
+        }
+        this.lastTimePerf = now;
+
+        if (this.currentTime >= this.duration) { this.currentTime = this.duration; this.pausePlayback(); } 
+        else if (this.currentTime <= 0) { this.currentTime = 0; this.pausePlayback(); }
+        
+        // Mark for redraw only when time changes
+        this.needsRedraw = true;
+    } else {
+        this.lastTimePerf = now;
+    }
+
+    // OPTIMIZATION: Dirty Check Logic
+    // If NOT playing and NOT marked for redraw, SKIP rendering entirely.
+    // This saves GPU/CPU cycles when idle.
+    if (this.needsRedraw) {
+        this.managePlayers(); 
+        this.renderFrameToCanvas(); 
+        this.updatePlayheadPosition();
+        this.needsRedraw = false;
+    }
+
+    requestAnimationFrame(this.playbackLoop);
+};
+
+// Canvas Interaction
+EditorApp.prototype.setupCanvasInteraction = function() {
+    this.isDragging = false; let mode = 'none'; let startX = 0, startY = 0;
+    let initialProps = {}; let activeClip = null; 
+
+    this.canvas.addEventListener('mousedown', (e) => {
+        const { x, y } = this.getCanvasCoordinates(e);
+        if (this.selectedClipIds.size === 1) {
+            const clipId = Array.from(this.selectedClipIds)[0];
+            const clip = this.findClipById(clipId);
+            const handle = this.checkResizeHandles(x, y, clip);
+            if (clip && handle) {
+                this.isDragging = true; mode = 'resize'; activeClip = clip;
+                initialProps = { ...clip.properties, sandwich: clip.sandwich ? { ...clip.sandwich } : null };
+                return; 
+            }
+        }
+        const hitClip = this.hitTest(x, y);
+        if (hitClip) {
+            this.selectClip(hitClip.id); 
+            this.isDragging = true; 
+            mode = 'move'; startX = x; startY = y; activeClip = hitClip;
+            initialProps = { ...hitClip.properties, sandwich: hitClip.sandwich ? { ...hitClip.sandwich } : null };
+            this.requestRedraw();
+        } else { this.deselectAll(); this.requestRedraw(); }
+    });
+
+    this.canvas.addEventListener('mousemove', (e) => {
+        const { x, y } = this.getCanvasCoordinates(e);
+        if (this.isDragging && activeClip) {
+            if (mode === 'move') {
+                const deltaX = x - startX; const deltaY = y - startY;
+                activeClip.properties.positionX = initialProps.positionX + deltaX;
+                activeClip.properties.positionY = initialProps.positionY + deltaY;
+            }
+            this.requestRedraw(); this.updateEffectControls(); return;
+        }
+        const hit = this.hitTest(x, y);
+        this.canvas.style.cursor = hit ? 'move' : 'default';
+        if (this.hoveredClip !== hit) { this.hoveredClip = hit; this.requestRedraw(); }
+    });
+
+    this.canvas.addEventListener('mouseup', () => { 
+        this.isDragging = false; 
+        mode = 'none'; activeClip = null; 
+        this.requestRedraw(); 
+    });
+};
+
+EditorApp.prototype.hitTest = function(x, y) {
+    const w = this.canvas.width; const h = this.canvas.height;
+    const centerX = w / 2; const centerY = h / 2;
+    const visibleTracks = this.tracks.filter(t => (t.type === 'video' || t.type === 'main' || t.type === 'overlay' || t.type === 'subtitle') && !t.isMuted && (!this.anySolo || t.isSolo));
+
+    for (const track of [...visibleTracks].reverse()) {
+        const clips = track.getClipsAtTime(this.currentTime);
+        if (clips.length > 0) {
+            const clip = clips[0];
+            let scale = (clip.properties.scale || 100) / 100;
+            let posX = clip.properties.positionX || 0; let posY = clip.properties.positionY || 0;
+            let boxW = w * scale; let boxH = h * scale;
+            if (clip.type === 'text') { boxW = w * 0.8 * scale; boxH = h * 0.2 * scale; }
+            const boxX = centerX + posX - (boxW / 2); const boxY = centerY + posY - (boxH / 2);
+            if (x >= boxX && x <= boxX + boxW && y >= boxY && y <= boxY + boxH) return clip;
+        }
+    }
+    return null;
+};
+
+EditorApp.prototype.getCanvasCoordinates = function(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: (e.clientX - rect.left) * (this.canvas.width / rect.width), y: (e.clientY - rect.top) * (this.canvas.height / rect.height) };
+};
+
+EditorApp.prototype.findClipById = function(id) {
+    let result = null; this.tracks.some(t => { result = t.clips.find(c => c.id === id); return result; }); return result;
+};
+
+EditorApp.prototype.checkResizeHandles = function(x, y, clip) { return null; };
+
+// 🔥 FULL PIPELINE RENDERER (Updated)
+EditorApp.prototype.renderFrameToCanvas = function() {
+    const ctx = this.ctx; 
+    const w = this.canvas.width; 
+    const h = this.canvas.height;
+    
+    // Clear Main 2D Canvas
+    ctx.fillStyle = "#000000"; 
+    ctx.fillRect(0, 0, w, h);
+
+    const anySolo = this.tracks.some(t => t.isSolo);
+    const videoTracks = this.tracks.filter(t => (t.type === 'video' || t.type === 'main' || t.type === 'overlay') && !t.isMuted && (!anySolo || t.isSolo));
+    const textTracks = this.tracks.filter(t => t.type === 'subtitle' && !t.isMuted && (!anySolo || t.isSolo));
+    
+    // 1. Collect Visible Video Clips for WebGL
+    const visibleVideoClips = [];
+    // Tracks are usually Top to Bottom in UI (Array), so for painting back-to-front we reverse
+    [...videoTracks].reverse().forEach(track => {
+        const clips = track.getClipsAtTime(this.currentTime);
+        if (clips.length > 0) visibleVideoClips.push(clips[0]);
+    });
+
+    // 2. Render All Video Layers in WebGL (Compositing)
+    if (this.renderWebGLComposition && visibleVideoClips.length > 0) {
+        const glCanvas = this.renderWebGLComposition(visibleVideoClips, w, h);
+        if (glCanvas) {
+            ctx.drawImage(glCanvas, 0, 0);
+        }
+    } else {
+        // Fallback or Empty
+    }
+
+    // 3. Render Text Layers (On CPU/2D Canvas - Cleaner text rendering)
+    [...textTracks].reverse().forEach(track => {
+        const clips = track.getClipsAtTime(this.currentTime);
+        if (clips.length > 0) {
+            const clip = clips[0];
+            ctx.save();
+            if(this.drawAdvancedText) this.drawAdvancedText(ctx, clip, w, h);
+            ctx.restore();
+        }
+    });
+
+    // 4. Draw UI Overlays (Bounding Boxes)
+    this.drawUIOverlays(ctx, w, h);
+};
+
+EditorApp.prototype.drawUIOverlays = function(ctx, w, h) {
+    // Helper to find visible clips for UI hit testing
+    const visibleTracks = this.tracks.filter(t => !t.isMuted && (!this.anySolo || t.isSolo));
+    
+    for (const track of visibleTracks) {
+        const clips = track.getClipsAtTime(this.currentTime);
+        if (clips.length > 0) {
+            const clip = clips[0];
+            if (this.selectedClipIds.has(clip.id)) {
+                this.drawBoundingBox(ctx, clip, track, w, h, '#3b82f6', false);
+            } else if (this.hoveredClip && this.hoveredClip.id === clip.id) {
+                this.drawBoundingBox(ctx, clip, track, w, h, 'rgba(255, 255, 255, 0.8)', true);
+            }
+        }
+    }
+};
+
+EditorApp.prototype.drawBoundingBox = function(ctx, clip, track, w, h, color, isDashed) {
+    const centerX = w / 2; const centerY = h / 2;
+    let posX = clip.properties.positionX || 0; let posY = clip.properties.positionY || 0;
+    let rot = clip.properties.rotation || 0; 
+    
+    // ✨ UPDATED: Retrieve X/Y Scales
+    let scale = (clip.properties.scale !== undefined ? clip.properties.scale : 100) / 100;
+    let scaleX = (clip.properties.scaleX !== undefined ? clip.properties.scaleX : 100) / 100;
+    let scaleY = (clip.properties.scaleY !== undefined ? clip.properties.scaleY : 100) / 100;
+    
+    ctx.save(); 
+    ctx.translate(centerX + posX, centerY + posY); 
+    ctx.rotate((rot * Math.PI) / 180); 
+    
+    // Check Forced Dimensions
+    if (clip.properties.forcedWidth && clip.properties.forcedHeight) {
+         ctx.scale(1, 1);
+    } else {
+         ctx.scale(scale * scaleX, scale * scaleY);
+    }
+    
+    // 🔥 ASPECT FILL (COVER MODE) for Bounding Box
+    let drawW = w; 
+    let drawH = h;
+
+    if (clip.type === 'video' || clip.type === 'image') {
+        // Override for Forced Size
+        if (clip.properties.forcedWidth && clip.properties.forcedHeight) {
+            drawW = clip.properties.forcedWidth;
+            drawH = clip.properties.forcedHeight;
+        } else {
+            const source = this.getSourceElement(clip);
+            if (source) {
+                // 1. Get Native Dimensions
+                let srcW = source.videoWidth || source.naturalWidth || w;
+                let srcH = source.videoHeight || source.naturalHeight || h;
+
+                // 2. Calculate Cover Ratio (Match WebGL Logic)
+                const scaleX = w / srcW;
+                const scaleY = h / srcH;
+                const coverRatio = Math.max(scaleX, scaleY);
+                
+                // 3. Apply Cover Scale to Base Dimensions
+                drawW = srcW * coverRatio;
+                drawH = srcH * coverRatio;
+            }
+        }
+    } else if (clip.type === 'text') { 
+        drawW = w * 0.8; 
+        drawH = h * 0.2; 
+    }
+    
+    ctx.translate(-drawW / 2, -drawH / 2); 
+    ctx.strokeStyle = color; ctx.lineWidth = 4 / scale;
+    if (isDashed) ctx.setLineDash([10 / scale, 10 / scale]); 
+    ctx.strokeRect(0, 0, drawW, drawH);
+    ctx.restore();
+};
+
+EditorApp.prototype.seekFrame = function(frames) { const fd = 1/this.FPS; this.currentTime = Math.max(0, Math.min(this.currentTime + (frames*fd), this.duration)); this.seek(0); };
+EditorApp.prototype.seekToStart = function() { this.currentTime = 0; this.seek(0); };
+EditorApp.prototype.seekToEnd = function() { this.currentTime = this.duration; this.seek(0); };
+EditorApp.prototype.framesToTimecode = function(s) { const f=Math.floor(s*this.FPS)%this.FPS, ts=Math.floor(s), ss=ts%60, mm=Math.floor(ts/60)%60, hh=Math.floor(ts/3600); const p=n=>n.toString().padStart(2,'0'); return `${p(hh)};${p(mm)};${p(ss)};${p(f)}`; };
+EditorApp.prototype.manualTimeUpdate = function(str) { const p=str.split(';'); if(p.length!==4)return; const s=(parseInt(p[0])*3600)+(parseInt(p[1])*60)+parseInt(p[2])+(parseInt(p[3])/this.FPS); this.currentTime=Math.max(0,Math.min(s,this.duration)); this.seek(0); };
+
+EditorApp.prototype.managePlayers = function() {
+    this.anySolo = this.tracks.some(t => t.isSolo); const reqs = new Map(); 
+    this.tracks.forEach(track => {
+        const clips = track.getClipsAtTime(this.currentTime); if(clips.length>0) {
+            const clip = clips[0];
+            if ((clip.type === 'video') && (track.type === 'video' || track.type === 'main' || track.type === 'overlay') && !track.isMuted && (!this.anySolo || track.isSolo)) {
+                const key = `visual_${clip.src}`; if(!reqs.has(key)) reqs.set(key, { src: clip.src, type: 'visual', clip: clip });
+            }
+            if ((clip.type === 'audio') && (track.type === 'audio') && !track.isMuted && (!this.anySolo || track.isSolo)) {
+                const key = `audio_${clip.src}`; if(!reqs.has(key)) reqs.set(key, { src: clip.src, type: 'audio', clip: clip, vol: 0 });
+                const r = reqs.get(key); r.vol = Math.max(r.vol, (clip.properties.volume!==undefined?clip.properties.volume:100)/100);
+            }
+        }
+    });
+    const avail = [...this.players]; const assign = {}; 
+    reqs.forEach((r,k) => { const ex = this.players.find(p => p.getAttribute('data-key') === k); if(ex) { assign[k] = ex; avail.splice(avail.indexOf(ex), 1); } });
+    reqs.forEach((r,k) => { if(!assign[k] && avail.length>0) { const p = avail.pop(); p.setAttribute('data-key', k); p.setAttribute('data-type', r.type); if(p.getAttribute('src')!==r.src) { p.src = r.src; p.load(); } assign[k] = p; } });
+    Object.keys(assign).forEach(k => {
+        const p = assign[k], r = reqs.get(k), off = this.currentTime - r.clip.start, t = (r.clip.sourceIn||0) + off;
+        if (Math.abs(p.currentTime - t) > 0.15) p.currentTime = t;
+        if (this.isPlaying && p.paused && p.readyState >= 2) p.play().catch(e=>{}); else if (!this.isPlaying && !p.paused) p.pause();
+        if (r.type === 'visual') { p.muted = true; p.volume = 0; } else { p.muted = false; p.volume = r.vol; }
+    });
+    avail.forEach(p => { if(p.getAttribute('data-key')) { p.removeAttribute('data-key'); p.removeAttribute('data-type'); p.pause(); p.muted = true; } });
+};
+
+EditorApp.prototype.seek = function(d) { 
+    this.currentTime = Math.max(0, Math.min(this.currentTime + d, this.duration)); 
+    if (this.isPlaying && this.playbackRate === 1) {
+        this.playbackStartTime = this.audioCtx.currentTime - this.currentTime;
+    }
+    this.managePlayers(); 
+    this.renderFrameToCanvas(); 
+    this.updatePlayheadPosition(); 
+    this.requestRedraw(); 
+};
+
+EditorApp.prototype.syncOverlays = function() { this.managePlayers(); this.renderFrameToCanvas(); this.requestRedraw(); }; 
+
+EditorApp.prototype.updatePlayheadPosition = function() {
+    if (!this.playhead) return; const pos = (this.currentTime * this.pixelsPerSecond) + this.TRACK_HEADER_WIDTH_PREVIEW;
+    this.playhead.style.left = `${pos}px`;
+    const ti = document.getElementById('time-display'); if (ti && document.activeElement !== ti) ti.value = this.framesToTimecode(this.currentTime);
+    if (this.isPlaying && !this.isScrubbing) { const vw = this.timelineScrollArea.clientWidth, sl = this.timelineScrollArea.scrollLeft; if (pos > sl + vw - 50) this.timelineScrollArea.scrollLeft = pos - this.TRACK_HEADER_WIDTH_PREVIEW - 100; }
+};
+
+EditorApp.prototype.setupPlayheadScrubbing = function() {
+    if (!this.playhead) return;
+    
+    if (this.timelineContent) {
+        this.timelineContent.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.timeline-clip') || e.target.closest('.clip-handle') || e.target.closest('.playhead-marker')) return;
+            
+            const scrollAreaRect = this.timelineScrollArea.getBoundingClientRect();
+            const clickXInViewport = e.clientX - scrollAreaRect.left;
+            const absoluteX = clickXInViewport + this.timelineScrollArea.scrollLeft;
+            const timeX = absoluteX - this.TRACK_HEADER_WIDTH_PREVIEW;
+            
+            if (timeX >= 0) {
+                 this.seek((timeX / this.pixelsPerSecond) - this.currentTime);
+            }
+        });
+    }
+
+    this.playhead.onmousedown = (e) => {
+        e.preventDefault(); e.stopPropagation(); 
+        this.isScrubbing = true; 
+        document.body.style.cursor = 'grabbing';
+        
+        const wp = this.isPlaying; if (wp) this.pausePlayback();
+        const onMove = (ev) => { 
+            const x = (ev.clientX - this.timelineContent.getBoundingClientRect().left) + this.timelineScrollArea.scrollLeft - this.TRACK_HEADER_WIDTH_PREVIEW; 
+            this.currentTime = Math.max(0, Math.min(x / this.pixelsPerSecond, this.duration)); 
+            this.seek(0); 
+        };
+        const onUp = () => { 
+            this.isScrubbing = false; 
+            document.body.style.cursor = 'default'; 
+            document.removeEventListener('mousemove', onMove); 
+            document.removeEventListener('mouseup', onUp); 
+            this.requestRedraw(); 
+            if (wp) this.startPlayback(); 
+        };
+        document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+    };
+};

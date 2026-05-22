@@ -72,3 +72,5 @@ node_modules/
 dist/
 dist-ssr/
 *.local
+
+# Keep public/ tracked (static JS assets for editor)
