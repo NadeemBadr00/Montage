@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 🛠️ Editing Engine (editing_engine.js) - CLEAN CORE
  * هذا الملف يحتوي فقط على المنطق الأساسي للمحرر.
@@ -781,3 +782,4 @@ class EditorApp {
 window.Clip = Clip;
 window.Track = Track;
 window.EditorApp = EditorApp;
+;(window as any).EditorApp = EditorApp;

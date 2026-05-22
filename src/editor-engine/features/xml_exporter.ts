@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 📤 XML Exporter (xml_exporter.js)
  * الكود النهائي المختصر (Trust the Engine Mode).
@@ -9,7 +10,7 @@
  * 🐛 BUG FIX: V4 (and V1) properties are now correctly exported (Universal Track Logic).
  */
 
-EditorApp.prototype.downloadXML = async function() {
+window.EditorApp.prototype.downloadXML = async function() {
     this.log("⏳ Exporting Project 43 to XML (Premiere Pro Optimized)...");
     
     // إعدادات السيكونس الأساسية
@@ -526,7 +527,7 @@ EditorApp.prototype.downloadXML = async function() {
     }
 };
 
-EditorApp.prototype.downloadAsset = async function(url, filename) {
+window.EditorApp.prototype.downloadAsset = async function(url, filename) {
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;

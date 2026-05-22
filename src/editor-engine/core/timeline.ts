@@ -1,3 +1,4 @@
+// @ts-nocheck
 // timeline.js
 /**
  * 🎞️ Professional NLE Timeline Engine (timeline.js)
@@ -12,7 +13,7 @@ const TICKS_PER_SECOND = 254016000;
 const VIRTUAL_BUFFER_PX = 500; 
 const TRACK_HEADER_WIDTH = 140;
 
-EditorApp.prototype.initEngine = function() {
+window.EditorApp.prototype.initEngine = function() {
     this.isEngineReady = true;
     this.scrollX = 0;
     this.visibleRange = { start: 0, end: 0 };
@@ -54,7 +55,7 @@ EditorApp.prototype.initEngine = function() {
     this.setupRazorLine();
 };
 
-EditorApp.prototype.setupRazorLine = function() {
+window.EditorApp.prototype.setupRazorLine = function() {
     if (!this.timelineContent) return;
     let razorLine = document.querySelector('.razor-line');
     if (!razorLine) {
@@ -84,7 +85,7 @@ EditorApp.prototype.setupRazorLine = function() {
     });
 };
 
-EditorApp.prototype.renderLoop = function() {
+window.EditorApp.prototype.renderLoop = function() {
     if (this.dirty) {
         this.calculateVisibleWindow();
         this.renderVirtualRuler();
@@ -94,7 +95,7 @@ EditorApp.prototype.renderLoop = function() {
     requestAnimationFrame(this.renderLoop);
 };
 
-EditorApp.prototype.calculateVisibleWindow = function() {
+window.EditorApp.prototype.calculateVisibleWindow = function() {
     if (!this.timelineContent || !this.timelineContent.parentElement) return;
     const containerWidth = this.timelineContent.parentElement.clientWidth;
     const startPx = Math.max(0, this.scrollX - VIRTUAL_BUFFER_PX);
@@ -110,14 +111,14 @@ EditorApp.prototype.calculateVisibleWindow = function() {
     this.timelineContent.style.paddingLeft = '140px'; 
 };
 
-EditorApp.prototype.renderAll = function() {
+window.EditorApp.prototype.renderAll = function() {
     if (!this.isEngineReady) this.initEngine();
     this.dirty = true;
 };
-EditorApp.prototype.renderTracks = function() { this.dirty = true; };
-EditorApp.prototype.updateTimelineLayout = function() { this.dirty = true; };
+window.EditorApp.prototype.renderTracks = function() { this.dirty = true; };
+window.EditorApp.prototype.updateTimelineLayout = function() { this.dirty = true; };
 
-EditorApp.prototype.renderVirtualRuler = function() {
+window.EditorApp.prototype.renderVirtualRuler = function() {
     if (!this.rulerContainer) return;
     this.rulerContainer.innerHTML = ''; 
     const step = this.pixelsPerSecond > 50 ? 1 : 5; 
@@ -139,7 +140,7 @@ EditorApp.prototype.renderVirtualRuler = function() {
     }
 };
 
-EditorApp.prototype.renderVirtualTracks = function() {
+window.EditorApp.prototype.renderVirtualTracks = function() {
     if (!this.tracksContainer) return;
     this.tracksContainer.innerHTML = '';
 
@@ -255,7 +256,7 @@ EditorApp.prototype.renderVirtualTracks = function() {
     this.tracksContainer.appendChild(addTrackRow);
 };
 
-EditorApp.prototype.setupTrackDropZone = function(trackRow, track) {
+window.EditorApp.prototype.setupTrackDropZone = function(trackRow, track) {
     trackRow.ondragover = (e) => { e.preventDefault(); trackRow.classList.add('drag-over'); };
     trackRow.ondragleave = () => { trackRow.classList.remove('drag-over', 'drag-over-error'); };
     trackRow.ondrop = (e) => {
@@ -298,7 +299,7 @@ EditorApp.prototype.setupTrackDropZone = function(trackRow, track) {
 };
 
 // 🔥 CORE AUDIO LOGIC: Debug + Fallback
-EditorApp.prototype.drawWaveform = function(canvas, clip) {
+window.EditorApp.prototype.drawWaveform = function(canvas, clip) {
     // 1. Check Bitmap Cache (الأسرع)
     if (this.audioBitmapCache.has(clip.id)) {
         const cachedBitmap = this.audioBitmapCache.get(clip.id);
@@ -390,7 +391,7 @@ EditorApp.prototype.drawWaveform = function(canvas, clip) {
     }
 };
 
-EditorApp.prototype.finalizeWaveform = function(jobInfo, peaks, isSimulation = false) {
+window.EditorApp.prototype.finalizeWaveform = function(jobInfo, peaks, isSimulation = false) {
     const { clipId, width, height } = jobInfo;
     const offscreen = new OffscreenCanvas(width, height);
     const ctx = offscreen.getContext('2d');
@@ -461,7 +462,7 @@ EditorApp.prototype.finalizeWaveform = function(jobInfo, peaks, isSimulation = f
 };
 
 
-EditorApp.prototype.createClipElement = function(clip, track) {
+window.EditorApp.prototype.createClipElement = function(clip, track) {
     const clipEl = document.createElement('div');
     clipEl.className = `timeline-clip ${track.colorClass} shadow-md`;
     clipEl.dataset.id = clip.id;
@@ -516,7 +517,7 @@ EditorApp.prototype.createClipElement = function(clip, track) {
     return clipEl;
 };
 
-EditorApp.prototype.showContextMenu = function(x, y, clipId) {
+window.EditorApp.prototype.showContextMenu = function(x, y, clipId) {
     let menu = document.getElementById('context-menu');
     if (!menu) return;
     const clip = this.findClipById(clipId);
@@ -545,10 +546,10 @@ EditorApp.prototype.showContextMenu = function(x, y, clipId) {
     if(btnDelete) btnDelete.onclick = () => { this.deleteSelectedClip(); menu.classList.add('hidden'); };
 };
 
-EditorApp.prototype.timeToPixels = function(seconds) { return seconds * this.pixelsPerSecond; };
-EditorApp.prototype.pixelsToTime = function(pixels) { return pixels / this.pixelsPerSecond; };
+window.EditorApp.prototype.timeToPixels = function(seconds) { return seconds * this.pixelsPerSecond; };
+window.EditorApp.prototype.pixelsToTime = function(pixels) { return pixels / this.pixelsPerSecond; };
 
-EditorApp.prototype.addSmartDragLogic = function(element, clip, track) {
+window.EditorApp.prototype.addSmartDragLogic = function(element, clip, track) {
     element.onmousedown = (e) => {
         if (e.button === 2) return; 
         if (this.activeTool === 'razor' || this.activeTool === 'cut') {
@@ -646,7 +647,7 @@ EditorApp.prototype.addSmartDragLogic = function(element, clip, track) {
     };
 };
 
-EditorApp.prototype.moveClipToTrack = function(clip, targetTrackId) {
+window.EditorApp.prototype.moveClipToTrack = function(clip, targetTrackId) {
     const sourceTrack = this.tracks.find(t => t.clips.some(c => c.id === clip.id));
     const targetTrack = this.tracks.find(t => t.id === targetTrackId);
     
@@ -664,9 +665,9 @@ EditorApp.prototype.moveClipToTrack = function(clip, targetTrackId) {
     }
 };
 
-EditorApp.prototype.applyMoveLogic = function(clip, track, originalStart, delta) { };
+window.EditorApp.prototype.applyMoveLogic = function(clip, track, originalStart, delta) { };
 
-EditorApp.prototype.applyTrimLogic = function(clip, track, origStart, origDur, origSource, delta, type) {
+window.EditorApp.prototype.applyTrimLogic = function(clip, track, origStart, origDur, origSource, delta, type) {
     if (type === 'out') {
         let newDur = Math.max(0.1, origDur + delta);
         clip.duration = newDur;
@@ -679,7 +680,7 @@ EditorApp.prototype.applyTrimLogic = function(clip, track, origStart, origDur, o
     }
 };
 
-EditorApp.prototype.getSnapPoint = function(time, excludeClips = []) {
+window.EditorApp.prototype.getSnapPoint = function(time, excludeClips = []) {
     if (!this.tracks) return null;
     const snapTargets = [0, this.currentTime]; 
     this.tracks.forEach(t => {
@@ -702,7 +703,7 @@ EditorApp.prototype.getSnapPoint = function(time, excludeClips = []) {
     return closest;
 };
 
-EditorApp.prototype.zoom = function(dir) {
+window.EditorApp.prototype.zoom = function(dir) {
     this.pixelsPerSecond = Math.max(5, Math.min(500, this.pixelsPerSecond + (dir * 10)));
     const zoomLabel = document.getElementById('zoom-level');
     if(zoomLabel) zoomLabel.innerText = `Zoom: ${Math.round((this.pixelsPerSecond/20)*100)}%`;

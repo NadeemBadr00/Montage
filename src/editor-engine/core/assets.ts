@@ -1,3 +1,4 @@
+// @ts-nocheck
 // assets.js
 /**
  * 📂 Assets Manager (assets.js)
@@ -5,7 +6,7 @@
  * T1 (Top) -> V4 -> V3 (Speaker) -> V2 (BG) -> V1 (Ref)
  */
 
-EditorApp.prototype.assetsList = [
+window.EditorApp.prototype.assetsList = [
     { id: 'a1', name: 'Intro_Slide.jpg', type: 'image', src: 'https://placehold.co/800x450/8b5cf6/fff?text=Slide+1' },
     { id: 'a2', name: 'Graph.png', type: 'image', src: 'https://placehold.co/800x450/10b981/fff?text=Graph+Data' },
     { id: 'a4', name: 'Chill_Beat.mp3', type: 'audio', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' }
@@ -37,7 +38,7 @@ window.parseSRTToClips = function(srtData) {
     return clips;
 }
 
-EditorApp.prototype.initProject = async function(file, mode, autoTranscribe) {
+window.EditorApp.prototype.initProject = async function(file, mode, autoTranscribe) {
     this.init(); 
     const videoUrl = URL.createObjectURL(file);
     const fileName = file.name;
@@ -105,7 +106,7 @@ EditorApp.prototype.initProject = async function(file, mode, autoTranscribe) {
     }
 };
 
-EditorApp.prototype.renderAssetsLibrary = function() {
+window.EditorApp.prototype.renderAssetsLibrary = function() {
     const grid = document.getElementById('assets-grid');
     if (!grid) return;
     grid.innerHTML = '';
@@ -125,7 +126,7 @@ EditorApp.prototype.renderAssetsLibrary = function() {
     });
 };
 
-EditorApp.prototype.setupFileUpload = function() {
+window.EditorApp.prototype.setupFileUpload = function() {
     const input = document.getElementById('file-upload');
     if(input) {
         input.onchange = (e) => {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 ﻿/**
  * file_store.js — IndexedDB bridge for passing File objects between pages
  * Used by: startup.html (save) → editor.html (load)

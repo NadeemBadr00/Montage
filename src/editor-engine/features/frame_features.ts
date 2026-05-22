@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 📱 Frame Features Module (frame_features.js)
  * مسؤول عن إضافة البراويز (تليفون، شريط سينمائي، بولارويد) للمقاطع.
@@ -34,9 +35,9 @@ const ensureFrameProperties = (clip) => {
 };
 
 // 2. واجهة التحكم
-const originalUpdateEffectControlsFrame = EditorApp.prototype.updateEffectControls;
+const originalUpdateEffectControlsFrame = window.EditorApp.prototype.updateEffectControls;
 
-EditorApp.prototype.updateEffectControls = function() {
+window.EditorApp.prototype.updateEffectControls = function() {
     if (originalUpdateEffectControlsFrame) {
         originalUpdateEffectControlsFrame.call(this);
     }
@@ -207,7 +208,7 @@ EditorApp.prototype.updateEffectControls = function() {
 };
 
 // 3. Helpers
-EditorApp.prototype.updateFrameProp = function(clipId, prop, value) {
+window.EditorApp.prototype.updateFrameProp = function(clipId, prop, value) {
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (clip) {
         ensureFrameProperties(clip);
@@ -228,7 +229,7 @@ EditorApp.prototype.updateFrameProp = function(clipId, prop, value) {
     }
 };
 
-EditorApp.prototype.handleFilmAssets = function(clipId, input) {
+window.EditorApp.prototype.handleFilmAssets = function(clipId, input) {
     if (!input.files || input.files.length === 0) return;
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (!clip) return;
@@ -248,7 +249,7 @@ EditorApp.prototype.handleFilmAssets = function(clipId, input) {
     setTimeout(() => this.updateEffectControls(), 500);
 };
 
-EditorApp.prototype.moveFilmAsset = function(clipId, index, direction) {
+window.EditorApp.prototype.moveFilmAsset = function(clipId, index, direction) {
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (!clip || !clip.frame.assets) return;
     const newIndex = index + direction;
@@ -260,7 +261,7 @@ EditorApp.prototype.moveFilmAsset = function(clipId, index, direction) {
     this.updateEffectControls();
 };
 
-EditorApp.prototype.removeFilmAsset = function(clipId, index) {
+window.EditorApp.prototype.removeFilmAsset = function(clipId, index) {
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (!clip || !clip.frame.assets) return;
     clip.frame.assets.splice(index, 1);
@@ -269,7 +270,7 @@ EditorApp.prototype.removeFilmAsset = function(clipId, index) {
 };
 
 // 4. القص
-EditorApp.prototype.applyFrameClip = function(ctx, clip, w, h) {
+window.EditorApp.prototype.applyFrameClip = function(ctx, clip, w, h) {
     const type = clip.frame.type;
     const thickness = clip.frame.thickness || 25;
     const halfW = w / 2;
@@ -286,9 +287,9 @@ EditorApp.prototype.applyFrameClip = function(ctx, clip, w, h) {
 };
 
 // 5. منطق الرسم المخصص
-const originalDrawClipContentWithFrameDraw = EditorApp.prototype.drawClipContent;
+const originalDrawClipContentWithFrameDraw = window.EditorApp.prototype.drawClipContent;
 
-EditorApp.prototype.drawClipContent = function(ctx, clip, track, w, h) {
+window.EditorApp.prototype.drawClipContent = function(ctx, clip, track, w, h) {
     const hasFrame = clip.frame && clip.frame.type !== 'none';
 
     if (hasFrame) {
@@ -340,7 +341,7 @@ EditorApp.prototype.drawClipContent = function(ctx, clip, track, w, h) {
 // =========================================================
 // 🚀 Helper: Draw Slideshow Content (Logic Shared by Phone & Polaroid)
 // =========================================================
-EditorApp.prototype.drawSlideshowContent = function(ctx, clip, w, h, contentList) {
+window.EditorApp.prototype.drawSlideshowContent = function(ctx, clip, w, h, contentList) {
     const totalCount = contentList.length;
     if (totalCount === 0) return;
 
@@ -422,7 +423,7 @@ EditorApp.prototype.drawSlideshowContent = function(ctx, clip, w, h, contentList
 };
 
 // 🔥 Phone with Slideshow
-EditorApp.prototype.drawPhoneSlideshow = function(ctx, clip, w, h) {
+window.EditorApp.prototype.drawPhoneSlideshow = function(ctx, clip, w, h) {
     const thickness = clip.frame.thickness || 25;
     const cornerRadius = Math.min(w, h) * 0.14; 
     const halfW = w / 2;
@@ -454,7 +455,7 @@ EditorApp.prototype.drawPhoneSlideshow = function(ctx, clip, w, h) {
 };
 
 // 🔥 Polaroid with Slideshow
-EditorApp.prototype.drawPolaroidStack = function(ctx, clip, w, h) {
+window.EditorApp.prototype.drawPolaroidStack = function(ctx, clip, w, h) {
     const padding = clip.frame.thickness || 30;
     const bottomPadding = padding * 3.5;
     const bgColor = clip.frame.color || '#f8f8f8';
@@ -488,7 +489,7 @@ EditorApp.prototype.drawPolaroidStack = function(ctx, clip, w, h) {
 };
 
 // --- رسم شريط الفيلم (بدون تغيير، يستخدم منطقه الخاص للتمرير) ---
-EditorApp.prototype.drawFilmStrip = function(ctx, clip, w, h) {
+window.EditorApp.prototype.drawFilmStrip = function(ctx, clip, w, h) {
     // ... [نفس كود drawFilmStrip السابق] ...
     const color = clip.frame.color || '#151515';
     const thickness = clip.frame.thickness || 40;
@@ -605,7 +606,7 @@ EditorApp.prototype.drawFilmStrip = function(ctx, clip, w, h) {
     ctx.globalCompositeOperation = 'source-over';
 };
 
-EditorApp.prototype.drawFrameOverlay = function(ctx, clip, w, h) {
+window.EditorApp.prototype.drawFrameOverlay = function(ctx, clip, w, h) {
     // Legacy Phone Overlay Drawing Logic (Kept for drawing the phone body)
     const type = clip.frame.type;
     const color = clip.frame.color || '#363636';

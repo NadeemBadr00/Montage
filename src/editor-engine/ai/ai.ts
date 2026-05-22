@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 🧠 AI Engine (ai.js) - v4.1 (Subtitle Import Fix)
  * محرك الذكاء الاصطناعي المسؤول عن استخراج الترجمة (Subtitles).

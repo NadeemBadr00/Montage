@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 🧠 Gemini Chat Engine (gemini_chat.js) - v9.4 (Upload Range Fix)
  * التحديثات:

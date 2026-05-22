@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 🫧 Bubble Feature Module (bubble_feature.js)
  * ميزة جديدة: شاشة مليئة بالفقاعات (الدوائر) مع تكبير متتابع للصور.
@@ -43,9 +44,9 @@ const generateBubbleLayout = (w, h, count) => {
 };
 
 // 3. حقن واجهة التحكم
-const prevUpdateEffectControlsBubble = EditorApp.prototype.updateEffectControls;
+const prevUpdateEffectControlsBubble = window.EditorApp.prototype.updateEffectControls;
 
-EditorApp.prototype.updateEffectControls = function() {
+window.EditorApp.prototype.updateEffectControls = function() {
     if (prevUpdateEffectControlsBubble) {
         prevUpdateEffectControlsBubble.call(this);
     }
@@ -168,7 +169,7 @@ EditorApp.prototype.updateEffectControls = function() {
 };
 
 // 4. دوال التحكم
-EditorApp.prototype.toggleBubbleMode = function(clipId) {
+window.EditorApp.prototype.toggleBubbleMode = function(clipId) {
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (clip) {
         ensureBubbleProperties(clip);
@@ -184,7 +185,7 @@ EditorApp.prototype.toggleBubbleMode = function(clipId) {
     }
 };
 
-EditorApp.prototype.updateBubbleProp = function(clipId, prop, value) {
+window.EditorApp.prototype.updateBubbleProp = function(clipId, prop, value) {
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (clip) {
         if (['speed', 'count', 'activeSize'].includes(prop)) {
@@ -200,7 +201,7 @@ EditorApp.prototype.updateBubbleProp = function(clipId, prop, value) {
     }
 };
 
-EditorApp.prototype.handleBubbleAssets = function(clipId, input) {
+window.EditorApp.prototype.handleBubbleAssets = function(clipId, input) {
     if (!input.files || input.files.length === 0) return;
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (!clip) return;
@@ -222,9 +223,9 @@ EditorApp.prototype.handleBubbleAssets = function(clipId, input) {
 };
 
 // 5. محرك الرسم
-const prevDrawClipContentBubble = EditorApp.prototype.drawClipContent;
+const prevDrawClipContentBubble = window.EditorApp.prototype.drawClipContent;
 
-EditorApp.prototype.drawClipContent = function(ctx, clip, track, w, h) {
+window.EditorApp.prototype.drawClipContent = function(ctx, clip, track, w, h) {
     if (clip.bubbles && clip.bubbles.enabled) {
         const centerX = w / 2;
         const centerY = h / 2;
@@ -251,7 +252,7 @@ EditorApp.prototype.drawClipContent = function(ctx, clip, track, w, h) {
 };
 
 // 🔥 رسم مشهد الفقاعات
-EditorApp.prototype.drawBubbleScene = function(ctx, clip, w, h) {
+window.EditorApp.prototype.drawBubbleScene = function(ctx, clip, w, h) {
     const props = clip.bubbles;
     const assets = props.assets || [];
     const contentList = ['MAIN_VIDEO', ...assets];

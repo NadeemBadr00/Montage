@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 🗺️ Gemini Plan Engine (gemini_plan.js) - v9.1 (Syntax Fix & Stability)
  * التحديثات:

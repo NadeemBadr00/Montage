@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * ⌨️ Command Center Module (command_center.js)
  * المسؤول عن:
@@ -16,7 +17,7 @@
  */
 
 // تهيئة النظام عند تشغيل المحرك
-EditorApp.prototype.initCommandCenter = function() {
+window.EditorApp.prototype.initCommandCenter = function() {
     this.commandBuffer = "";
     this.isCommandMode = false;
     // 🔥 FIX: جعل الكونسول مخفياً افتراضياً عند بدء التشغيل لمنع تداخله مع نافذة البداية
@@ -35,7 +36,7 @@ EditorApp.prototype.initCommandCenter = function() {
 
 // --- UI Management ---
 
-EditorApp.prototype.setupCommandConsoleUI = function() {
+window.EditorApp.prototype.setupCommandConsoleUI = function() {
     let consoleEl = document.getElementById('cmd-console');
     this.cmdContainer = consoleEl;
     this.cmdBufferEl = document.getElementById('cmd-buffer');
@@ -74,7 +75,7 @@ EditorApp.prototype.setupCommandConsoleUI = function() {
     this.updateConsoleVisuals(); 
 };
 
-EditorApp.prototype.updateConsoleVisuals = function() {
+window.EditorApp.prototype.updateConsoleVisuals = function() {
     if (!this.cmdContainer) return;
 
     if (this.isCmdFocused) {
@@ -90,7 +91,7 @@ EditorApp.prototype.updateConsoleVisuals = function() {
     }
 };
 
-EditorApp.prototype.setupDraggable = function(element, handle) {
+window.EditorApp.prototype.setupDraggable = function(element, handle) {
     let isDragging = false;
     let startX, startY, initialLeft, initialTop;
 
@@ -133,7 +134,7 @@ EditorApp.prototype.setupDraggable = function(element, handle) {
     });
 };
 
-EditorApp.prototype.toggleCommandConsole = function() {
+window.EditorApp.prototype.toggleCommandConsole = function() {
     this.isConsoleVisible = !this.isConsoleVisible;
     if (this.cmdContainer) {
         if (this.isConsoleVisible) {
@@ -151,14 +152,14 @@ EditorApp.prototype.toggleCommandConsole = function() {
     }
 };
 
-EditorApp.prototype.minimizeConsole = function() {
+window.EditorApp.prototype.minimizeConsole = function() {
     this.isMinimized = true;
     if(this.cmdContainer) this.cmdContainer.classList.add('hidden');
     if(this.cmdMinimized) this.cmdMinimized.classList.remove('hidden');
     this.isCmdFocused = false;
 };
 
-EditorApp.prototype.restoreConsole = function() {
+window.EditorApp.prototype.restoreConsole = function() {
     this.isMinimized = false;
     this.isConsoleVisible = true;
     if(this.cmdContainer) this.cmdContainer.classList.remove('hidden');
@@ -169,7 +170,7 @@ EditorApp.prototype.restoreConsole = function() {
 
 // --- Input & Shortcuts Logic ---
 
-EditorApp.prototype.setupCommandListeners = function() {
+window.EditorApp.prototype.setupCommandListeners = function() {
     window.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
 
@@ -224,7 +225,7 @@ EditorApp.prototype.setupCommandListeners = function() {
     }, true); 
 };
 
-EditorApp.prototype.updateCommandBuffer = function(char) {
+window.EditorApp.prototype.updateCommandBuffer = function(char) {
     if (char === 'Backspace') {
         this.commandBuffer = this.commandBuffer.slice(0, -1);
     } else if (char.length === 1) {
@@ -233,14 +234,14 @@ EditorApp.prototype.updateCommandBuffer = function(char) {
     if (this.cmdBufferEl) this.cmdBufferEl.innerText = this.commandBuffer;
 };
 
-EditorApp.prototype.clearCommand = function() {
+window.EditorApp.prototype.clearCommand = function() {
     this.commandBuffer = "";
     if (this.cmdBufferEl) this.cmdBufferEl.innerText = "";
 };
 
 // --- Execution Logic ---
 
-EditorApp.prototype.executeCommand = function() {
+window.EditorApp.prototype.executeCommand = function() {
     const cmd = this.commandBuffer.trim().toLowerCase();
     if (!cmd) return;
     
@@ -447,7 +448,7 @@ EditorApp.prototype.executeCommand = function() {
 };
 
 // 🔥✨ Helper: Execute Property Command (Scale, Opacity, Rotation, Size)
-EditorApp.prototype.executePropertyCommand = function(trackName, clipIndex, property, value) {
+window.EditorApp.prototype.executePropertyCommand = function(trackName, clipIndex, property, value) {
     const track = this.tracks.find(t => t.name === trackName);
     if (!track) { this.log(`❌ Track ${trackName} not found.`); return; }
 
@@ -504,7 +505,7 @@ EditorApp.prototype.executePropertyCommand = function(trackName, clipIndex, prop
 };
 
 // Helper: Clear Entire Track
-EditorApp.prototype.executeTrackClear = function(trackName) {
+window.EditorApp.prototype.executeTrackClear = function(trackName) {
     const track = this.tracks.find(t => t.name === trackName);
     if (!track) { this.log(`❌ Track ${trackName} not found.`); return; }
 
@@ -523,7 +524,7 @@ EditorApp.prototype.executeTrackClear = function(trackName) {
 };
 
 // Helper: Delete Range (Seconds)
-EditorApp.prototype.executeRangeDelete = function(startTime, endTime, trackName) {
+window.EditorApp.prototype.executeRangeDelete = function(startTime, endTime, trackName) {
     const track = this.tracks.find(t => t.name === trackName);
     if (!track) { this.log(`❌ Track ${trackName} not found.`); return; }
 
@@ -569,7 +570,7 @@ EditorApp.prototype.executeRangeDelete = function(startTime, endTime, trackName)
 };
 
 // 🔥 FIX: Delete Clip by Index (Hard Delete)
-EditorApp.prototype.executeClipIndexDelete = function(index, trackName) {
+window.EditorApp.prototype.executeClipIndexDelete = function(index, trackName) {
     const track = this.tracks.find(t => t.name === trackName);
     if (!track) { this.log(`❌ Track ${trackName} not found.`); return; }
 
@@ -593,7 +594,7 @@ EditorApp.prototype.executeClipIndexDelete = function(index, trackName) {
 };
 
 // Helper: Parse Time
-EditorApp.prototype.parseSmartTime = function(timeStr) {
+window.EditorApp.prototype.parseSmartTime = function(timeStr) {
     if (!timeStr) return 0;
     const matches = timeStr.matchAll(/(\d+)([hms])/g);
     let totalSeconds = 0;
@@ -613,7 +614,7 @@ EditorApp.prototype.parseSmartTime = function(timeStr) {
 };
 
 // 🔥 FIX: Added saveState() before upload
-EditorApp.prototype.executeUploadCommand = function(startTime, customDuration, trackName) {
+window.EditorApp.prototype.executeUploadCommand = function(startTime, customDuration, trackName) {
     const track = this.tracks.find(t => t.name === trackName);
     if (!track) {
         this.log(`❌ Track ${trackName} not found.`);
@@ -682,7 +683,7 @@ EditorApp.prototype.executeUploadCommand = function(startTime, customDuration, t
     input.click();
 };
 
-EditorApp.prototype.executeCutCommand = function(time, trackName) {
+window.EditorApp.prototype.executeCutCommand = function(time, trackName) {
     const track = this.tracks.find(t => t.name === trackName);
     if (!track) { this.log(`❌ Track ${trackName} not found.`); return; }
 
@@ -700,7 +701,7 @@ EditorApp.prototype.executeCutCommand = function(time, trackName) {
     this.updatePlayheadPosition();
 };
 
-EditorApp.prototype.executeMoveCommand = function(paramsStr) {
+window.EditorApp.prototype.executeMoveCommand = function(paramsStr) {
     const clipNameMatch = paramsStr.match(/(\d+[vta]\d+)$/i);
     if (!clipNameMatch) { this.log("❌ Invalid Move Command: Target clip not found."); return; }
     
@@ -776,7 +777,7 @@ EditorApp.prototype.executeMoveCommand = function(paramsStr) {
 };
 
 // 🔥 NEW: Execute Remove Silence Command
-EditorApp.prototype.executeRemoveSilenceCommand = async function(sourceTrackName, exceptionTracks) {
+window.EditorApp.prototype.executeRemoveSilenceCommand = async function(sourceTrackName, exceptionTracks) {
     const track = this.tracks.find(t => t.name === sourceTrackName);
     if (!track) { this.log(`❌ Track ${sourceTrackName} not found.`); return; }
     if (track.type !== 'audio' && track.type !== 'video') { this.log("❌ Source must be audio/video."); return; }
@@ -812,7 +813,7 @@ EditorApp.prototype.executeRemoveSilenceCommand = async function(sourceTrackName
     this.renderTracks();
 };
 
-EditorApp.prototype.detectSilenceIntervals = async function(track) {
+window.EditorApp.prototype.detectSilenceIntervals = async function(track) {
     const intervals = [];
     const SILENCE_THRESH = 0.02; // 2% volume
     const MIN_DURATION = 0.5; // seconds
@@ -900,7 +901,7 @@ EditorApp.prototype.detectSilenceIntervals = async function(track) {
     return intervals;
 };
 
-EditorApp.prototype.executeMultiTrackRippleDelete = function(start, end, exceptions) {
+window.EditorApp.prototype.executeMultiTrackRippleDelete = function(start, end, exceptions) {
     const duration = end - start;
     
     this.tracks.forEach(track => {

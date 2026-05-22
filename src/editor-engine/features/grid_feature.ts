@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 🔢 Grid Feature Module (grid_feature.js)
  * الإصدار الشامل (Ultimate Edition) - V5
@@ -213,9 +214,9 @@ const calculateLayout = (w, h, gap, count, props) => {
 // =========================================================
 // 3. UI Control Injection
 // =========================================================
-const prevUpdateEffectControlsGrid = EditorApp.prototype.updateEffectControls;
+const prevUpdateEffectControlsGrid = window.EditorApp.prototype.updateEffectControls;
 
-EditorApp.prototype.updateEffectControls = function() {
+window.EditorApp.prototype.updateEffectControls = function() {
     if (prevUpdateEffectControlsGrid) prevUpdateEffectControlsGrid.call(this);
 
     const panelArea = document.getElementById('pro-features-area');
@@ -444,7 +445,7 @@ EditorApp.prototype.updateEffectControls = function() {
 // =========================================================
 // 4. وظائف التحكم (Actions)
 // =========================================================
-EditorApp.prototype.toggleGridMode = function(clipId) {
+window.EditorApp.prototype.toggleGridMode = function(clipId) {
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (clip) {
         ensureGridProperties(clip);
@@ -457,12 +458,12 @@ EditorApp.prototype.toggleGridMode = function(clipId) {
     }
 };
 
-EditorApp.prototype.updateGridMode = function(clipId, mode) {
+window.EditorApp.prototype.updateGridMode = function(clipId, mode) {
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (clip) { clip.gridGallery.durationMode = mode; this.updateEffectControls(); }
 };
 
-EditorApp.prototype.updateGridProp = function(clipId, prop, value) {
+window.EditorApp.prototype.updateGridProp = function(clipId, prop, value) {
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (clip) {
         const numProps = ['speed', 'gap', 'spreadX', 'spreadY', 'activeScale', 'passiveScale', 'bgOpacity', 'borderWidth'];
@@ -492,7 +493,7 @@ EditorApp.prototype.updateGridProp = function(clipId, prop, value) {
     }
 };
 
-EditorApp.prototype.deleteGridAsset = function(clipId, uiIndex) {
+window.EditorApp.prototype.deleteGridAsset = function(clipId, uiIndex) {
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (!clip) return;
     
@@ -517,7 +518,7 @@ EditorApp.prototype.deleteGridAsset = function(clipId, uiIndex) {
     }
 };
 
-EditorApp.prototype.promptGridLabel = function(clipId, index) {
+window.EditorApp.prototype.promptGridLabel = function(clipId, index) {
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (!clip) return;
     const current = clip.gridGallery.labels[index] || "";
@@ -529,7 +530,7 @@ EditorApp.prototype.promptGridLabel = function(clipId, index) {
     }
 };
 
-EditorApp.prototype.moveGridItem = function(clipId, index, dir) {
+window.EditorApp.prototype.moveGridItem = function(clipId, index, dir) {
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (!clip) return;
     const g = clip.gridGallery;
@@ -544,7 +545,7 @@ EditorApp.prototype.moveGridItem = function(clipId, index, dir) {
     }
 };
 
-EditorApp.prototype.handleGridAssets = function(clipId, input) {
+window.EditorApp.prototype.handleGridAssets = function(clipId, input) {
     if (!input.files.length) return;
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (!clip) return;
@@ -576,9 +577,9 @@ EditorApp.prototype.handleGridAssets = function(clipId, input) {
 // =========================================================
 // 5. Drawing Engine (محرك الرسم)
 // =========================================================
-const prevDrawClipContentGrid = EditorApp.prototype.drawClipContent;
+const prevDrawClipContentGrid = window.EditorApp.prototype.drawClipContent;
 
-EditorApp.prototype.drawClipContent = function(ctx, clip, track, w, h) {
+window.EditorApp.prototype.drawClipContent = function(ctx, clip, track, w, h) {
     if (clip.gridGallery && clip.gridGallery.enabled) {
         this.drawGridScene(ctx, clip, w, h);
     } else {
@@ -586,7 +587,7 @@ EditorApp.prototype.drawClipContent = function(ctx, clip, track, w, h) {
     }
 };
 
-EditorApp.prototype.drawGridScene = function(ctx, clip, w, h) {
+window.EditorApp.prototype.drawGridScene = function(ctx, clip, w, h) {
     const g = clip.gridGallery;
     
     const rawContentList = [];

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 🌟 Project 43 Ultra Features Module
  * 🚀 PERFORMANCE SUPER-CHARGE:
@@ -11,7 +12,7 @@
 // 1. AI Initialization & Predictive Caching
 // =========================================================
 
-EditorApp.prototype.initAIModel = async function() {
+window.EditorApp.prototype.initAIModel = async function() {
     if (this.aiWorker) return true;
 
     const loadingEl = document.getElementById('ai-loading');
@@ -69,7 +70,7 @@ EditorApp.prototype.initAIModel = async function() {
     }
 };
 
-EditorApp.prototype.handleWorkerResults = function(maskBitmap, resultTimestamp, isPrediction, clipId) {
+window.EditorApp.prototype.handleWorkerResults = function(maskBitmap, resultTimestamp, isPrediction, clipId) {
     // OPTIMIZATION: Quantize timestamp to bucket key (matches throttling logic)
     const rawFrame = Math.floor(resultTimestamp * 30);
     const bucketFrame = Math.floor(rawFrame / this.AI_THROTTLE_RATE) * this.AI_THROTTLE_RATE;
@@ -109,7 +110,7 @@ EditorApp.prototype.handleWorkerResults = function(maskBitmap, resultTimestamp, 
 
 // --- Predictive Lookahead Logic ---
 
-EditorApp.prototype.startPredictiveCaching = function() {
+window.EditorApp.prototype.startPredictiveCaching = function() {
     if (!this.isAIReady || this.isPlaying || this.isPredicting || this.isWorkerBusy) return;
     
     const activeAiClip = this.findActiveAiClip();
@@ -126,11 +127,11 @@ EditorApp.prototype.startPredictiveCaching = function() {
     this.continuePredictionLoop();
 };
 
-EditorApp.prototype.stopPredictiveCaching = function() {
+window.EditorApp.prototype.stopPredictiveCaching = function() {
     this.isPredicting = false;
 };
 
-EditorApp.prototype.continuePredictionLoop = function() {
+window.EditorApp.prototype.continuePredictionLoop = function() {
     if (!this.isPredicting || this.isPlaying || this.isWorkerBusy) return;
 
     // OPTIMIZATION: Jump by THROTTLE_RATE frames instead of 1
@@ -173,7 +174,7 @@ EditorApp.prototype.continuePredictionLoop = function() {
     this.shadowVideo.addEventListener('seeked', onSeeked, { once: true });
 };
 
-EditorApp.prototype.findActiveAiClip = function() {
+window.EditorApp.prototype.findActiveAiClip = function() {
     for (const track of this.tracks) {
         const clips = track.getClipsAtTime(this.currentTime);
         for (const clip of clips) {
@@ -187,7 +188,7 @@ EditorApp.prototype.findActiveAiClip = function() {
 // 2. Full WebGL Compositing Pipeline (Centered Geometry)
 // =========================================================
 
-EditorApp.prototype.initWebGL = function() {
+window.EditorApp.prototype.initWebGL = function() {
     this.glCanvas = document.createElement('canvas');
     this.glCanvas.width = 1920; 
     this.glCanvas.height = 1080;
@@ -324,7 +325,7 @@ EditorApp.prototype.initWebGL = function() {
     this.staticTextureCache = new Map();
 };
 
-EditorApp.prototype.setupTexture = function(tex) {
+window.EditorApp.prototype.setupTexture = function(tex) {
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -335,7 +336,7 @@ EditorApp.prototype.setupTexture = function(tex) {
 };
 
 // 🔥 NEW: Helper to resize huge images to 1080p for Preview Texture (Speed up)
-EditorApp.prototype.getOrUpdateImageTexture = function(gl, clip, sourceEl) {
+window.EditorApp.prototype.getOrUpdateImageTexture = function(gl, clip, sourceEl) {
     if (this.staticTextureCache.has(clip.src)) {
         return this.staticTextureCache.get(clip.src);
     }
@@ -371,7 +372,7 @@ EditorApp.prototype.getOrUpdateImageTexture = function(gl, clip, sourceEl) {
     return tex;
 };
 
-EditorApp.prototype.getSourceElement = function(clip) {
+window.EditorApp.prototype.getSourceElement = function(clip) {
     if (clip.type === 'video') {
         const key = `visual_${clip.src}`;
         if (!this.players) return null;
@@ -389,7 +390,7 @@ EditorApp.prototype.getSourceElement = function(clip) {
     return null;
 };
 
-EditorApp.prototype.renderWebGLComposition = function(visibleClips, w, h) {
+window.EditorApp.prototype.renderWebGLComposition = function(visibleClips, w, h) {
     if (!this.gl) return;
     const gl = this.gl;
 
@@ -444,7 +445,7 @@ EditorApp.prototype.renderWebGLComposition = function(visibleClips, w, h) {
     return this.glCanvas;
 };
 
-EditorApp.prototype.drawLayerInWebGL = function(gl, clip, sourceEl, canvasW, canvasH) {
+window.EditorApp.prototype.drawLayerInWebGL = function(gl, clip, sourceEl, canvasW, canvasH) {
     gl.activeTexture(gl.TEXTURE0);
 
     // 🔥 OPTIMIZED TEXTURE BINDING
@@ -546,7 +547,7 @@ EditorApp.prototype.drawLayerInWebGL = function(gl, clip, sourceEl, canvasW, can
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 };
 
-EditorApp.prototype.bindQuadAttributes = function(gl) {
+window.EditorApp.prototype.bindQuadAttributes = function(gl) {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.glInfo.buffers.position);
     gl.enableVertexAttribArray(this.glInfo.attribs.position);
     gl.vertexAttribPointer(this.glInfo.attribs.position, 2, gl.FLOAT, false, 0, 0);
@@ -557,8 +558,8 @@ EditorApp.prototype.bindQuadAttributes = function(gl) {
 };
 
 // UI Helpers (Toggle AI, etc)
-const prevUpdateEffectControls = EditorApp.prototype.updateEffectControls;
-EditorApp.prototype.updateEffectControls = function() {
+const prevUpdateEffectControls = window.EditorApp.prototype.updateEffectControls;
+window.EditorApp.prototype.updateEffectControls = function() {
     if(prevUpdateEffectControls) prevUpdateEffectControls.call(this);
     const panel = document.getElementById('effect-controls-content');
     if (!panel || this.selectedClipIds.size !== 1) return;
@@ -610,7 +611,7 @@ EditorApp.prototype.updateEffectControls = function() {
     panel.insertAdjacentHTML('beforeend', ultraHTML);
 };
 
-EditorApp.prototype.toggleAI = async function(clipId, enabled) {
+window.EditorApp.prototype.toggleAI = async function(clipId, enabled) {
     const clip = this.findClipById(clipId);
     if (!clip) return;
     clip.aiSegmentation.enabled = enabled;
@@ -627,7 +628,7 @@ EditorApp.prototype.toggleAI = async function(clipId, enabled) {
     this.requestRedraw();
 };
 
-EditorApp.prototype.updateUltraProp = function(clipId, objName, prop, value) {
+window.EditorApp.prototype.updateUltraProp = function(clipId, objName, prop, value) {
     const clip = this.findClipById(clipId);
     if(!clip) return;
     

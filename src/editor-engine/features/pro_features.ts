@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 🚀 Project 43 Pro Features Module
  * ✨ UI UPDATE: Handles Smart Sandwich Mode logic with Animation & Layer Awareness.
@@ -15,7 +16,7 @@ function forceHex(value) {
 }
 
 // 🔥 NEW: Check if Sandwich Mode should be active based on timeline context
-EditorApp.prototype.isSandwichContextActive = function(clip) {
+window.EditorApp.prototype.isSandwichContextActive = function(clip) {
     if (!this.tracks || !clip) return false;
     
     // 1. Get current track index
@@ -207,7 +208,7 @@ function ensureProProperties(clip) {
     }
 }
 
-EditorApp.prototype.calculateClipProperties = function(clip) {
+window.EditorApp.prototype.calculateClipProperties = function(clip) {
     ensureProProperties(clip); 
     const timeInClip = this.currentTime - clip.start;
     if (clip.getPropertyValue) {
@@ -224,7 +225,7 @@ EditorApp.prototype.calculateClipProperties = function(clip) {
 };
 
 // 🔥 UPDATED: Apply Non-Uniform Scaling in rendering
-EditorApp.prototype.applyClipTransforms = function(ctx, clip, w, h) {
+window.EditorApp.prototype.applyClipTransforms = function(ctx, clip, w, h) {
     const timeInClip = this.currentTime - clip.start;
     const timeRemaining = clip.end - this.currentTime;
     
@@ -264,7 +265,7 @@ EditorApp.prototype.applyClipTransforms = function(ctx, clip, w, h) {
     }
 };
 
-EditorApp.prototype.applyTransitionEffect = function(ctx, type, progress, w, h, mode) {
+window.EditorApp.prototype.applyTransitionEffect = function(ctx, type, progress, w, h, mode) {
     if (type === 'none') return;
     if (type === 'fade') ctx.globalAlpha *= progress;
     else if (type === 'slideLeft') ctx.translate((1 - progress) * w, 0);
@@ -283,7 +284,7 @@ EditorApp.prototype.applyTransitionEffect = function(ctx, type, progress, w, h, 
     }
 };
 
-EditorApp.prototype.drawAdvancedText = function(ctx, clip, w, h) {
+window.EditorApp.prototype.drawAdvancedText = function(ctx, clip, w, h) {
     const style = clip.textStyle || {};
     const text = clip.src || "Text";
     const centerX = w / 2; const centerY = h / 2;
@@ -349,7 +350,7 @@ EditorApp.prototype.drawAdvancedText = function(ctx, clip, w, h) {
     ctx.restore();
 };
 
-EditorApp.prototype.updateSandwichLimits = function(newScale) {
+window.EditorApp.prototype.updateSandwichLimits = function(newScale) {
     if (this.selectedClipIds.size !== 1) return;
     const clipId = Array.from(this.selectedClipIds)[0];
     const clip = this.findClipById(clipId);
@@ -395,7 +396,7 @@ EditorApp.prototype.updateSandwichLimits = function(newScale) {
 };
 
 // 🔥🔥 UI CONTROLLER UPDATED
-EditorApp.prototype.updateEffectControls = function() {
+window.EditorApp.prototype.updateEffectControls = function() {
     const panel = document.getElementById('effect-controls-content');
     if (!panel) return;
     if (this.selectedClipIds.size !== 1) {
@@ -560,7 +561,7 @@ EditorApp.prototype.updateEffectControls = function() {
     }
 };
 
-EditorApp.prototype.updateProProperty = function(clipId, objName, prop, value) {
+window.EditorApp.prototype.updateProProperty = function(clipId, objName, prop, value) {
     const clip = this.findClipById(clipId);
     if(clip) {
         ensureProProperties(clip);
@@ -578,7 +579,7 @@ EditorApp.prototype.updateProProperty = function(clipId, objName, prop, value) {
     }
 };
 
-EditorApp.prototype.updateClipSource = function(clipId, newText) {
+window.EditorApp.prototype.updateClipSource = function(clipId, newText) {
     const clip = this.findClipById(clipId);
     if (clip && clip.type === 'text') {
         clip.src = newText;
@@ -586,7 +587,7 @@ EditorApp.prototype.updateClipSource = function(clipId, newText) {
     }
 };
 
-EditorApp.prototype.addKeyframeUI = function(clipId, prop) {
+window.EditorApp.prototype.addKeyframeUI = function(clipId, prop) {
     const clip = this.findClipById(clipId);
     if (!clip) return;
     ensureProProperties(clip);
@@ -597,7 +598,7 @@ EditorApp.prototype.addKeyframeUI = function(clipId, prop) {
     this.requestRedraw();
 };
 
-EditorApp.prototype.applyAttributesToAll = function(sourceClipId, mode) {
+window.EditorApp.prototype.applyAttributesToAll = function(sourceClipId, mode) {
     const sourceClip = this.findClipById(sourceClipId);
     if (!sourceClip) return;
     const track = this.tracks.find(t => t.id === sourceClip.trackId);
@@ -640,7 +641,7 @@ EditorApp.prototype.applyAttributesToAll = function(sourceClipId, mode) {
     this.requestRedraw();
 };
 
-EditorApp.prototype.exportToMP4 = async function() {
+window.EditorApp.prototype.exportToMP4 = async function() {
     const btn = document.getElementById('export-mp4-btn');
     const isSecure = typeof SharedArrayBuffer !== 'undefined';
     if (!isSecure) {
@@ -676,7 +677,7 @@ EditorApp.prototype.exportToMP4 = async function() {
     }
 };
 
-EditorApp.prototype.startCanvasRecording = function(ffmpeg) {
+window.EditorApp.prototype.startCanvasRecording = function(ffmpeg) {
     this.pausePlayback();
     this.seek(0);
     this.currentTime = 0; 
@@ -743,7 +744,7 @@ EditorApp.prototype.startCanvasRecording = function(ffmpeg) {
     recordLoop();
 };
 
-EditorApp.prototype.downloadBlob = function(blob, filename) {
+window.EditorApp.prototype.downloadBlob = function(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

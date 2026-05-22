@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * 🎬 Advanced Playback Engine (video_preview.js)
  * ✨ UPDATES: 
@@ -9,10 +10,10 @@
  * 🔥 FIX: Removed dependency on "43.mp4". Now waits for user upload to set dimensions.
  */
 
-EditorApp.prototype.TRACK_HEADER_WIDTH_PREVIEW = 140;
-EditorApp.prototype.FPS = 30;
+window.EditorApp.prototype.TRACK_HEADER_WIDTH_PREVIEW = 140;
+window.EditorApp.prototype.FPS = 30;
 
-EditorApp.prototype.setupVideoSync = function() {
+window.EditorApp.prototype.setupVideoSync = function() {
     this.canvas = document.getElementById('preview-canvas');
     if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d', { alpha: false }); 
@@ -76,7 +77,7 @@ EditorApp.prototype.setupVideoSync = function() {
     this.bindKeyboardShortcuts(); 
 };
 
-EditorApp.prototype.getImageFromCache = function(src) {
+window.EditorApp.prototype.getImageFromCache = function(src) {
     if (this.imgCache.has(src)) return this.imgCache.get(src);
     const img = new Image(); img.src = src; img.crossOrigin = "Anonymous"; 
     img.onload = () => this.requestRedraw();
@@ -84,13 +85,13 @@ EditorApp.prototype.getImageFromCache = function(src) {
 };
 
 // Playback Logic
-EditorApp.prototype.togglePlay = function() { 
+window.EditorApp.prototype.togglePlay = function() { 
     if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
     if (this.playbackRate !== 0) this.pausePlayback(); 
     else this.startPlayback(); 
 };
 
-EditorApp.prototype.startPlayback = function() {
+window.EditorApp.prototype.startPlayback = function() {
     this.playbackRate = 1; 
     this.isPlaying = true; 
     
@@ -107,7 +108,7 @@ EditorApp.prototype.startPlayback = function() {
     this.requestRedraw();
 };
 
-EditorApp.prototype.pausePlayback = function() {
+window.EditorApp.prototype.pausePlayback = function() {
     this.playbackRate = 0; 
     this.isPlaying = false;
     this.players.forEach(p => p.pause()); 
@@ -122,12 +123,12 @@ EditorApp.prototype.pausePlayback = function() {
     }
 };
 
-EditorApp.prototype.updatePlayStateUI = function() {
+window.EditorApp.prototype.updatePlayStateUI = function() {
     const btn = document.getElementById('play-pause-btn'); if (!btn) return;
     btn.innerHTML = this.playbackRate === 0 ? '<i class="fa-solid fa-play ml-0.5 text-sm"></i>' : '<i class="fa-solid fa-pause text-sm"></i>';
 };
 
-EditorApp.prototype.handleJKL = function(key) {
+window.EditorApp.prototype.handleJKL = function(key) {
     const overlay = document.getElementById('jkl-overlay'); let msg = "";
     if (key === 'k') { this.pausePlayback(); msg = "⏸️ Pause"; } 
     else if (key === 'l') {
@@ -148,7 +149,7 @@ EditorApp.prototype.handleJKL = function(key) {
     this.requestRedraw();
 };
 
-EditorApp.prototype.bindKeyboardShortcuts = function() {
+window.EditorApp.prototype.bindKeyboardShortcuts = function() {
     document.addEventListener('keydown', (e) => {
         // Ignore if typing in input fields
         if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -163,7 +164,7 @@ EditorApp.prototype.bindKeyboardShortcuts = function() {
     });
 };
 
-EditorApp.prototype.playbackLoop = function(now) {
+window.EditorApp.prototype.playbackLoop = function(now) {
     if (!this.lastTick) this.lastTick = now;
     this.lastTick = now;
 
@@ -199,7 +200,7 @@ EditorApp.prototype.playbackLoop = function(now) {
 };
 
 // Canvas Interaction
-EditorApp.prototype.setupCanvasInteraction = function() {
+window.EditorApp.prototype.setupCanvasInteraction = function() {
     this.isDragging = false; let mode = 'none'; let startX = 0, startY = 0;
     let initialProps = {}; let activeClip = null; 
 
@@ -247,7 +248,7 @@ EditorApp.prototype.setupCanvasInteraction = function() {
     });
 };
 
-EditorApp.prototype.hitTest = function(x, y) {
+window.EditorApp.prototype.hitTest = function(x, y) {
     const w = this.canvas.width; const h = this.canvas.height;
     const centerX = w / 2; const centerY = h / 2;
     const visibleTracks = this.tracks.filter(t => (t.type === 'video' || t.type === 'main' || t.type === 'overlay' || t.type === 'subtitle') && !t.isMuted && (!this.anySolo || t.isSolo));
@@ -267,19 +268,19 @@ EditorApp.prototype.hitTest = function(x, y) {
     return null;
 };
 
-EditorApp.prototype.getCanvasCoordinates = function(e) {
+window.EditorApp.prototype.getCanvasCoordinates = function(e) {
     const rect = this.canvas.getBoundingClientRect();
     return { x: (e.clientX - rect.left) * (this.canvas.width / rect.width), y: (e.clientY - rect.top) * (this.canvas.height / rect.height) };
 };
 
-EditorApp.prototype.findClipById = function(id) {
+window.EditorApp.prototype.findClipById = function(id) {
     let result = null; this.tracks.some(t => { result = t.clips.find(c => c.id === id); return result; }); return result;
 };
 
-EditorApp.prototype.checkResizeHandles = function(x, y, clip) { return null; };
+window.EditorApp.prototype.checkResizeHandles = function(x, y, clip) { return null; };
 
 // 🔥 FULL PIPELINE RENDERER (Updated)
-EditorApp.prototype.renderFrameToCanvas = function() {
+window.EditorApp.prototype.renderFrameToCanvas = function() {
     const ctx = this.ctx; 
     const w = this.canvas.width; 
     const h = this.canvas.height;
@@ -325,7 +326,7 @@ EditorApp.prototype.renderFrameToCanvas = function() {
     this.drawUIOverlays(ctx, w, h);
 };
 
-EditorApp.prototype.drawUIOverlays = function(ctx, w, h) {
+window.EditorApp.prototype.drawUIOverlays = function(ctx, w, h) {
     // Helper to find visible clips for UI hit testing
     const visibleTracks = this.tracks.filter(t => !t.isMuted && (!this.anySolo || t.isSolo));
     
@@ -342,7 +343,7 @@ EditorApp.prototype.drawUIOverlays = function(ctx, w, h) {
     }
 };
 
-EditorApp.prototype.drawBoundingBox = function(ctx, clip, track, w, h, color, isDashed) {
+window.EditorApp.prototype.drawBoundingBox = function(ctx, clip, track, w, h, color, isDashed) {
     const centerX = w / 2; const centerY = h / 2;
     let posX = clip.properties.positionX || 0; let posY = clip.properties.positionY || 0;
     let rot = clip.properties.rotation || 0; 
@@ -401,13 +402,13 @@ EditorApp.prototype.drawBoundingBox = function(ctx, clip, track, w, h, color, is
     ctx.restore();
 };
 
-EditorApp.prototype.seekFrame = function(frames) { const fd = 1/this.FPS; this.currentTime = Math.max(0, Math.min(this.currentTime + (frames*fd), this.duration)); this.seek(0); };
-EditorApp.prototype.seekToStart = function() { this.currentTime = 0; this.seek(0); };
-EditorApp.prototype.seekToEnd = function() { this.currentTime = this.duration; this.seek(0); };
-EditorApp.prototype.framesToTimecode = function(s) { const f=Math.floor(s*this.FPS)%this.FPS, ts=Math.floor(s), ss=ts%60, mm=Math.floor(ts/60)%60, hh=Math.floor(ts/3600); const p=n=>n.toString().padStart(2,'0'); return `${p(hh)};${p(mm)};${p(ss)};${p(f)}`; };
-EditorApp.prototype.manualTimeUpdate = function(str) { const p=str.split(';'); if(p.length!==4)return; const s=(parseInt(p[0])*3600)+(parseInt(p[1])*60)+parseInt(p[2])+(parseInt(p[3])/this.FPS); this.currentTime=Math.max(0,Math.min(s,this.duration)); this.seek(0); };
+window.EditorApp.prototype.seekFrame = function(frames) { const fd = 1/this.FPS; this.currentTime = Math.max(0, Math.min(this.currentTime + (frames*fd), this.duration)); this.seek(0); };
+window.EditorApp.prototype.seekToStart = function() { this.currentTime = 0; this.seek(0); };
+window.EditorApp.prototype.seekToEnd = function() { this.currentTime = this.duration; this.seek(0); };
+window.EditorApp.prototype.framesToTimecode = function(s) { const f=Math.floor(s*this.FPS)%this.FPS, ts=Math.floor(s), ss=ts%60, mm=Math.floor(ts/60)%60, hh=Math.floor(ts/3600); const p=n=>n.toString().padStart(2,'0'); return `${p(hh)};${p(mm)};${p(ss)};${p(f)}`; };
+window.EditorApp.prototype.manualTimeUpdate = function(str) { const p=str.split(';'); if(p.length!==4)return; const s=(parseInt(p[0])*3600)+(parseInt(p[1])*60)+parseInt(p[2])+(parseInt(p[3])/this.FPS); this.currentTime=Math.max(0,Math.min(s,this.duration)); this.seek(0); };
 
-EditorApp.prototype.managePlayers = function() {
+window.EditorApp.prototype.managePlayers = function() {
     this.anySolo = this.tracks.some(t => t.isSolo); const reqs = new Map(); 
     this.tracks.forEach(track => {
         const clips = track.getClipsAtTime(this.currentTime); if(clips.length>0) {
@@ -433,7 +434,7 @@ EditorApp.prototype.managePlayers = function() {
     avail.forEach(p => { if(p.getAttribute('data-key')) { p.removeAttribute('data-key'); p.removeAttribute('data-type'); p.pause(); p.muted = true; } });
 };
 
-EditorApp.prototype.seek = function(d) { 
+window.EditorApp.prototype.seek = function(d) { 
     this.currentTime = Math.max(0, Math.min(this.currentTime + d, this.duration)); 
     if (this.isPlaying && this.playbackRate === 1) {
         this.playbackStartTime = this.audioCtx.currentTime - this.currentTime;
@@ -444,16 +445,16 @@ EditorApp.prototype.seek = function(d) {
     this.requestRedraw(); 
 };
 
-EditorApp.prototype.syncOverlays = function() { this.managePlayers(); this.renderFrameToCanvas(); this.requestRedraw(); }; 
+window.EditorApp.prototype.syncOverlays = function() { this.managePlayers(); this.renderFrameToCanvas(); this.requestRedraw(); }; 
 
-EditorApp.prototype.updatePlayheadPosition = function() {
+window.EditorApp.prototype.updatePlayheadPosition = function() {
     if (!this.playhead) return; const pos = (this.currentTime * this.pixelsPerSecond) + this.TRACK_HEADER_WIDTH_PREVIEW;
     this.playhead.style.left = `${pos}px`;
     const ti = document.getElementById('time-display'); if (ti && document.activeElement !== ti) ti.value = this.framesToTimecode(this.currentTime);
     if (this.isPlaying && !this.isScrubbing) { const vw = this.timelineScrollArea.clientWidth, sl = this.timelineScrollArea.scrollLeft; if (pos > sl + vw - 50) this.timelineScrollArea.scrollLeft = pos - this.TRACK_HEADER_WIDTH_PREVIEW - 100; }
 };
 
-EditorApp.prototype.setupPlayheadScrubbing = function() {
+window.EditorApp.prototype.setupPlayheadScrubbing = function() {
     if (!this.playhead) return;
     
     if (this.timelineContent) {
