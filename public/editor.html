@@ -1,0 +1,1087 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Video Automator | 43 Project Ultra AI</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- FFmpeg WASM -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.10.0/dist/ffmpeg.min.js"></script>
+
+    <script>
+        if (typeof tailwind !== 'undefined') {
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        fontFamily: { 
+                            cairo: ['Cairo', 'sans-serif'],
+                            mono: ['Fira Code', 'monospace']
+                        },
+                        colors: {
+                            primary: '#6366f1',
+                            secondary: '#1e293b',
+                            accent: '#10b981',
+                            terminal: '#0f172a',
+                        },
+                        cursor: {
+                            'row-resize': 'row-resize',
+                            'col-resize': 'col-resize',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/editor.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <!-- Styles moved to css/editor.css -->
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col overflow-hidden">
+
+    <!-- Loading Screen (shown while reading video from IndexedDB) -->
+    <div id="editor-loading" class="fixed inset-0 z-[10000] bg-gray-900 flex flex-col items-center justify-center gap-4">
+        <div style="width:52px;height:52px;border:3px solid rgba(99,102,241,0.2);border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+        <p class="text-indigo-300 font-bold text-base font-cairo">╪¼╪º╪▒┘ì ╪¬╪¡┘à┘è┘ä ╪º┘ä┘à╪┤╪▒┘ê╪╣...</p>
+        <p class="text-gray-500 text-xs" id="loading-status">┘è╪¬┘à ┘é╪▒╪º╪í╪⌐ ┘à┘ä┘ü ╪º┘ä┘ü┘è╪»┘è┘ê</p>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-gray-800 border-b border-gray-700 py-2 shadow-lg z-50 flex-shrink-0 h-12">
+        <div class="container mx-auto px-4 flex justify-between items-center h-full">
+            <div class="flex items-center gap-3">
+                <!-- ≡ƒöÑ ╪▓╪▒ ╪º┘ä╪╡┘ü╪¡╪⌐ ╪º┘ä╪▒╪ª┘è╪│┘è╪⌐ -->
+                <a href="index.html" class="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white px-2 py-1 rounded text-xs transition-all border border-gray-600 hover:border-indigo-500/50" title="╪º┘ä╪╡┘ü╪¡╪⌐ ╪º┘ä╪▒╪ª┘è╪│┘è╪⌐">
+                    <i class="fa-solid fa-house text-indigo-400"></i>
+                    <span class="hidden sm:inline">╪º┘ä╪▒╪ª┘è╪│┘è╪⌐</span>
+                </a>
+                <div class="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded flex items-center justify-center glow animate-pulse">
+                    <i class="fa-solid fa-brain text-lg text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-sm font-bold tracking-wide font-cairo">Project 43 <span class="bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-[10px] rounded px-1 ml-1">AI ULTRA</span></h1>
+                </div>
+            </div>
+            <div class="flex gap-3 items-center">
+                <!-- ≡ƒöÑ Toggle CMD Button -->
+                <button onclick="app.toggleCommandConsole()" class="bg-gray-900 hover:bg-gray-700 text-green-400 px-3 py-1 rounded text-xs font-mono font-bold flex items-center gap-2 transition-all border border-green-500/30" title="Toggle Command Center">
+                    <i class="fa-solid fa-terminal"></i> CMD
+                </button>
+
+                <!-- ≡ƒöÑ NEW: Plan Toggle Button + Hidden Upload -->
+                <div class="relative group">
+                    <button onclick="window.geminiPlan.showLastPlan()" class="bg-purple-900 hover:bg-purple-800 text-purple-100 px-3 py-1 rounded text-xs font-bold flex items-center gap-2 transition-all border border-purple-500/30" title="Show/Hide Plan">
+                        <i class="fa-solid fa-clipboard-list"></i> ╪º┘ä╪«╪╖╪⌐
+                    </button>
+                    <!-- Small Upload trigger for Plan -->
+                    <button onclick="document.getElementById('header-plan-upload').click()" class="absolute -bottom-6 right-0 text-[9px] text-gray-500 hover:text-purple-400" title="╪▒┘ü╪╣ ╪«╪╖╪⌐">
+                        <i class="fa-solid fa-upload"></i>
+                    </button>
+                    <input type="file" id="header-plan-upload" accept=".json" class="hidden" onchange="window.geminiPlan.handlePlanUpload(this)">
+                </div>
+
+                <!-- ≡ƒöÑ NEW: SRT Splitter Button (Header) -->
+                <button onclick="openSrtSplitter()" class="bg-teal-700 hover:bg-teal-600 text-teal-100 px-3 py-1 rounded text-xs font-bold flex items-center gap-2 transition-all border border-teal-500/30 shadow-lg shadow-teal-900/20" title="Split long subtitles">
+                    <i class="fa-solid fa-scissors"></i> SRT Splitter
+                </button>
+
+                <button onclick="app.exportToMP4()" id="export-mp4-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs font-bold flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-film"></i> ╪¬╪╡╪»┘è╪▒ MP4
+                </button>
+                <button onclick="app.downloadXML()" class="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-1 rounded text-xs font-bold flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-file-code"></i> XML
+                </button>
+
+                <!-- ≡ƒöÑ User Avatar (┘à┘å ╪¿┘è╪º┘å╪º╪¬ ╪¬╪│╪¼┘è┘ä ╪º┘ä╪»╪«┘ê┘ä) -->
+                <a href="index.html" id="header-user-avatar" title="╪¡╪│╪º╪¿┘è" class="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center overflow-hidden border border-indigo-500/40 hover:border-indigo-400 transition-all flex-shrink-0 cursor-pointer" style="text-decoration:none;">
+                    <i class="fa-solid fa-user text-white text-[10px]"></i>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-grow flex flex-col h-[calc(100vh-48px)] overflow-hidden">
+        <!-- TOP SECTION -->
+        <div id="top-panel" class="flex flex-row border-b border-gray-700 bg-gray-900/95 relative z-10 overflow-hidden" style="height: 55%;">
+            
+            <!-- RIGHT: Player -->
+            <div class="flex-grow p-4 flex flex-col items-center justify-center bg-black/50 relative overflow-hidden border-l border-gray-700">
+                <div id="video-wrapper" class="relative bg-black rounded shadow-2xl border border-gray-700 overflow-hidden group flex items-center justify-center box-content" style="aspect-ratio: 16/9; height: auto; max-height: 90%; width: 100%; border: 1px solid #4b5563;">
+                    <canvas id="preview-canvas" width="1920" height="1080" class="w-full h-full object-contain z-10 cursor-default"></canvas>
+                    
+                    <div id="jkl-overlay" class="absolute top-4 right-4 text-2xl font-bold text-white drop-shadow-md opacity-0 transition-opacity duration-300 pointer-events-none"></div>
+
+                    <div id="ai-loading" class="absolute inset-0 bg-black/80 z-20 flex flex-col items-center justify-center hidden">
+                        <i class="fa-solid fa-circle-notch fa-spin text-4xl text-cyan-400 mb-2"></i>
+                        <span class="text-xs font-mono text-cyan-200">Loading AI Model...</span>
+                    </div>
+
+                    <div style="position: absolute; top: -9999px; left: -9999px; opacity: 0; pointer-events: none;">
+                        <video id="source-video-a" playsinline crossorigin="anonymous"></video>
+                        <video id="source-video-b" playsinline crossorigin="anonymous"></video>
+                        <video id="source-video-c" playsinline crossorigin="anonymous"></video>
+                        <video id="source-video-d" playsinline crossorigin="anonymous"></video>
+                        <video id="source-video-e" playsinline crossorigin="anonymous"></video>
+                        <video id="source-video-f" playsinline crossorigin="anonymous"></video>
+                        <div id="img-cache"></div>
+                    </div>
+                </div>
+
+                <!-- Playback Controls -->
+                <div dir="ltr" class="mt-2 flex items-center justify-between gap-4 text-gray-300 bg-gray-800 px-6 py-2 rounded-full border border-gray-700 shadow-lg scale-90 origin-bottom w-auto min-w-[400px]">
+                    <input type="text" id="time-display" value="00;00;00;00" 
+                        class="bg-gray-900 border border-gray-600 rounded px-2 py-1 font-mono text-sm text-yellow-400 w-28 text-center focus:outline-none focus:border-primary"
+                        onchange="app.manualTimeUpdate(this.value)">
+
+                    <div class="flex items-center gap-3 text-lg">
+                        <button onclick="app.seekToStart()" class="hover:text-white transition-colors" title="Home"><i class="fa-solid fa-backward-fast"></i></button>
+                        <button onclick="app.handleJKL('j')" class="hover:text-white transition-colors" title="Reverse (J)"><i class="fa-solid fa-backward"></i></button>
+                        <button id="play-pause-btn" onclick="app.togglePlay()" class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center hover:bg-indigo-500 transition-all shadow-lg hover:scale-110" title="Play/Pause (Space/K)">
+                            <i class="fa-solid fa-play ml-0.5 text-sm"></i>
+                        </button>
+                        <button onclick="app.handleJKL('l')" class="hover:text-white transition-colors" title="Forward (L)"><i class="fa-solid fa-forward"></i></button>
+                        <button onclick="app.seekToEnd()" class="hover:text-white transition-colors" title="End"><i class="fa-solid fa-forward-fast"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Effect Controls -->
+            <div id="tools-panel" class="w-80 bg-gray-800 flex flex-col flex-shrink-0 border-r border-gray-700">
+                <div class="p-2 bg-gray-700 font-bold text-[11px] text-gray-300 flex justify-between items-center shadow-md">
+                      <span><i class="fa-solid fa-sliders text-accent"></i> Effect Controls</span>
+                </div>
+                <div class="flex-grow flex flex-col overflow-hidden">
+                    <div id="effect-controls-panel" class="p-3 bg-gray-800 overflow-y-auto custom-scrollbar flex-shrink-0 h-full">
+                        <div id="effect-controls-content">
+                            <div class="text-gray-600 text-center py-10 text-xs">No Clip Selected</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="drag-handle-y" class="h-1 bg-gray-900 border-t border-b border-gray-700 cursor-row-resize hover:bg-primary transition-colors flex items-center justify-center z-50"></div>
+
+        <!-- BOTTOM SECTION -->
+        <div id="bottom-panel" class="flex-1 flex flex-row overflow-hidden bg-gray-900 min-h-[150px]">
+            <!-- Timeline Panel -->
+            <div id="timeline-panel" class="flex-grow flex flex-col relative shadow-inner overflow-hidden">
+                <div id="timeline-header" class="h-10 bg-gray-800 border-b border-gray-700 flex items-center px-2 gap-2 text-xs select-none justify-between">
+                    <div class="flex items-center gap-1">
+                        <div class="flex bg-gray-900 rounded border border-gray-700 mr-2">
+                            <button onclick="app.undo()" class="toolbar-btn" title="Undo"><i class="fa-solid fa-rotate-left text-yellow-500"></i></button>
+                            <button onclick="app.redo()" class="toolbar-btn border-r border-gray-700" title="Redo"><i class="fa-solid fa-rotate-right text-blue-500"></i></button>
+                        </div>
+                        <div class="flex bg-gray-900 rounded border border-gray-700 mr-2">
+                            <button onclick="app.setTool('select')" id="tool-select" class="toolbar-btn active" title="Selection (V)"><i class="fa-solid fa-arrow-pointer"></i></button>
+                            <button onclick="app.setTool('cut')" id="tool-cut" class="toolbar-btn border-r border-gray-700" title="Razor (C)"><i class="fa-solid fa-cut"></i></button>
+                            <button class="toolbar-btn border-r border-gray-700" title="Slip Tool (Y)"><i class="fa-solid fa-arrows-left-right-to-line"></i></button>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="app.addTextClip()" class="toolbar-btn bg-gray-700 hover:bg-gray-600 rounded text-yellow-400" title="Add Text"><i class="fa-solid fa-font"></i></button>
+                            <button onclick="app.rippleDelete()" class="toolbar-btn bg-gray-700 hover:bg-gray-600 rounded text-red-400" title="Ripple Delete"><i class="fa-solid fa-link-slash"></i></button>
+                            <button onclick="app.deleteSelectedClip()" class="toolbar-btn bg-gray-700 hover:bg-gray-600 rounded text-red-300" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 border-l border-r border-gray-700 px-2">
+                         <button onclick="app.addNewTrack('video')" class="toolbar-btn text-purple-400" title="Add Video Track"><i class="fa-solid fa-video"></i>+</button>
+                         <button onclick="app.addNewTrack('audio')" class="toolbar-btn text-green-400" title="Add Audio Track"><i class="fa-solid fa-music"></i>+</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="app.zoom(-1)" class="w-5 h-5 bg-gray-700 rounded flex items-center justify-center hover:bg-gray-600 text-[10px]"><i class="fa-solid fa-minus"></i></button>
+                        <span class="text-gray-400 w-16 text-center text-[10px]" id="zoom-level">Zoom: 100%</span>
+                        <button onclick="app.zoom(1)" class="w-5 h-5 bg-gray-700 rounded flex items-center justify-center hover:bg-gray-600 text-[10px]"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                </div>
+
+                <div class="flex-grow relative overflow-y-auto overflow-x-auto timeline-container custom-scrollbar" id="timeline-scroll-area" dir="ltr">
+                    <div class="relative min-h-full" id="timeline-content" style="width: 2000px;">
+                        <div id="playhead" class="playhead-marker h-full" style="left: 0px;">
+                            <div class="playhead-head"></div>
+                            <div class="playhead-line"></div>
+                        </div>
+                        <div class="time-ruler w-full flex items-end sticky top-0 z-30" id="timeline-ruler"></div>
+                        <div class="relative w-full min-h-full bg-gray-900 pt-2 pb-10" id="tracks-container"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="drag-handle-x" class="w-1 bg-gray-900 border-l border-r border-gray-700 cursor-col-resize hover:bg-primary transition-colors z-50"></div>
+            
+            <!-- Assets Panel -->
+            <div id="assets-panel" class="w-80 bg-gray-800 flex flex-col border-r border-gray-700 flex-shrink-0">
+                <div class="p-2 bg-gray-700 font-bold text-[11px] text-gray-300 flex justify-between items-center shadow-md">
+                    <span><i class="fa-solid fa-photo-film text-yellow-400"></i> ╪º┘ä┘à┘â╪¬╪¿╪⌐ (Assets)</span>
+                    <input type="file" id="file-upload" class="hidden" multiple accept="image/*,video/*">
+                    <button onclick="document.getElementById('file-upload').click()" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-0.5 rounded text-[10px]"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <div id="assets-grid" class="flex-grow p-2 overflow-y-auto custom-scrollbar grid grid-cols-2 gap-2 content-start"></div>
+                <div class="bg-terminal p-1 rounded-none text-[9px] font-mono text-green-400 border-t border-gray-700 h-16 overflow-y-auto" id="system-log">
+                    <div>> Ready...</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Context Menu with AI Transcribe -->
+    <div id="context-menu" class="hidden fixed bg-gray-800 border border-gray-600 shadow-2xl rounded w-40 z-[200] py-1 text-xs">
+        <button id="ctx-transcribe" class="w-full text-left px-3 py-2 hover:bg-gray-700 flex items-center gap-2 text-white bg-gradient-to-r from-orange-900/50 to-red-900/50 hidden">
+            <i class="fa-solid fa-wand-magic-sparkles text-orange-400 w-4"></i> Transcribe to SRT
+        </button>
+        <div class="h-px bg-gray-700 my-1"></div>
+        <button id="ctx-ripple" class="w-full text-left px-3 py-2 hover:bg-gray-700 flex items-center gap-2 text-gray-200">
+            <i class="fa-solid fa-link-slash text-red-400 w-4"></i> Ripple Delete
+        </button>
+        <button id="ctx-delete" class="w-full text-left px-3 py-2 hover:bg-gray-700 flex items-center gap-2 text-gray-200">
+            <i class="fa-solid fa-trash text-gray-400 w-4"></i> Delete
+        </button>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="fixed inset-0 bg-black/80 z-[100] hidden items-center justify-center backdrop-blur-sm">
+        <div class="bg-gray-800 rounded-xl border border-gray-600 p-8 max-w-lg w-full shadow-2xl animate-fade-in-up">
+            <h2 class="text-2xl font-bold font-cairo text-green-400 text-center mb-6">XML Ready</h2>
+            <div class="bg-black/50 p-4 rounded-lg font-mono text-[10px] text-blue-300 overflow-x-auto mb-6 border border-gray-700 max-h-40" id="xml-preview"></div>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('export-modal').classList.add('hidden')" class="flex-1 py-3 bg-gray-700 rounded-lg">╪Ñ╪║┘ä╪º┘é</button>
+                <a id="download-link" href="#" class="flex-1 py-3 bg-primary rounded-lg text-white flex justify-center items-center gap-2">╪¬╪¡┘à┘è┘ä XML</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ≡ƒöÑ NEW: SRT Splitter Iframe Modal (Overlay) -->
+    <div id="srt-tool-modal" class="hidden fixed inset-0 z-[10000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-4xl h-[80vh] relative overflow-hidden shadow-2xl animate-fade-in-up">
+            <button onclick="document.getElementById('srt-tool-modal').classList.add('hidden')" class="absolute top-4 right-4 z-50 bg-gray-200 hover:bg-gray-300 text-gray-700 w-8 h-8 rounded-full flex items-center justify-center transition shadow-md">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <iframe src="srt.html" class="w-full h-full border-0"></iframe>
+        </div>
+    </div>
+
+    <!-- ≡ƒöÑ Command Console (CLI) - UPDATED (Hidden by Default) -->
+    <div id="cmd-console" class="fixed bottom-20 right-4 bg-gray-900/95 border border-green-500/30 text-green-400 font-mono p-4 rounded-lg shadow-2xl z-[9999] min-w-[400px] backdrop-blur-md transition-opacity duration-300 max-h-[80vh] overflow-y-auto custom-scrollbar hidden" dir="ltr">
+        <!-- Header (Draggable) -->
+        <div id="cmd-header" class="flex justify-between items-center mb-2 border-b border-green-500/20 pb-1 cursor-move select-none sticky top-0 bg-gray-900/95 pt-1 z-10">
+            <span class="text-xs font-bold text-green-500 flex items-center gap-2"><i class="fa-solid fa-terminal"></i> ┘à╪▒┘â╪▓ ╪º┘ä╪ú┘ê╪º┘à╪▒ (CMD)</span>
+            <div class="flex items-center gap-2">
+                <button onclick="app.minimizeConsole()" class="text-green-700 hover:text-green-400" title="╪¬╪╡╪║┘è╪▒"><i class="fa-solid fa-minus"></i></button>
+                <button onclick="app.toggleCommandConsole()" class="text-green-700 hover:text-green-400" title="╪Ñ╪║┘ä╪º┘é"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+        <!-- Content -->
+        <div class="flex items-center gap-2 bg-black/50 p-2 rounded mb-2 border border-green-900/50 sticky top-8 z-10">
+            <span class="text-xs opacity-50 select-none">$</span>
+            <span id="cmd-buffer" class="text-sm font-bold tracking-wider text-white"></span>
+            <span class="w-2 h-4 bg-green-500 animate-pulse"></span>
+        </div>
+        
+        <!-- ≡ƒöÑ ╪»┘ä┘è┘ä ╪º┘ä┘à╪│╪º╪╣╪»╪⌐ ╪º┘ä┘à┘ü╪╡┘ä ╪¿╪º┘ä╪╣╪▒╪¿┘è╪⌐ -->
+        <div class="text-[10px] text-gray-400 space-y-2 font-cairo" dir="rtl">
+            <div class="grid grid-cols-2 gap-4">
+                <!-- ╪╣┘à┘ê╪» ╪ú┘ê╪º┘à╪▒ CLI -->
+                <div>
+                    <p class="font-bold text-green-500 border-b border-green-500/20 pb-1 mb-2">╪ú┘ê╪º┘à╪▒ ╪│╪╖╪▒ ╪º┘ä╪ú┘ê╪º┘à╪▒ (CLI):</p>
+                    <div class="space-y-1.5">
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">c20sv1</code></div>
+                            <span class="text-gray-500">┘é╪╡ ╪╣┘å╪» ╪º┘ä╪½╪º┘å┘è╪⌐ 20</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">c1m30sv1</code></div>
+                            <span class="text-gray-500">┘é╪╡ ╪╣┘å╪» ╪º┘ä╪»┘é┘è┘é╪⌐ 1:30</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">u10s:20sv1</code></div>
+                            <span class="text-gray-500">╪▒┘ü╪╣ (┘à┘å 10╪½ ┘ä┘Ç 20╪½)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">u5sv1</code></div>
+                            <span class="text-gray-500">╪▒┘ü╪╣ ╪╣┘å╪» 5╪½ (┘à╪»╪⌐ ┘â╪º┘à┘ä╪⌐)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">mv0x100y2v1</code></div>
+                            <span class="text-gray-500">╪¬╪¡╪▒┘è┘â ╪¿╪Ñ╪¡╪»╪º╪½┘è╪º╪¬ (x,y)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5">
+                                <code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">mvlxuy2v1</code>
+                            </div>
+                            <span class="text-gray-500">╪¬╪¡╪▒┘è┘â (┘è╪│╪º╪▒╪î ┘ü┘ê┘é)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">mvcxcy2v1</code></div>
+                            <span class="text-gray-500">╪¬┘ê╪│┘è╪╖ (Center)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">rmsa1ea2v3</code></div>
+                            <span class="text-gray-500">╪¡╪░┘ü ╪╡┘à╪¬ A1 (╪¬╪¼╪º┘ç┘ä A2)</span>
+                        </div>
+                        <!-- ≡ƒöÑ ╪ú┘ê╪º┘à╪▒ ╪º┘ä╪¬╪¡┘ê┘è┘ä ┘ê╪º┘ä╪┤┘ü╪º┘ü┘è╪⌐ ╪º┘ä╪¼╪»┘è╪»╪⌐ -->
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sc70%1v4</code></div>
+                            <span class="text-gray-500">╪¬╪¡╪¼┘è┘à 70% (Uniform Scale)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sx150%1v4</code></div>
+                            <span class="text-gray-500">┘à╪╖ ╪ú┘ü┘é┘è (Scale X)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sy50%1v4</code></div>
+                            <span class="text-gray-500">┘à╪╖ ╪▒╪ú╪│┘è (Scale Y)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sz500x300y1v4</code></div>
+                            <span class="text-gray-500">╪ú╪¿╪╣╪º╪» ╪½╪º╪¿╪¬╪⌐ (Fixed Size)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">op50%1v4</code></div>
+                            <span class="text-gray-500">╪┤┘ü╪º┘ü┘è╪⌐ (Opacity)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">ro90d1v4</code></div>
+                            <span class="text-gray-500">╪¬╪»┘ê┘è╪▒ (Rotation)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">d10s:20sv3</code></div>
+                            <span class="text-gray-500">╪¡╪░┘ü ┘å╪╖╪º┘é ╪▓┘à┘å┘è</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">d1v2</code></div>
+                            <span class="text-gray-500">╪¡╪░┘ü ┘à┘é╪╖╪╣ ╪¿╪▒┘é┘à (Index)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-red-400 px-1 rounded font-mono" dir="ltr">dv2</code></div>
+                            <span class="text-gray-500">╪¬┘ü╪▒┘è╪║ ╪¬╪▒╪º┘â ┘â╪º┘à┘ä</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ╪╣┘à┘ê╪» ╪º╪«╪¬╪╡╪º╪▒╪º╪¬ ╪º┘ä┘â┘è╪¿┘ê╪▒╪» -->
+                <div>
+                    <p class="font-bold text-yellow-500 border-b border-yellow-500/20 pb-1 mb-2">╪º╪«╪¬╪╡╪º╪▒╪º╪¬ ╪º┘ä┘â┘è╪¿┘ê╪▒╪»:</p>
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪¬╪┤╪║┘è┘ä/╪Ñ┘è┘é╪º┘ü</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Space / K</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪¬╪│╪▒┘è╪╣/╪Ñ╪▒╪¼╪º╪╣</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">J / L</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪ú╪»╪º╪⌐ ╪º┘ä┘é╪╡</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">C</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪ú╪»╪º╪⌐ ╪º┘ä╪¬╪¡╪»┘è╪»</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">V</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪¡╪░┘ü</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Del</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪¡╪░┘ü ┘ê╪¬┘à┘ê╪¼</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Shift+Del</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪¬╪▒╪º╪¼╪╣</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Ctrl+Z</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪Ñ╪╣╪º╪»╪⌐</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Ctrl+Y</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪º┘ä╪¿╪»╪º┘è╪⌐/╪º┘ä┘å┘ç╪º┘è╪⌐</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Home / End</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-2 text-[9px] text-gray-500 pt-2 border-t border-gray-700">
+                <i class="fa-solid fa-circle-info text-blue-400 ml-1"></i>
+                <span class="opacity-75">╪º┘ä╪ú┘ê╪º┘à╪▒ ╪¬╪»╪╣┘à ┘â╪¬╪º╪¿╪⌐ ╪º┘ä┘ê┘é╪¬ ╪¿╪º┘ä╪½┘ê╪º┘å┘è (s) ┘ê╪º┘ä╪»┘é╪º╪ª┘é (m) ┘ê╪º┘ä╪│╪º╪╣╪º╪¬ (h).</span> 
+            </div>
+        </div>
+    </div>
+
+    <!-- ≡ƒöÑ Minimized Floating Icon (Hidden by default) -->
+    <div id="cmd-minimized" class="fixed bottom-20 right-4 w-10 h-10 bg-gray-900/90 border border-green-500/50 rounded-full shadow-2xl z-[9999] hidden flex items-center justify-center cursor-pointer hover:scale-110 transition-transform group" title="Restore Command Center" onclick="app.restoreConsole()">
+        <i class="fa-solid fa-terminal text-green-400 text-sm group-hover:text-green-300"></i>
+        <div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full hidden" id="cmd-notification-dot"></div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- ΓòÉΓòÉΓòÉ Core Engine ΓòÉΓòÉΓòÉ -->
+    <script src="js/core/editing_engine.js"></script>
+    <script src="js/core/assets.js"></script>
+    <script src="js/core/timeline.js"></script>
+    <script src="js/core/video_preview.js"></script>
+
+    <!-- ΓòÉΓòÉΓòÉ Features ΓòÉΓòÉΓòÉ -->
+    <script src="js/features/command_center.js"></script>
+    <script src="js/features/xml_exporter.js"></script>
+    <script src="js/features/pro_features.js"></script>
+    <script src="js/features/ultra_features.js"></script>
+    <script src="js/features/frame_features.js"></script>
+    <script src="js/features/bubble_feature.js"></script>
+    <script src="js/features/grid_feature.js"></script>
+
+    <!-- ΓòÉΓòÉΓòÉ AI Modules (ES Modules) ΓòÉΓòÉΓòÉ -->
+    <script type="module" src="js/ai/gemini_chat.js"></script>
+    <script type="module" src="js/ai/gemini_plan.js"></script>
+    <script type="module" src="js/ai/ai.js"></script>
+
+    <!-- FileStore (IndexedDB bridge) -->
+    <script src="js/core/file_store.js"></script>
+
+    <script>
+        function openSrtSplitter() {
+            document.getElementById('srt-tool-modal').classList.remove('hidden');
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // ΓöÇΓöÇ 1. Init Editor App ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            if (window.EditorApp) {
+                try { window.app = new EditorApp(); }
+                catch (e) { console.error(e); }
+            }
+
+            // ΓöÇΓöÇ 2. Read settings from sessionStorage ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            const raw = sessionStorage.getItem('p43_settings');
+            if (!raw) {
+                // No settings ΓåÆ redirect back to startup
+                window.parent.location.href = '/startup';
+                return;
+            }
+
+            const settings = JSON.parse(raw);
+            document.getElementById('loading-status').textContent =
+                `╪¼╪º╪▒┘ì ╪¬╪¡┘à┘è┘ä "${settings.videoName || '╪º┘ä┘ü┘è╪»┘è┘ê'}"...`;
+
+            // ΓöÇΓöÇ 3. Read video file from IndexedDB ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            let videoFile = null;
+            try {
+                videoFile = await window.FileStore.load('p43_video');
+            } catch(e) {
+                console.error('IndexedDB read failed:', e);
+            }
+
+            if (!videoFile) {
+                window.parent.location.href = '/startup';
+                return;
+            }
+
+            // ΓöÇΓöÇ 4. Apply Gemini API key if provided ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            if (settings.apiKey) {
+                sessionStorage.setItem('p43_gemini_key', settings.apiKey);
+                window._geminiAPIKey = settings.apiKey;
+            }
+
+            // ΓöÇΓöÇ 5. Configure Gemini Chat ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            const applyGemini = () => {
+                if (window.geminiChat) {
+                    window.geminiChat.enabled = settings.aiEnabled !== false;
+                    if (window.geminiChat.enabled) window.geminiChat.init();
+                }
+            };
+            // Modules load async ΓÇö try now, also set a delayed fallback
+            applyGemini();
+            setTimeout(applyGemini, 800);
+
+            // ΓöÇΓöÇ 6. Init project with video file ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            document.getElementById('loading-status').textContent = '╪¼╪º╪▒┘ì ╪¿┘å╪º╪í ╪º┘ä╪¬╪º┘è┘à ┘ä╪º┘è┘å...';
+            window.app.initProject(videoFile, settings.mode, settings.autoTranscribe);
+
+            // ΓöÇΓöÇ 7. Hide loading screen ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            const loader = document.getElementById('editor-loading');
+            loader.style.transition = 'opacity 0.4s';
+            loader.style.opacity = '0';
+            setTimeout(() => loader.remove(), 450);
+
+            // ΓöÇΓöÇ 8. Apply SRT file if any ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            if (settings.hasSRT) {
+                setTimeout(async () => {
+                    const srtFile = await window.FileStore.load('p43_srt').catch(() => null);
+                    if (srtFile && window.aiManager) {
+                        window.aiManager.processExternalSRT(srtFile);
+                    }
+                }, 1500);
+            }
+
+            // ΓöÇΓöÇ 9. Apply Plan file if any ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            if (settings.hasPlan) {
+                setTimeout(async () => {
+                    const planFile = await window.FileStore.load('p43_plan').catch(() => null);
+                    if (planFile && window.geminiPlan) {
+                        if (!window.geminiChat?.enabled) {
+                            window.geminiChat.enabled = true;
+                            window.geminiChat.init();
+                        }
+                        const mockInput = { files: [planFile], value: '' };
+                        window.geminiPlan.handlePlanUpload(mockInput);
+                    }
+                }, 2000);
+            }
+
+            // ΓöÇΓöÇ 10. Clean up IndexedDB after successful load ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            setTimeout(async () => {
+                try { await window.FileStore.remove('p43_video'); } catch(e) {}
+                sessionStorage.removeItem('p43_settings');
+            }, 5000);
+        });
+    </script>
+
+
+    <!-- ≡ƒöÑ Auth Check: ╪¬╪¡┘é┘é ┘à┘å ╪¬╪│╪¼┘è┘ä ╪º┘ä╪»╪«┘ê┘ä -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged }
+            from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC-fNlQQHC4Fqbx2wIBoyPOm8o43PUhJrk",
+            authDomain: "ai-roadmap-nadeem.firebaseapp.com",
+            projectId: "ai-roadmap-nadeem",
+            storageBucket: "ai-roadmap-nadeem.firebasestorage.app",
+            messagingSenderId: "882087451108",
+            appId: "1:882087451108:web:65fbb714732407d1768ff1",
+            measurementId: "G-3HTH2Y4MQY"
+        };
+
+        let _authAppInit = false;
+        try {
+            const app = initializeApp(firebaseConfig, 'editor-auth');
+            const auth = getAuth(app);
+
+            onAuthStateChanged(auth, (user) => {
+                const cached = localStorage.getItem('p43_user');
+                if (!user && !cached) {
+                    // ╪║┘è╪▒ ┘à╪│╪¼┘æ┘ä - ┘ê╪¼┘æ┘ç┘ç ┘ä╪╡┘ü╪¡╪⌐ ╪¬╪│╪¼┘è┘ä ╪º┘ä╪»╪«┘ê┘ä
+                    window.parent.location.href = '/login';
+                    return;
+                }
+                // ╪ú╪╕┘ç╪▒ ╪╡┘ê╪▒╪⌐ ╪º┘ä┘à╪│╪¬╪«╪»┘à ┘ü┘è ╪º┘ä┘ç┘è╪»╪▒
+                const userData = user
+                    ? { photoURL: user.photoURL, displayName: user.displayName }
+                    : (cached ? JSON.parse(cached) : null);
+
+                if (userData && userData.photoURL) {
+                    const avatarEl = document.getElementById('header-user-avatar');
+                    if (avatarEl) {
+                        avatarEl.innerHTML = `<img src="${userData.photoURL}" alt="${userData.displayName || ''}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='<i class=\'fa-solid fa-user text-white text-[10px]\'></i>'">`;
+                    }
+                }
+            });
+        } catch(e) {
+            // Firebase init error - check localStorage fallback
+            const cached = localStorage.getItem('p43_user');
+            if (!cached) {
+                window.parent.location.href = '/login';
+            }
+        }
+    </script>
+</body>
+                    <i class="fa-solid fa-user text-white text-[10px]"></i>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-grow flex flex-col h-[calc(100vh-48px)] overflow-hidden">
+        <!-- TOP SECTION -->
+        <div id="top-panel" class="flex flex-row border-b border-gray-700 bg-gray-900/95 relative z-10 overflow-hidden" style="height: 55%;">
+            
+            <!-- RIGHT: Player -->
+            <div class="flex-grow p-4 flex flex-col items-center justify-center bg-black/50 relative overflow-hidden border-l border-gray-700">
+                <div id="video-wrapper" class="relative bg-black rounded shadow-2xl border border-gray-700 overflow-hidden group flex items-center justify-center box-content" style="aspect-ratio: 16/9; height: auto; max-height: 90%; width: 100%; border: 1px solid #4b5563;">
+                    <canvas id="preview-canvas" width="1920" height="1080" class="w-full h-full object-contain z-10 cursor-default"></canvas>
+                    
+                    <div id="jkl-overlay" class="absolute top-4 right-4 text-2xl font-bold text-white drop-shadow-md opacity-0 transition-opacity duration-300 pointer-events-none"></div>
+
+                    <div id="ai-loading" class="absolute inset-0 bg-black/80 z-20 flex flex-col items-center justify-center hidden">
+                        <i class="fa-solid fa-circle-notch fa-spin text-4xl text-cyan-400 mb-2"></i>
+                        <span class="text-xs font-mono text-cyan-200">Loading AI Model...</span>
+                    </div>
+
+                    <div style="position: absolute; top: -9999px; left: -9999px; opacity: 0; pointer-events: none;">
+                        <video id="source-video-a" playsinline crossorigin="anonymous"></video>
+                        <video id="source-video-b" playsinline crossorigin="anonymous"></video>
+                        <video id="source-video-c" playsinline crossorigin="anonymous"></video>
+                        <video id="source-video-d" playsinline crossorigin="anonymous"></video>
+                        <video id="source-video-e" playsinline crossorigin="anonymous"></video>
+                        <video id="source-video-f" playsinline crossorigin="anonymous"></video>
+                        <div id="img-cache"></div>
+                    </div>
+                </div>
+
+                <!-- Playback Controls -->
+                <div dir="ltr" class="mt-2 flex items-center justify-between gap-4 text-gray-300 bg-gray-800 px-6 py-2 rounded-full border border-gray-700 shadow-lg scale-90 origin-bottom w-auto min-w-[400px]">
+                    <input type="text" id="time-display" value="00;00;00;00" 
+                        class="bg-gray-900 border border-gray-600 rounded px-2 py-1 font-mono text-sm text-yellow-400 w-28 text-center focus:outline-none focus:border-primary"
+                        onchange="app.manualTimeUpdate(this.value)">
+
+                    <div class="flex items-center gap-3 text-lg">
+                        <button onclick="app.seekToStart()" class="hover:text-white transition-colors" title="Home"><i class="fa-solid fa-backward-fast"></i></button>
+                        <button onclick="app.handleJKL('j')" class="hover:text-white transition-colors" title="Reverse (J)"><i class="fa-solid fa-backward"></i></button>
+                        <button id="play-pause-btn" onclick="app.togglePlay()" class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center hover:bg-indigo-500 transition-all shadow-lg hover:scale-110" title="Play/Pause (Space/K)">
+                            <i class="fa-solid fa-play ml-0.5 text-sm"></i>
+                        </button>
+                        <button onclick="app.handleJKL('l')" class="hover:text-white transition-colors" title="Forward (L)"><i class="fa-solid fa-forward"></i></button>
+                        <button onclick="app.seekToEnd()" class="hover:text-white transition-colors" title="End"><i class="fa-solid fa-forward-fast"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Effect Controls -->
+            <div id="tools-panel" class="w-80 bg-gray-800 flex flex-col flex-shrink-0 border-r border-gray-700">
+                <div class="p-2 bg-gray-700 font-bold text-[11px] text-gray-300 flex justify-between items-center shadow-md">
+                      <span><i class="fa-solid fa-sliders text-accent"></i> Effect Controls</span>
+                </div>
+                <div class="flex-grow flex flex-col overflow-hidden">
+                    <div id="effect-controls-panel" class="p-3 bg-gray-800 overflow-y-auto custom-scrollbar flex-shrink-0 h-full">
+                        <div id="effect-controls-content">
+                            <div class="text-gray-600 text-center py-10 text-xs">No Clip Selected</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="drag-handle-y" class="h-1 bg-gray-900 border-t border-b border-gray-700 cursor-row-resize hover:bg-primary transition-colors flex items-center justify-center z-50"></div>
+
+        <!-- BOTTOM SECTION -->
+        <div id="bottom-panel" class="flex-1 flex flex-row overflow-hidden bg-gray-900 min-h-[150px]">
+            <!-- Timeline Panel -->
+            <div id="timeline-panel" class="flex-grow flex flex-col relative shadow-inner overflow-hidden">
+                <div id="timeline-header" class="h-10 bg-gray-800 border-b border-gray-700 flex items-center px-2 gap-2 text-xs select-none justify-between">
+                    <div class="flex items-center gap-1">
+                        <div class="flex bg-gray-900 rounded border border-gray-700 mr-2">
+                            <button onclick="app.undo()" class="toolbar-btn" title="Undo"><i class="fa-solid fa-rotate-left text-yellow-500"></i></button>
+                            <button onclick="app.redo()" class="toolbar-btn border-r border-gray-700" title="Redo"><i class="fa-solid fa-rotate-right text-blue-500"></i></button>
+                        </div>
+                        <div class="flex bg-gray-900 rounded border border-gray-700 mr-2">
+                            <button onclick="app.setTool('select')" id="tool-select" class="toolbar-btn active" title="Selection (V)"><i class="fa-solid fa-arrow-pointer"></i></button>
+                            <button onclick="app.setTool('cut')" id="tool-cut" class="toolbar-btn border-r border-gray-700" title="Razor (C)"><i class="fa-solid fa-cut"></i></button>
+                            <button class="toolbar-btn border-r border-gray-700" title="Slip Tool (Y)"><i class="fa-solid fa-arrows-left-right-to-line"></i></button>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="app.addTextClip()" class="toolbar-btn bg-gray-700 hover:bg-gray-600 rounded text-yellow-400" title="Add Text"><i class="fa-solid fa-font"></i></button>
+                            <button onclick="app.rippleDelete()" class="toolbar-btn bg-gray-700 hover:bg-gray-600 rounded text-red-400" title="Ripple Delete"><i class="fa-solid fa-link-slash"></i></button>
+                            <button onclick="app.deleteSelectedClip()" class="toolbar-btn bg-gray-700 hover:bg-gray-600 rounded text-red-300" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 border-l border-r border-gray-700 px-2">
+                         <button onclick="app.addNewTrack('video')" class="toolbar-btn text-purple-400" title="Add Video Track"><i class="fa-solid fa-video"></i>+</button>
+                         <button onclick="app.addNewTrack('audio')" class="toolbar-btn text-green-400" title="Add Audio Track"><i class="fa-solid fa-music"></i>+</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="app.zoom(-1)" class="w-5 h-5 bg-gray-700 rounded flex items-center justify-center hover:bg-gray-600 text-[10px]"><i class="fa-solid fa-minus"></i></button>
+                        <span class="text-gray-400 w-16 text-center text-[10px]" id="zoom-level">Zoom: 100%</span>
+                        <button onclick="app.zoom(1)" class="w-5 h-5 bg-gray-700 rounded flex items-center justify-center hover:bg-gray-600 text-[10px]"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                </div>
+
+                <div class="flex-grow relative overflow-y-auto overflow-x-auto timeline-container custom-scrollbar" id="timeline-scroll-area" dir="ltr">
+                    <div class="relative min-h-full" id="timeline-content" style="width: 2000px;">
+                        <div id="playhead" class="playhead-marker h-full" style="left: 0px;">
+                            <div class="playhead-head"></div>
+                            <div class="playhead-line"></div>
+                        </div>
+                        <div class="time-ruler w-full flex items-end sticky top-0 z-30" id="timeline-ruler"></div>
+                        <div class="relative w-full min-h-full bg-gray-900 pt-2 pb-10" id="tracks-container"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="drag-handle-x" class="w-1 bg-gray-900 border-l border-r border-gray-700 cursor-col-resize hover:bg-primary transition-colors z-50"></div>
+            
+            <!-- Assets Panel -->
+            <div id="assets-panel" class="w-80 bg-gray-800 flex flex-col border-r border-gray-700 flex-shrink-0">
+                <div class="p-2 bg-gray-700 font-bold text-[11px] text-gray-300 flex justify-between items-center shadow-md">
+                    <span><i class="fa-solid fa-photo-film text-yellow-400"></i> ╪º┘ä┘à┘â╪¬╪¿╪⌐ (Assets)</span>
+                    <input type="file" id="file-upload" class="hidden" multiple accept="image/*,video/*">
+                    <button onclick="document.getElementById('file-upload').click()" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-0.5 rounded text-[10px]"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <div id="assets-grid" class="flex-grow p-2 overflow-y-auto custom-scrollbar grid grid-cols-2 gap-2 content-start"></div>
+                <div class="bg-terminal p-1 rounded-none text-[9px] font-mono text-green-400 border-t border-gray-700 h-16 overflow-y-auto" id="system-log">
+                    <div>> Ready...</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Context Menu with AI Transcribe -->
+    <div id="context-menu" class="hidden fixed bg-gray-800 border border-gray-600 shadow-2xl rounded w-40 z-[200] py-1 text-xs">
+        <button id="ctx-transcribe" class="w-full text-left px-3 py-2 hover:bg-gray-700 flex items-center gap-2 text-white bg-gradient-to-r from-orange-900/50 to-red-900/50 hidden">
+            <i class="fa-solid fa-wand-magic-sparkles text-orange-400 w-4"></i> Transcribe to SRT
+        </button>
+        <div class="h-px bg-gray-700 my-1"></div>
+        <button id="ctx-ripple" class="w-full text-left px-3 py-2 hover:bg-gray-700 flex items-center gap-2 text-gray-200">
+            <i class="fa-solid fa-link-slash text-red-400 w-4"></i> Ripple Delete
+        </button>
+        <button id="ctx-delete" class="w-full text-left px-3 py-2 hover:bg-gray-700 flex items-center gap-2 text-gray-200">
+            <i class="fa-solid fa-trash text-gray-400 w-4"></i> Delete
+        </button>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="fixed inset-0 bg-black/80 z-[100] hidden items-center justify-center backdrop-blur-sm">
+        <div class="bg-gray-800 rounded-xl border border-gray-600 p-8 max-w-lg w-full shadow-2xl animate-fade-in-up">
+            <h2 class="text-2xl font-bold font-cairo text-green-400 text-center mb-6">XML Ready</h2>
+            <div class="bg-black/50 p-4 rounded-lg font-mono text-[10px] text-blue-300 overflow-x-auto mb-6 border border-gray-700 max-h-40" id="xml-preview"></div>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('export-modal').classList.add('hidden')" class="flex-1 py-3 bg-gray-700 rounded-lg">╪Ñ╪║┘ä╪º┘é</button>
+                <a id="download-link" href="#" class="flex-1 py-3 bg-primary rounded-lg text-white flex justify-center items-center gap-2">╪¬╪¡┘à┘è┘ä XML</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ≡ƒöÑ NEW: SRT Splitter Iframe Modal (Overlay) -->
+    <div id="srt-tool-modal" class="hidden fixed inset-0 z-[10000] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-4xl h-[80vh] relative overflow-hidden shadow-2xl animate-fade-in-up">
+            <button onclick="document.getElementById('srt-tool-modal').classList.add('hidden')" class="absolute top-4 right-4 z-50 bg-gray-200 hover:bg-gray-300 text-gray-700 w-8 h-8 rounded-full flex items-center justify-center transition shadow-md">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <iframe src="srt.html" class="w-full h-full border-0"></iframe>
+        </div>
+    </div>
+
+    <!-- ≡ƒöÑ Command Console (CLI) - UPDATED (Hidden by Default) -->
+    <div id="cmd-console" class="fixed bottom-20 right-4 bg-gray-900/95 border border-green-500/30 text-green-400 font-mono p-4 rounded-lg shadow-2xl z-[9999] min-w-[400px] backdrop-blur-md transition-opacity duration-300 max-h-[80vh] overflow-y-auto custom-scrollbar hidden" dir="ltr">
+        <!-- Header (Draggable) -->
+        <div id="cmd-header" class="flex justify-between items-center mb-2 border-b border-green-500/20 pb-1 cursor-move select-none sticky top-0 bg-gray-900/95 pt-1 z-10">
+            <span class="text-xs font-bold text-green-500 flex items-center gap-2"><i class="fa-solid fa-terminal"></i> ┘à╪▒┘â╪▓ ╪º┘ä╪ú┘ê╪º┘à╪▒ (CMD)</span>
+            <div class="flex items-center gap-2">
+                <button onclick="app.minimizeConsole()" class="text-green-700 hover:text-green-400" title="╪¬╪╡╪║┘è╪▒"><i class="fa-solid fa-minus"></i></button>
+                <button onclick="app.toggleCommandConsole()" class="text-green-700 hover:text-green-400" title="╪Ñ╪║┘ä╪º┘é"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+        <!-- Content -->
+        <div class="flex items-center gap-2 bg-black/50 p-2 rounded mb-2 border border-green-900/50 sticky top-8 z-10">
+            <span class="text-xs opacity-50 select-none">$</span>
+            <span id="cmd-buffer" class="text-sm font-bold tracking-wider text-white"></span>
+            <span class="w-2 h-4 bg-green-500 animate-pulse"></span>
+        </div>
+        
+        <!-- ≡ƒöÑ ╪»┘ä┘è┘ä ╪º┘ä┘à╪│╪º╪╣╪»╪⌐ ╪º┘ä┘à┘ü╪╡┘ä ╪¿╪º┘ä╪╣╪▒╪¿┘è╪⌐ -->
+        <div class="text-[10px] text-gray-400 space-y-2 font-cairo" dir="rtl">
+            <div class="grid grid-cols-2 gap-4">
+                <!-- ╪╣┘à┘ê╪» ╪ú┘ê╪º┘à╪▒ CLI -->
+                <div>
+                    <p class="font-bold text-green-500 border-b border-green-500/20 pb-1 mb-2">╪ú┘ê╪º┘à╪▒ ╪│╪╖╪▒ ╪º┘ä╪ú┘ê╪º┘à╪▒ (CLI):</p>
+                    <div class="space-y-1.5">
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">c20sv1</code></div>
+                            <span class="text-gray-500">┘é╪╡ ╪╣┘å╪» ╪º┘ä╪½╪º┘å┘è╪⌐ 20</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">c1m30sv1</code></div>
+                            <span class="text-gray-500">┘é╪╡ ╪╣┘å╪» ╪º┘ä╪»┘é┘è┘é╪⌐ 1:30</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">u10s:20sv1</code></div>
+                            <span class="text-gray-500">╪▒┘ü╪╣ (┘à┘å 10╪½ ┘ä┘Ç 20╪½)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">u5sv1</code></div>
+                            <span class="text-gray-500">╪▒┘ü╪╣ ╪╣┘å╪» 5╪½ (┘à╪»╪⌐ ┘â╪º┘à┘ä╪⌐)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">mv0x100y2v1</code></div>
+                            <span class="text-gray-500">╪¬╪¡╪▒┘è┘â ╪¿╪Ñ╪¡╪»╪º╪½┘è╪º╪¬ (x,y)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5">
+                                <code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">mvlxuy2v1</code>
+                            </div>
+                            <span class="text-gray-500">╪¬╪¡╪▒┘è┘â (┘è╪│╪º╪▒╪î ┘ü┘ê┘é)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">mvcxcy2v1</code></div>
+                            <span class="text-gray-500">╪¬┘ê╪│┘è╪╖ (Center)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">rmsa1ea2v3</code></div>
+                            <span class="text-gray-500">╪¡╪░┘ü ╪╡┘à╪¬ A1 (╪¬╪¼╪º┘ç┘ä A2)</span>
+                        </div>
+                        <!-- ≡ƒöÑ ╪ú┘ê╪º┘à╪▒ ╪º┘ä╪¬╪¡┘ê┘è┘ä ┘ê╪º┘ä╪┤┘ü╪º┘ü┘è╪⌐ ╪º┘ä╪¼╪»┘è╪»╪⌐ -->
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sc70%1v4</code></div>
+                            <span class="text-gray-500">╪¬╪¡╪¼┘è┘à 70% (Uniform Scale)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sx150%1v4</code></div>
+                            <span class="text-gray-500">┘à╪╖ ╪ú┘ü┘é┘è (Scale X)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sy50%1v4</code></div>
+                            <span class="text-gray-500">┘à╪╖ ╪▒╪ú╪│┘è (Scale Y)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">sz500x300y1v4</code></div>
+                            <span class="text-gray-500">╪ú╪¿╪╣╪º╪» ╪½╪º╪¿╪¬╪⌐ (Fixed Size)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">op50%1v4</code></div>
+                            <span class="text-gray-500">╪┤┘ü╪º┘ü┘è╪⌐ (Opacity)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">ro90d1v4</code></div>
+                            <span class="text-gray-500">╪¬╪»┘ê┘è╪▒ (Rotation)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">d10s:20sv3</code></div>
+                            <span class="text-gray-500">╪¡╪░┘ü ┘å╪╖╪º┘é ╪▓┘à┘å┘è</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-green-300 px-1 rounded font-mono" dir="ltr">d1v2</code></div>
+                            <span class="text-gray-500">╪¡╪░┘ü ┘à┘é╪╖╪╣ ╪¿╪▒┘é┘à (Index)</span>
+                        </div>
+                        <div class="group">
+                            <div class="flex gap-1 mb-0.5"><code class="bg-gray-800 text-red-400 px-1 rounded font-mono" dir="ltr">dv2</code></div>
+                            <span class="text-gray-500">╪¬┘ü╪▒┘è╪║ ╪¬╪▒╪º┘â ┘â╪º┘à┘ä</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ╪╣┘à┘ê╪» ╪º╪«╪¬╪╡╪º╪▒╪º╪¬ ╪º┘ä┘â┘è╪¿┘ê╪▒╪» -->
+                <div>
+                    <p class="font-bold text-yellow-500 border-b border-yellow-500/20 pb-1 mb-2">╪º╪«╪¬╪╡╪º╪▒╪º╪¬ ╪º┘ä┘â┘è╪¿┘ê╪▒╪»:</p>
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪¬╪┤╪║┘è┘ä/╪Ñ┘è┘é╪º┘ü</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Space / K</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪¬╪│╪▒┘è╪╣/╪Ñ╪▒╪¼╪º╪╣</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">J / L</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪ú╪»╪º╪⌐ ╪º┘ä┘é╪╡</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">C</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪ú╪»╪º╪⌐ ╪º┘ä╪¬╪¡╪»┘è╪»</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">V</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪¡╪░┘ü</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Del</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪¡╪░┘ü ┘ê╪¬┘à┘ê╪¼</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Shift+Del</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪¬╪▒╪º╪¼╪╣</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Ctrl+Z</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪Ñ╪╣╪º╪»╪⌐</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Ctrl+Y</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">╪º┘ä╪¿╪»╪º┘è╪⌐/╪º┘ä┘å┘ç╪º┘è╪⌐</span>
+                            <code class="bg-gray-800 text-yellow-200 px-1 rounded font-mono" dir="ltr">Home / End</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-2 text-[9px] text-gray-500 pt-2 border-t border-gray-700">
+                <i class="fa-solid fa-circle-info text-blue-400 ml-1"></i>
+                <span class="opacity-75">╪º┘ä╪ú┘ê╪º┘à╪▒ ╪¬╪»╪╣┘à ┘â╪¬╪º╪¿╪⌐ ╪º┘ä┘ê┘é╪¬ ╪¿╪º┘ä╪½┘ê╪º┘å┘è (s) ┘ê╪º┘ä╪»┘é╪º╪ª┘é (m) ┘ê╪º┘ä╪│╪º╪╣╪º╪¬ (h).</span> 
+            </div>
+        </div>
+    </div>
+
+    <!-- ≡ƒöÑ Minimized Floating Icon (Hidden by default) -->
+    <div id="cmd-minimized" class="fixed bottom-20 right-4 w-10 h-10 bg-gray-900/90 border border-green-500/50 rounded-full shadow-2xl z-[9999] hidden flex items-center justify-center cursor-pointer hover:scale-110 transition-transform group" title="Restore Command Center" onclick="app.restoreConsole()">
+        <i class="fa-solid fa-terminal text-green-400 text-sm group-hover:text-green-300"></i>
+        <div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full hidden" id="cmd-notification-dot"></div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- ΓòÉΓòÉΓòÉ Core Engine ΓòÉΓòÉΓòÉ -->
+    <script src="js/core/editing_engine.js"></script>
+    <script src="js/core/assets.js"></script>
+    <script src="js/core/timeline.js"></script>
+    <script src="js/core/video_preview.js"></script>
+
+    <!-- ΓòÉΓòÉΓòÉ Features ΓòÉΓòÉΓòÉ -->
+    <script src="js/features/command_center.js"></script>
+    <script src="js/features/xml_exporter.js"></script>
+    <script src="js/features/pro_features.js"></script>
+    <script src="js/features/ultra_features.js"></script>
+    <script src="js/features/frame_features.js"></script>
+    <script src="js/features/bubble_feature.js"></script>
+    <script src="js/features/grid_feature.js"></script>
+
+    <!-- ΓòÉΓòÉΓòÉ AI Modules (ES Modules) ΓòÉΓòÉΓòÉ -->
+    <script type="module" src="js/ai/gemini_chat.js"></script>
+    <script type="module" src="js/ai/gemini_plan.js"></script>
+    <script type="module" src="js/ai/ai.js"></script>
+
+    <!-- FileStore (IndexedDB bridge) -->
+    <script src="js/core/file_store.js"></script>
+
+    <script>
+        function openSrtSplitter() {
+            document.getElementById('srt-tool-modal').classList.remove('hidden');
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // ΓöÇΓöÇ 1. Init Editor App ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            if (window.EditorApp) {
+                try { window.app = new EditorApp(); }
+                catch (e) { console.error(e); }
+            }
+
+            // ΓöÇΓöÇ 2. Read settings from sessionStorage ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            const raw = sessionStorage.getItem('p43_settings');
+            if (!raw) {
+                // No settings ΓåÆ redirect back to startup
+                window.parent.location.href = '/startup';
+                return;
+            }
+
+            const settings = JSON.parse(raw);
+            document.getElementById('loading-status').textContent =
+                `╪¼╪º╪▒┘ì ╪¬╪¡┘à┘è┘ä "${settings.videoName || '╪º┘ä┘ü┘è╪»┘è┘ê'}"...`;
+
+            // ΓöÇΓöÇ 3. Read video file from IndexedDB ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            let videoFile = null;
+            try {
+                videoFile = await window.FileStore.load('p43_video');
+            } catch(e) {
+                console.error('IndexedDB read failed:', e);
+            }
+
+            if (!videoFile) {
+                window.parent.location.href = '/startup';
+                return;
+            }
+
+            // ΓöÇΓöÇ 4. Apply Gemini API key if provided ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            if (settings.apiKey) {
+                sessionStorage.setItem('p43_gemini_key', settings.apiKey);
+                window._geminiAPIKey = settings.apiKey;
+            }
+
+            // ΓöÇΓöÇ 5. Configure Gemini Chat ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            const applyGemini = () => {
+                if (window.geminiChat) {
+                    window.geminiChat.enabled = settings.aiEnabled !== false;
+                    if (window.geminiChat.enabled) window.geminiChat.init();
+                }
+            };
+            // Modules load async ΓÇö try now, also set a delayed fallback
+            applyGemini();
+            setTimeout(applyGemini, 800);
+
+            // ΓöÇΓöÇ 6. Init project with video file ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            document.getElementById('loading-status').textContent = '╪¼╪º╪▒┘ì ╪¿┘å╪º╪í ╪º┘ä╪¬╪º┘è┘à ┘ä╪º┘è┘å...';
+            window.app.initProject(videoFile, settings.mode, settings.autoTranscribe);
+
+            // ΓöÇΓöÇ 7. Hide loading screen ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            const loader = document.getElementById('editor-loading');
+            loader.style.transition = 'opacity 0.4s';
+            loader.style.opacity = '0';
+            setTimeout(() => loader.remove(), 450);
+
+            // ΓöÇΓöÇ 8. Apply SRT file if any ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            if (settings.hasSRT) {
+                setTimeout(async () => {
+                    const srtFile = await window.FileStore.load('p43_srt').catch(() => null);
+                    if (srtFile && window.aiManager) {
+                        window.aiManager.processExternalSRT(srtFile);
+                    }
+                }, 1500);
+            }
+
+            // ΓöÇΓöÇ 9. Apply Plan file if any ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            if (settings.hasPlan) {
+                setTimeout(async () => {
+                    const planFile = await window.FileStore.load('p43_plan').catch(() => null);
+                    if (planFile && window.geminiPlan) {
+                        if (!window.geminiChat?.enabled) {
+                            window.geminiChat.enabled = true;
+                            window.geminiChat.init();
+                        }
+                        const mockInput = { files: [planFile], value: '' };
+                        window.geminiPlan.handlePlanUpload(mockInput);
+                    }
+                }, 2000);
+            }
+
+            // ΓöÇΓöÇ 10. Clean up IndexedDB after successful load ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+            setTimeout(async () => {
+                try { await window.FileStore.remove('p43_video'); } catch(e) {}
+                sessionStorage.removeItem('p43_settings');
+            }, 5000);
+        });
+    </script>
+
+
+    <!-- ≡ƒöÑ Auth Check: ╪¬╪¡┘é┘é ┘à┘å ╪¬╪│╪¼┘è┘ä ╪º┘ä╪»╪«┘ê┘ä -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged }
+            from "https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC-fNlQQHC4Fqbx2wIBoyPOm8o43PUhJrk",
+            authDomain: "ai-roadmap-nadeem.firebaseapp.com",
+            projectId: "ai-roadmap-nadeem",
+            storageBucket: "ai-roadmap-nadeem.firebasestorage.app",
+            messagingSenderId: "882087451108",
+            appId: "1:882087451108:web:65fbb714732407d1768ff1",
+            measurementId: "G-3HTH2Y4MQY"
+        };
+
+        let _authAppInit = false;
+        try {
+            const app = initializeApp(firebaseConfig, 'editor-auth');
+            const auth = getAuth(app);
+
+            onAuthStateChanged(auth, (user) => {
+                const cached = localStorage.getItem('p43_user');
+                if (!user && !cached) {
+                    // ╪║┘è╪▒ ┘à╪│╪¼┘æ┘ä - ┘ê╪¼┘æ┘ç┘ç ┘ä╪╡┘ü╪¡╪⌐ ╪¬╪│╪¼┘è┘ä ╪º┘ä╪»╪«┘ê┘ä
+                    window.parent.location.href = '/login';
+                    return;
+                }
+                // ╪ú╪╕┘ç╪▒ ╪╡┘ê╪▒╪⌐ ╪º┘ä┘à╪│╪¬╪«╪»┘à ┘ü┘è ╪º┘ä┘ç┘è╪»╪▒
+                const userData = user
+                    ? { photoURL: user.photoURL, displayName: user.displayName }
+                    : (cached ? JSON.parse(cached) : null);
+
+                if (userData && userData.photoURL) {
+                    const avatarEl = document.getElementById('header-user-avatar');
+                    if (avatarEl) {
+                        avatarEl.innerHTML = `<img src="${userData.photoURL}" alt="${userData.displayName || ''}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='<i class=\'fa-solid fa-user text-white text-[10px]\'></i>'">`;
+                    }
+                }
+            });
+        } catch(e) {
+            // Firebase init error - check localStorage fallback
+            const cached = localStorage.getItem('p43_user');
+            if (!cached) {
+                window.parent.location.href = '/login';
+            }
+        }
+    </script>
+</body>
+</html>
+
