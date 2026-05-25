@@ -1,10 +1,10 @@
 // @ts-nocheck
 /**
- * 🚀 Project 43 Pro Features Module
- * ✨ UI UPDATE: Handles Smart Sandwich Mode logic with Animation & Layer Awareness.
- * 🆕 FEATURE: "Apply to All" sets Track Defaults for future clips.
- * 🔧 FIX: ensureProProperties now auto-repairs "Broken Smart Objects" created by Deep Copy.
- * 🔥 UPDATE: Added Non-Uniform Scaling Support (ScaleX, ScaleY) & Force Size (Fit to Shape).
+ * dYs? Project 43 Pro Features Module
+ * UI UPDATE: Handles Smart Sandwich Mode logic with Animation & Layer Awareness.
+ * FEATURE: Apply to All sets Track Defaults for future clips.
+ * FIX: ensureProProperties now auto-repairs Broken Smart Objects created by Deep Copy.
+ * UPDATE: Added Non-Uniform Scaling Support (ScaleX, ScaleY) & Force Size (Fit to Shape).
  */
 
 const originalClip = window.Clip; 
@@ -44,7 +44,9 @@ window.EditorApp.prototype.isSandwichContextActive = function(clip) {
 
 // 🔥 UPDATED: Ensures properties exist AND Repairs Broken Smart Objects
 // ✨ Added: scaleX, scaleY, forcedWidth, forcedHeight
-function ensureProProperties(clip) {
+window.EditorApp.prototype.ensureProProperties = function(clip) {
+    if (!clip) return;
+    
     // 1. Try to find parent track defaults
     const app = window.app;
     let trackDefaults = null;
@@ -69,8 +71,9 @@ function ensureProProperties(clip) {
     
     if (clip.properties.positionX === undefined) clip.properties.positionX = getDef('properties', 'positionX', 0);
     if (clip.properties.positionY === undefined) clip.properties.positionY = getDef('properties', 'positionY', 0);
-    if (clip.properties.rotation === undefined) clip.properties.rotation = getDef('properties', 'rotation', 0);
-    if (clip.properties.opacity === undefined) clip.properties.opacity = getDef('properties', 'opacity', 100);
+    if (clip.properties.rotation  === undefined) clip.properties.rotation  = getDef('properties', 'rotation',  0);
+    if (clip.properties.opacity   === undefined) clip.properties.opacity   = getDef('properties', 'opacity',   100);
+    if (clip.properties.volume    === undefined) clip.properties.volume    = getDef('properties', 'volume',    100); // ✅ ensure old clips default to 100
     
     if (!clip.keyframes) {
         clip.keyframes = { scale: [], positionX: [], positionY: [], rotation: [], opacity: [], volume: [] };
@@ -206,149 +209,29 @@ function ensureProProperties(clip) {
             this.keyframes[prop].push({ t: time, v: parseFloat(value) });
         };
     }
-}
+};
 
 window.EditorApp.prototype.calculateClipProperties = function(clip) {
-    ensureProProperties(clip); 
+    if (window.app && typeof window.app.ensureProProperties === 'function') {
+        window.app.ensureProProperties(clip);
+    }
+    
     const timeInClip = this.currentTime - clip.start;
     if (clip.getPropertyValue) {
-        clip.properties.scale = clip.getPropertyValue('scale', timeInClip);
-        // ✨ Retrieve X/Y Scales
-        clip.properties.scaleX = clip.getPropertyValue('scaleX', timeInClip) || 100;
-        clip.properties.scaleY = clip.getPropertyValue('scaleY', timeInClip) || 100;
+        clip.properties.scale     = clip.getPropertyValue('scale',     timeInClip);
+        clip.properties.scaleX    = clip.getPropertyValue('scaleX',    timeInClip) || 100;
+        clip.properties.scaleY    = clip.getPropertyValue('scaleY',    timeInClip) || 100;
         
         clip.properties.positionX = clip.getPropertyValue('positionX', timeInClip);
         clip.properties.positionY = clip.getPropertyValue('positionY', timeInClip);
-        clip.properties.rotation = clip.getPropertyValue('rotation', timeInClip);
-        clip.properties.opacity = clip.getPropertyValue('opacity', timeInClip);
+        clip.properties.rotation  = clip.getPropertyValue('rotation',  timeInClip);
+        clip.properties.opacity   = clip.getPropertyValue('opacity',   timeInClip);
+        clip.properties.volume    = clip.getPropertyValue('volume',    timeInClip); // ✅ volume keyframes now animate
     }
 };
 
-// 🔥 UPDATED: Apply Non-Uniform Scaling in rendering
-window.EditorApp.prototype.applyClipTransforms = function(ctx, clip, w, h) {
-    const timeInClip = this.currentTime - clip.start;
-    const timeRemaining = clip.end - this.currentTime;
-    
-    // 1. Transitions
-    if (clip.transitions) {
-        const transDur = clip.transitions.duration || 1.0;
-        let progress = 1;
-        if (timeInClip < transDur) {
-            progress = timeInClip / transDur;
-            this.applyTransitionEffect(ctx, clip.transitions.in, progress, w, h, 'in');
-        } else if (timeRemaining < transDur) {
-            progress = timeRemaining / transDur;
-            this.applyTransitionEffect(ctx, clip.transitions.out, progress, w, h, 'out');
-        }
-    }
-    
-    // 2. Opacity
-    const opacity = (clip.properties.opacity !== undefined ? clip.properties.opacity : 100) / 100;
-    ctx.globalAlpha *= opacity;
-
-    // 3. ✨ Forced Dimensions Logic (Squeeze to Shape)
-    if (clip.properties.forcedWidth && clip.properties.forcedHeight) {
-        // Calculate the scale needed to hit the target pixels exactly
-        // Warning: This overrides standard scale
-        const scaleX = clip.properties.forcedWidth / w;
-        const scaleY = clip.properties.forcedHeight / h;
-        ctx.scale(scaleX, scaleY);
-    } 
-    // 4. ✨ Standard & Non-Uniform Scaling
-    else {
-        // Combine Master Scale with Individual Axis Scales
-        const masterScale = (clip.properties.scale || 100) / 100;
-        const sX = (clip.properties.scaleX || 100) / 100;
-        const sY = (clip.properties.scaleY || 100) / 100;
-        
-        ctx.scale(masterScale * sX, masterScale * sY);
-    }
-};
-
-window.EditorApp.prototype.applyTransitionEffect = function(ctx, type, progress, w, h, mode) {
-    if (type === 'none') return;
-    if (type === 'fade') ctx.globalAlpha *= progress;
-    else if (type === 'slideLeft') ctx.translate((1 - progress) * w, 0);
-    else if (type === 'slideRight') ctx.translate((1 - progress) * -w, 0);
-    else if (type === 'slideUp') ctx.translate(0, (1 - progress) * h);
-    else if (type === 'zoom') {
-        ctx.translate(w/2, h/2);
-        ctx.scale(progress, progress);
-        ctx.translate(-w/2, -h/2);
-    }
-    else if (type === 'wipe') {
-        ctx.beginPath();
-        const maxRadius = Math.sqrt(w*w + h*h) / 2;
-        ctx.arc(w/2, h/2, maxRadius * progress, 0, Math.PI * 2);
-        ctx.clip();
-    }
-};
-
-window.EditorApp.prototype.drawAdvancedText = function(ctx, clip, w, h) {
-    const style = clip.textStyle || {};
-    const text = clip.src || "Text";
-    const centerX = w / 2; const centerY = h / 2;
-    const posX = clip.properties.positionX || 0;
-    const posY = clip.properties.positionY || 0;
-    const rot = clip.properties.rotation || 0;
-    const scale = (clip.properties.scale || 100) / 100;
-
-    ctx.save();
-    ctx.translate(centerX + posX, centerY + posY);
-    ctx.rotate((rot * Math.PI) / 180);
-    ctx.scale(scale, scale);
-    
-    const fontSize = h * 0.05; 
-    ctx.font = `${style.fontWeight || 'bold'} ${fontSize}px "${style.fontFamily || 'Cairo'}", sans-serif`;
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-
-    const maxWidth = w * 0.8;
-    const words = text.split(' ');
-    let line = ''; const lines = [];
-    for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > maxWidth && n > 0) { lines.push(line); line = words[n] + ' '; } 
-        else { line = testLine; }
-    }
-    lines.push(line);
-
-    const lineHeight = fontSize * 1.4;
-    const totalHeight = lines.length * lineHeight;
-    let maxLineWidth = 0;
-    lines.forEach(l => { const m = ctx.measureText(l); if(m.width > maxLineWidth) maxLineWidth = m.width; });
-    
-    const padding = style.padding || 20;
-    const boxW = maxLineWidth + (padding * 2);
-    const boxH = totalHeight + (padding * 2);
-    const startY = -(totalHeight / 2) + (lineHeight / 2);
-
-    const bgOpacity = (style.backgroundOpacity !== undefined ? style.backgroundOpacity : 0) / 100;
-    if (bgOpacity > 0) {
-        ctx.save();
-        ctx.globalAlpha *= bgOpacity;
-        ctx.fillStyle = forceHex(style.backgroundColor);
-        ctx.fillRect(-boxW/2, -boxH/2, boxW, boxH);
-        ctx.restore();
-    }
-
-    if (style.shadowBlur > 0) {
-        ctx.shadowColor = "rgba(0,0,0,0.8)";
-        ctx.shadowBlur = style.shadowBlur;
-        ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
-    } else { ctx.shadowColor = "transparent"; }
-
-    ctx.fillStyle = forceHex(style.color);
-    ctx.strokeStyle = forceHex(style.strokeColor);
-    ctx.lineWidth = style.strokeWidth || 0;
-
-    lines.forEach((l, i) => {
-        const currentY = startY + (i * lineHeight);
-        if (style.strokeWidth > 0) ctx.strokeText(l.trim(), 0, currentY);
-        ctx.fillText(l.trim(), 0, currentY);
-    });
-    ctx.restore();
-};
+// The following rendering functions have been moved to src/editor-engine/renderers/canvas_renderer.ts
+// applyClipTransforms, applyTransitionEffect, drawAdvancedText
 
 window.EditorApp.prototype.updateSandwichLimits = function(newScale) {
     if (this.selectedClipIds.size !== 1) return;
@@ -356,7 +239,6 @@ window.EditorApp.prototype.updateSandwichLimits = function(newScale) {
     const clip = this.findClipById(clipId);
     if (!clip || !clip.sandwich) return;
 
-    // Use raw setter if available (repaired object), else plain set
     clip.sandwich.scale = parseFloat(newScale);
 
     const W = (this.canvas && this.canvas.width) ? this.canvas.width : 1920;
@@ -372,7 +254,6 @@ window.EditorApp.prototype.updateSandwichLimits = function(newScale) {
              range.min = -limit; range.max = limit;
              input.min = -limit; input.max = limit;
              
-             // Access via _raw if possible to get intended value, or use getter
              let currentVal = clip.sandwich[`_rawOffset${axis}`] !== undefined 
                 ? clip.sandwich[`_rawOffset${axis}`] 
                 : clip.sandwich[`offset${axis}`];
@@ -395,20 +276,30 @@ window.EditorApp.prototype.updateSandwichLimits = function(newScale) {
     this.requestRedraw();
 };
 
-// 🔥🔥 UI CONTROLLER UPDATED
 window.EditorApp.prototype.updateEffectControls = function() {
     const panel = document.getElementById('effect-controls-content');
     if (!panel) return;
     if (this.selectedClipIds.size !== 1) {
-        panel.innerHTML = '<div class="text-gray-500 text-center py-4 text-xs">No Clip Selected</div>';
+        panel.innerHTML = '<div class="text-gray-500 text-center py-4 text-xs">No Selection</div>';
         return;
     }
 
     const clipId = Array.from(this.selectedClipIds)[0];
     this.lastSelectedClipId = clipId;
+    
+    // Check if it's a transition
+    const transInfo = this.findTransitionById ? this.findTransitionById(clipId) : null;
+    if (transInfo) {
+        panel.innerHTML = '';
+        if (this.renderTransitionEffectControls) {
+            this.renderTransitionEffectControls(panel, transInfo.trans, transInfo.track.id);
+        }
+        return;
+    }
+
     const clip = this.findClipById(clipId);
     if (!clip) return;
-    ensureProProperties(clip); 
+    if(window.app)window.app.ensureProProperties(clip); 
     panel.innerHTML = ''; 
 
     const W = (this.canvas && this.canvas.width) ? this.canvas.width : 1920;
@@ -426,28 +317,38 @@ window.EditorApp.prototype.updateEffectControls = function() {
         else if (objName === 'transitions') val = clip.transitions[prop];
         else if (objName === 'textStyle') val = clip.textStyle[prop];
         
-        val = parseFloat(val) || 0;
+        val = Number((parseFloat(val) || 0).toFixed(2));
         if (unit === '%') val = Math.round(val);
         
         const uniqueId = `${objName}_${prop}`;
         const inputId = `input_${uniqueId}`;
         const rangeId = `range_${uniqueId}`;
+
+        // Only show keyframe icon for clip.properties (transform props)
+        // transitions.duration / textStyle / sandwich props don't have keyframe tracks
+        const keyframeBtn = (objName === 'properties')
+            ? `<i class="fa-regular fa-clock cursor-pointer text-gray-600 hover:text-red-500 transition-colors text-[10px]" title="Add Keyframe" onclick="app.addKeyframeUI('${clipId}', '${prop}')"></i>`
+            : `<i class="fa-regular fa-clock text-gray-800 text-[10px]" title="Keyframes not available for this property"></i>`;
         
         return `
-        <div class="mb-3">
-            <div class="flex justify-between items-center mb-1">
-                <label class="text-[10px] text-gray-400 w-16">${label}</label>
-                <div class="flex items-center gap-1">
-                     <i class="fa-regular fa-clock cursor-pointer text-gray-600 hover:text-primary text-[10px]" title="Add Keyframe" onclick="app.addKeyframeUI('${clipId}', '${prop}')"></i>
-                    <input type="number" id="${inputId}" value="${val}" min="${min}" max="${max}" step="${step}"
-                        class="bg-gray-900 border border-gray-600 rounded text-[10px] text-white w-14 px-1 text-center focus:border-blue-500 outline-none"
+        <div class="mb-3 flex items-center justify-between gap-3 group">
+            <div class="flex items-center gap-1 w-20 flex-shrink-0">
+                ${keyframeBtn}
+                <label class="text-[10px] text-gray-400 truncate select-none">${label}</label>
+            </div>
+            
+            <div class="flex-grow flex items-center gap-2">
+                <input type="range" id="${rangeId}" min="${min}" max="${max}" step="${step}" value="${val}" dir="ltr"
+                    class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer range-sm accent-red-500"
+                    oninput="app.updateProProperty('${clipId}', '${objName}', '${prop}', this.value); document.getElementById('${inputId}').value = this.value; ${extraOnInput}">
+                
+                <div class="flex items-center gap-1 w-20 justify-end flex-shrink-0">
+                    <input type="number" id="${inputId}" value="${val}" min="${min}" max="${max}" step="${step}" dir="ltr" lang="en"
+                        class="bg-[#050811] border border-gray-700 rounded text-[10px] text-gray-200 w-14 py-0.5 text-center focus:border-red-500 focus:text-white outline-none transition-colors font-mono"
                         oninput="app.updateProProperty('${clipId}', '${objName}', '${prop}', this.value); document.getElementById('${rangeId}').value = this.value; ${extraOnInput}">
                     <span class="text-[9px] text-gray-500 w-4">${unit}</span>
                 </div>
             </div>
-            <input type="range" id="${rangeId}" min="${min}" max="${max}" step="${step}" value="${val}" 
-                class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer range-sm accent-blue-500"
-                oninput="app.updateProProperty('${clipId}', '${objName}', '${prop}', this.value); document.getElementById('${inputId}').value = this.value; ${extraOnInput}">
         </div>`;
     };
 
@@ -455,142 +356,256 @@ window.EditorApp.prototype.updateEffectControls = function() {
         const val = clip[objName][prop];
         const opts = options.map(o => `<option value="${o.val}" ${val === o.val ? 'selected' : ''}>${o.label}</option>`).join('');
         return `
-        <div class="flex items-center justify-between mb-2">
-            <label class="text-[10px] text-gray-400 w-16">${label}</label>
-            <select class="flex-1 bg-gray-700 text-[10px] rounded border border-gray-600 px-1 py-0.5 outline-none"
+        <div class="flex items-center justify-between mb-3 gap-3">
+            <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">${label}</label>
+            <select class="flex-grow bg-[#050811] text-[10px] text-gray-200 rounded border border-gray-700 px-2 py-1 outline-none focus:border-red-500 transition-colors cursor-pointer"
                 onchange="app.updateProProperty('${clipId}', '${objName}', '${prop}', this.value)">
                 ${opts}
             </select>
         </div>`;
     };
 
-    const isAiEnabled = clip.aiSegmentation && clip.aiSegmentation.enabled;
-    const isSandwichContext = this.isSandwichContextActive(clip);
-
-    if (isAiEnabled) {
-        // --- SANDWICH CONTROLS ---
-        const currentScale = clip.sandwich.scale || 50;
-        const startLimitX = Math.floor((W * (1 - currentScale/100)) / 2);
-        const startLimitY = Math.floor((H * (1 - currentScale/100)) / 2);
-
-        let statusBadge = isSandwichContext 
-            ? `<div class="text-[9px] text-pink-300 mb-2 opacity-70"><i class="fa-solid fa-layer-group"></i> Sandwich Active (Layer Detected).</div>`
-            : `<div class="text-[9px] text-gray-400 mb-2 opacity-70"><i class="fa-solid fa-expand"></i> Auto-Fullscreen (No Background).</div>`;
-
-        const opacityClass = isSandwichContext ? '' : 'opacity-50 pointer-events-none grayscale';
-
-        const sandwichHTML = `
-        <div class="mb-4 bg-pink-900/20 p-2 rounded border border-pink-700/50">
-            <h3 class="text-xs font-bold text-pink-400 mb-2 uppercase border-b border-pink-700/50 pb-1 flex justify-between">
-                <span>Sandwich Mode</span>
-                ${!isSandwichContext ? '<i class="fa-solid fa-lock text-[10px]" title="Locked: No background layer found"></i>' : ''}
-            </h3>
-            ${statusBadge}
-            <div class="${opacityClass} transition-opacity duration-300">
-                ${createDualControl('Size', 'sandwich', 'scale', 10, 100, '%', 1, 'app.updateSandwichLimits(this.value)')}
-                ${createDualControl('Offset X', 'sandwich', 'offsetX', -startLimitX, startLimitX, 'px')}
-                ${createDualControl('Offset Y', 'sandwich', 'offsetY', -startLimitY, startLimitY, 'px')}
+    // --- STANDARD CONTROLS (UPDATED) ---
+    let transformHTML = `
+        <div class="mb-4 bg-[#0a0f1d] rounded-lg">
+            <div class="flex items-center gap-2 mb-4 text-gray-200 bg-[#1e293b]/50 p-2 rounded border border-gray-800">
+                <i class="fa-solid fa-chevron-down text-[9px] text-red-500"></i>
+                <span class="text-xs font-bold uppercase tracking-wider">Transform</span>
+            </div>
+            <div class="px-2">
+                ${createDualControl('Master Scale', 'properties', 'scale', 10, 500, '%')}
+                ${createDualControl('Scale X', 'properties', 'scaleX', 10, 500, '%')}
+                ${createDualControl('Scale Y', 'properties', 'scaleY', 10, 500, '%')}
+            
+            ${createDualControl('Pos X', 'properties', 'positionX', -limitW, limitW, 'px')} 
+            ${createDualControl('Pos Y', 'properties', 'positionY', -limitH, limitH, 'px')}
+            ${createDualControl('Rotation', 'properties', 'rotation', -360, 360, '°')}
+            ${createDualControl('Opacity', 'properties', 'opacity', 0, 100, '%')}
+            ${(clip.type === 'video' || clip.type === 'audio') ? createDualControl('Volume', 'properties', 'volume', 0, 100, '%') : ''}
             </div>
         </div>
-        `;
-        panel.insertAdjacentHTML('beforeend', sandwichHTML);
-    } else {
-        // --- STANDARD CONTROLS (UPDATED) ---
-        let transformHTML = `
-            <div class="mb-4">
-                <h3 class="text-xs font-bold text-gray-400 mb-2 uppercase border-b border-gray-700 pb-1">Transform</h3>
-                ${createDualControl('Master Scale', 'properties', 'scale', 10, 500, '%')}
-                
-                <div class="grid grid-cols-2 gap-2">
-                    ${createDualControl('Scale X', 'properties', 'scaleX', 10, 500, '%')}
-                    ${createDualControl('Scale Y', 'properties', 'scaleY', 10, 500, '%')}
-                </div>
-
-                ${createDualControl('Pos X', 'properties', 'positionX', -limitW, limitW, 'px')} 
-                ${createDualControl('Pos Y', 'properties', 'positionY', -limitH, limitH, 'px')}
-                ${createDualControl('Rotation', 'properties', 'rotation', -360, 360, '°')}
-                ${createDualControl('Opacity', 'properties', 'opacity', 0, 100, '%')}
-            </div>
-        `;
-        panel.insertAdjacentHTML('beforeend', transformHTML);
-    }
+    `;
+    panel.insertAdjacentHTML('beforeend', transformHTML);
     
     let applyButtons = '';
     if (clip.type === 'text') {
         const track = this.tracks.find(t => t.id === clip.trackId);
         const isSubtitle = track && track.type === 'subtitle';
         if (isSubtitle) {
-            applyButtons = `<div class="mb-3 border-b border-gray-700 pb-2 flex flex-col gap-2"><button onclick="app.applyAttributesToAll('${clipId}', 'subtitle_only')" class="bg-orange-600 hover:bg-orange-700 text-white text-[10px] py-1 rounded w-full font-bold"><i class="fa-solid fa-copy"></i> Apply to All Transcripts</button></div>`;
+            applyButtons = `<div class="mb-4 mt-2 px-2"><button onclick="app.applyAttributesToAll('${clipId}', 'subtitle_only')" class="bg-red-600 hover:bg-red-700 text-white text-[10px] py-1.5 rounded w-full font-bold transition-colors shadow-lg shadow-red-500/20"><i class="fa-solid fa-copy mr-1"></i> Apply to All Transcripts</button></div>`;
         } else {
-            applyButtons = `<div class="mb-3 border-b border-gray-700 pb-2 flex flex-col gap-2"><button onclick="app.applyAttributesToAll('${clipId}', 'text_only')" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] py-1 rounded w-full font-bold"><i class="fa-solid fa-copy"></i> Apply to All Texts</button></div>`;
+            applyButtons = `<div class="mb-4 mt-2 px-2"><button onclick="app.applyAttributesToAll('${clipId}', 'text_only')" class="bg-red-600 hover:bg-red-700 text-white text-[10px] py-1.5 rounded w-full font-bold transition-colors shadow-lg shadow-red-500/20"><i class="fa-solid fa-copy mr-1"></i> Apply to All Texts</button></div>`;
         }
     } else if (clip.type === 'image' || clip.type === 'video') {
-        applyButtons = `<div class="mb-3 border-b border-gray-700 pb-2"><button onclick="app.applyAttributesToAll('${clipId}', 'image')" class="bg-purple-600 hover:bg-purple-700 text-white text-[10px] py-1 rounded w-full font-bold"><i class="fa-solid fa-images"></i> Set as Track Default & Apply All</button></div>`;
+        applyButtons = `<div class="mb-4 mt-2 px-2"><button onclick="app.applyAttributesToAll('${clipId}', 'image')" class="bg-red-600 hover:bg-red-700 text-white text-[10px] py-1.5 rounded w-full font-bold transition-colors shadow-lg shadow-red-500/20"><i class="fa-solid fa-images mr-1"></i> Set as Track Default & Apply All</button></div>`;
     }
     panel.insertAdjacentHTML('beforeend', applyButtons);
     
     const transitionsHTML = `
-    <div class="mb-3 border-b border-gray-700 pb-2 mt-2">
-        <h4 class="font-bold text-xs text-indigo-400 mb-2"><i class="fa-solid fa-bolt mr-1"></i> Transitions</h4>
-        ${createSelect('In Anim', 'transitions', 'in', [{val:'none', label:'None'}, {val:'fade', label:'Fade In'}, {val:'slideLeft', label:'Slide Left'}, {val:'slideRight', label:'Slide Right'}, {val:'slideUp', label:'Slide Up'}, {val:'zoom', label:'Zoom In'}, {val:'wipe', label:'Iris Wipe'}])}
-        ${createSelect('Out Anim', 'transitions', 'out', [{val:'none', label:'None'}, {val:'fade', label:'Fade Out'}, {val:'slideLeft', label:'Slide Left'}, {val:'slideRight', label:'Slide Right'}, {val:'slideUp', label:'Slide Up'}, {val:'zoom', label:'Zoom Out'}, {val:'wipe', label:'Iris Wipe'}])}
-        ${createDualControl('Duration', 'transitions', 'duration', 0.1, 5.0, 's', 0.1)}
+    <div class="mb-4 bg-[#0a0f1d] rounded-lg">
+        <div class="flex items-center gap-2 mb-4 text-gray-200 bg-[#1e293b]/50 p-2 rounded border border-gray-800">
+            <i class="fa-solid fa-chevron-down text-[9px] text-red-500"></i>
+            <span class="text-xs font-bold uppercase tracking-wider">Transitions</span>
+        </div>
+        <div class="px-2">
+            ${createSelect('In Anim', 'transitions', 'in', [{val:'none', label:'None'}, {val:'fade', label:'Fade In'}, {val:'slideLeft', label:'Slide Left'}, {val:'slideRight', label:'Slide Right'}, {val:'slideUp', label:'Slide Up'}, {val:'zoom', label:'Zoom In'}, {val:'wipe', label:'Wipe In'}])}
+            ${createSelect('Out Anim', 'transitions', 'out', [{val:'none', label:'None'}, {val:'fade', label:'Fade Out'}, {val:'slideLeft', label:'Slide Left'}, {val:'slideRight', label:'Slide Right'}, {val:'slideUp', label:'Slide Up'}, {val:'zoom', label:'Zoom Out'}, {val:'wipe', label:'Wipe Out'}])}
+            ${createDualControl('Duration', 'transitions', 'duration', 0.1, 5.0, 's', 0.1)}
+        </div>
     </div>`;
     panel.insertAdjacentHTML('beforeend', transitionsHTML);
 
     if (clip.type === 'text') {
         const textHTML = `
-        <div class="mb-3 border-b border-gray-700 pb-2">
-            <h4 class="font-bold text-xs text-blue-400 mb-2"><i class="fa-solid fa-i-cursor mr-1"></i> Text Style</h4>
-            <div class="flex items-center justify-between mb-2">
-                <label class="text-[10px] text-gray-400">Color</label>
-                <input type="color" value="${forceHex(clip.textStyle.color)}" onchange="app.updateProProperty('${clipId}', 'textStyle', 'color', this.value)" class="w-10 h-6 bg-transparent border-0 cursor-pointer">
+        <div class="mb-4 bg-[#0a0f1d] rounded-lg">
+            <div class="flex items-center gap-2 mb-4 text-gray-200 bg-[#1e293b]/50 p-2 rounded border border-gray-800">
+                <i class="fa-solid fa-chevron-down text-[9px] text-red-500"></i>
+                <span class="text-xs font-bold uppercase tracking-wider">Text Style</span>
             </div>
-            <div class="flex items-center justify-between mb-2">
-                <label class="text-[10px] text-gray-400">Bg Color</label>
-                <div class="flex items-center gap-2">
-                    <input type="color" value="${forceHex(clip.textStyle.backgroundColor)}" onchange="app.updateProProperty('${clipId}', 'textStyle', 'backgroundColor', this.value)" class="w-8 h-6 bg-transparent border-0 cursor-pointer">
-                    <input type="number" min="0" max="100" value="${clip.textStyle.backgroundOpacity || 0}" onchange="app.updateProProperty('${clipId}', 'textStyle', 'backgroundOpacity', this.value)" class="w-10 bg-gray-800 text-[9px] border border-gray-600 px-1 rounded text-center" title="Bg Opacity %">
+            <div class="px-2">
+                <div class="mb-4">
+                    <label class="text-[10px] text-gray-400 block mb-1 select-none">Text Content</label>
+                    <textarea class="w-full bg-[#050811] text-[10px] text-gray-200 rounded border border-gray-700 px-2 py-2 outline-none focus:border-red-500 transition-colors resize-y min-h-[60px]" oninput="app.updateClipSource('${clipId}', this.value)">${clip.src || ''}</textarea>
                 </div>
+                <div class="flex items-center justify-between mb-3 gap-3">
+                    <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">Font</label>
+                    <select class="flex-grow bg-[#050811] text-[10px] text-gray-200 rounded border border-gray-700 px-2 py-1 outline-none focus:border-red-500 transition-colors cursor-pointer" onchange="app.updateProProperty('${clipId}', 'textStyle', 'fontFamily', this.value)">
+                        <optgroup label="Arabic">
+                            <option value="Cairo" ${clip.textStyle.fontFamily === 'Cairo' ? 'selected' : ''}>Cairo</option>
+                            <option value="Tajawal" ${clip.textStyle.fontFamily === 'Tajawal' ? 'selected' : ''}>Tajawal</option>
+                            <option value="Almarai" ${clip.textStyle.fontFamily === 'Almarai' ? 'selected' : ''}>Almarai</option>
+                            <option value="Changa" ${clip.textStyle.fontFamily === 'Changa' ? 'selected' : ''}>Changa</option>
+                            <option value="Lalezar" ${clip.textStyle.fontFamily === 'Lalezar' ? 'selected' : ''}>Lalezar</option>
+                            <option value="Kufam" ${clip.textStyle.fontFamily === 'Kufam' ? 'selected' : ''}>Kufam</option>
+                        </optgroup>
+                        <optgroup label="English">
+                            <option value="Inter" ${clip.textStyle.fontFamily === 'Inter' ? 'selected' : ''}>Inter</option>
+                            <option value="Roboto" ${clip.textStyle.fontFamily === 'Roboto' ? 'selected' : ''}>Roboto</option>
+                            <option value="Arial" ${clip.textStyle.fontFamily === 'Arial' ? 'selected' : ''}>Arial</option>
+                            <option value="Tahoma" ${clip.textStyle.fontFamily === 'Tahoma' ? 'selected' : ''}>Tahoma</option>
+                            <option value="Courier New" ${clip.textStyle.fontFamily === 'Courier New' ? 'selected' : ''}>Courier New</option>
+                            <option value="Times New Roman" ${clip.textStyle.fontFamily === 'Times New Roman' ? 'selected' : ''}>Times New Roman</option>
+                            <option value="Impact" ${clip.textStyle.fontFamily === 'Impact' ? 'selected' : ''}>Impact</option>
+                            <option value="Comic Sans MS" ${clip.textStyle.fontFamily === 'Comic Sans MS' ? 'selected' : ''}>Comic Sans MS</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="flex items-center justify-between mb-3 gap-3">
+                    <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">Style</label>
+                    <div class="flex flex-grow gap-1">
+                        <button onclick="app.updateProProperty('${clipId}', 'textStyle', 'fontWeight', '${clip.textStyle.fontWeight === 'bold' ? 'normal' : 'bold'}')" class="flex-1 py-1 rounded bg-[#050811] border ${clip.textStyle.fontWeight === 'bold' ? 'border-blue-500 text-blue-400' : 'border-gray-700 text-gray-400 hover:border-gray-500'} transition"><i class="fa-solid fa-bold"></i></button>
+                        <button onclick="app.updateProProperty('${clipId}', 'textStyle', 'fontStyle', '${clip.textStyle.fontStyle === 'italic' ? 'normal' : 'italic'}')" class="flex-1 py-1 rounded bg-[#050811] border ${clip.textStyle.fontStyle === 'italic' ? 'border-blue-500 text-blue-400' : 'border-gray-700 text-gray-400 hover:border-gray-500'} transition"><i class="fa-solid fa-italic"></i></button>
+                        <button onclick="app.updateProProperty('${clipId}', 'textStyle', 'textDecoration', '${clip.textStyle.textDecoration === 'underline' ? 'none' : 'underline'}')" class="flex-1 py-1 rounded bg-[#050811] border ${clip.textStyle.textDecoration === 'underline' ? 'border-blue-500 text-blue-400' : 'border-gray-700 text-gray-400 hover:border-gray-500'} transition"><i class="fa-solid fa-underline"></i></button>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between mb-3 gap-3">
+                    <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">Align</label>
+                    <div class="flex flex-grow gap-1">
+                        <button onclick="app.updateProProperty('${clipId}', 'textStyle', 'textAlign', 'left')" class="flex-1 py-1 rounded bg-[#050811] border ${clip.textStyle.textAlign === 'left' ? 'border-blue-500 text-blue-400' : 'border-gray-700 text-gray-400 hover:border-gray-500'} transition"><i class="fa-solid fa-align-left"></i></button>
+                        <button onclick="app.updateProProperty('${clipId}', 'textStyle', 'textAlign', 'center')" class="flex-1 py-1 rounded bg-[#050811] border ${(!clip.textStyle.textAlign || clip.textStyle.textAlign === 'center') ? 'border-blue-500 text-blue-400' : 'border-gray-700 text-gray-400 hover:border-gray-500'} transition"><i class="fa-solid fa-align-center"></i></button>
+                        <button onclick="app.updateProProperty('${clipId}', 'textStyle', 'textAlign', 'right')" class="flex-1 py-1 rounded bg-[#050811] border ${clip.textStyle.textAlign === 'right' ? 'border-blue-500 text-blue-400' : 'border-gray-700 text-gray-400 hover:border-gray-500'} transition"><i class="fa-solid fa-align-right"></i></button>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between mb-3 gap-3">
+                    <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">Case</label>
+                    <div class="flex flex-grow gap-1 text-[10px] font-bold">
+                        <button onclick="app.updateProProperty('${clipId}', 'textStyle', 'textTransform', 'none')" class="flex-1 py-1 rounded bg-[#050811] border ${(!clip.textStyle.textTransform || clip.textStyle.textTransform === 'none') ? 'border-blue-500 text-blue-400' : 'border-gray-700 text-gray-400 hover:border-gray-500'} transition">None</button>
+                        <button onclick="app.updateProProperty('${clipId}', 'textStyle', 'textTransform', 'uppercase')" class="flex-1 py-1 rounded bg-[#050811] border ${clip.textStyle.textTransform === 'uppercase' ? 'border-blue-500 text-blue-400' : 'border-gray-700 text-gray-400 hover:border-gray-500'} transition">AA</button>
+                        <button onclick="app.updateProProperty('${clipId}', 'textStyle', 'textTransform', 'lowercase')" class="flex-1 py-1 rounded bg-[#050811] border ${clip.textStyle.textTransform === 'lowercase' ? 'border-blue-500 text-blue-400' : 'border-gray-700 text-gray-400 hover:border-gray-500'} transition">aa</button>
+                        <button onclick="app.updateProProperty('${clipId}', 'textStyle', 'textTransform', 'capitalize')" class="flex-1 py-1 rounded bg-[#050811] border ${clip.textStyle.textTransform === 'capitalize' ? 'border-blue-500 text-blue-400' : 'border-gray-700 text-gray-400 hover:border-gray-500'} transition">Aa</button>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between mb-3 gap-3">
+                    <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">Color</label>
+                    <input type="color" value="${forceHex(clip.textStyle.color)}" onchange="app.updateProProperty('${clipId}', 'textStyle', 'color', this.value)" class="w-full h-7 bg-[#050811] border border-gray-700 rounded cursor-pointer">
+                </div>
+                <div class="flex items-center justify-between mb-3 gap-3">
+                    <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">Bg Color</label>
+                    <div class="flex items-center gap-2 flex-grow">
+                        <input type="color" value="${forceHex(clip.textStyle.backgroundColor)}" onchange="app.updateProProperty('${clipId}', 'textStyle', 'backgroundColor', this.value)" class="flex-grow h-7 bg-[#050811] border border-gray-700 rounded cursor-pointer">
+                        <input type="number" min="0" max="100" value="${clip.textStyle.backgroundOpacity || 0}" lang="en" dir="ltr" onchange="app.updateProProperty('${clipId}', 'textStyle', 'backgroundOpacity', this.value)" class="w-10 bg-[#050811] text-[10px] text-gray-200 border border-gray-700 py-1 rounded text-center focus:border-red-500 outline-none" title="Bg Opacity %">
+                    </div>
+                </div>
+                <div class="flex items-center justify-between mb-3 gap-3">
+                    <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">Stroke Color</label>
+                    <input type="color" value="${forceHex(clip.textStyle.strokeColor || '#000000')}" onchange="app.updateProProperty('${clipId}', 'textStyle', 'strokeColor', this.value)" class="w-full h-7 bg-[#050811] border border-gray-700 rounded cursor-pointer">
+                </div>
+                ${createDualControl('Stroke Width', 'textStyle', 'strokeWidth', 0, 20, 'px')}
+                ${createDualControl('Padding', 'textStyle', 'padding', 0, 100, 'px')}
+                ${createDualControl('Shadow', 'textStyle', 'shadowBlur', 0, 50, 'px')}
             </div>
-             ${createDualControl('Stroke', 'textStyle', 'strokeWidth', 0, 20, 'px')}
-             ${createDualControl('Padding', 'textStyle', 'padding', 0, 100, 'px')}
-             ${createDualControl('Shadow', 'textStyle', 'shadowBlur', 0, 50, 'px')}
         </div>`;
         panel.insertAdjacentHTML('beforeend', textHTML);
     }
-};
-
-window.EditorApp.prototype.updateProProperty = function(clipId, objName, prop, value) {
-    const clip = this.findClipById(clipId);
-    if(clip) {
-        ensureProProperties(clip);
-        if(!clip[objName]) clip[objName] = {};
-        
-        let parsedValue = parseFloat(value);
-        if (prop.toLowerCase().includes('color') && !prop.includes('Opacity')) {
-            parsedValue = forceHex(value);
-        } else if (prop === 'in' || prop === 'out') {
-            parsedValue = value;
-        }
-
-        clip[objName][prop] = parsedValue;
-        this.requestRedraw();
+    
+    // --- Logo / Object Removal ---
+    let removersHTML = `
+    <div class="mb-4 bg-[#0a0f1d] rounded-lg">
+        <div class="flex items-center justify-between mb-2 text-gray-200 bg-[#1e293b]/50 p-2 rounded border border-gray-800">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-eraser text-[9px] text-red-500"></i>
+                <span class="text-xs font-bold uppercase tracking-wider">Object Removal</span>
+            </div>
+            <button onclick="app.addLogoRemover('${clipId}')" class="text-[9px] bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded transition-colors">
+                <i class="fa-solid fa-plus mr-1"></i> Add
+            </button>
+        </div>
+        <div class="px-2 pb-2">
+    `;
+    
+    if (clip.logoRemovers && clip.logoRemovers.length > 0) {
+        clip.logoRemovers.forEach((rm, idx) => {
+            removersHTML += `
+            <div class="mb-3 p-2 bg-[#050811] border border-gray-800 rounded relative group">
+                <button onclick="app.deleteLogoRemover('${clipId}', '${rm.id}')" class="absolute top-1 right-1 text-gray-600 hover:text-red-500 text-[10px] hidden group-hover:block"><i class="fa-solid fa-xmark"></i></button>
+                <div class="text-[10px] text-gray-400 mb-2 font-bold">Remover ${idx + 1}</div>
+                
+                <div class="flex items-center justify-between mb-2 gap-2">
+                    <label class="text-[9px] text-gray-500 w-12">Mode</label>
+                    <select onchange="app.updateLogoRemover('${clipId}', '${rm.id}', 'mode', this.value)" class="flex-grow bg-[#1e293b] text-[9px] text-gray-200 rounded border border-gray-700 px-1 py-1 outline-none">
+                        <option value="blur" ${rm.mode === 'blur' ? 'selected' : ''}>Blur</option>
+                        <option value="pixelate" ${rm.mode === 'pixelate' ? 'selected' : ''}>Pixelate</option>
+                        <option value="interpolate" ${rm.mode === 'interpolate' ? 'selected' : ''}>Smart Patch</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-center justify-between mb-1 gap-2">
+                    <label class="text-[9px] text-gray-500 w-12">X (%)</label>
+                    <input type="range" min="0" max="100" step="0.1" value="${rm.x}" oninput="app.updateLogoRemover('${clipId}', '${rm.id}', 'x', this.value)" class="flex-grow h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer range-sm accent-red-500">
+                    <span class="text-[9px] text-gray-400 w-6 text-right">${Math.round(rm.x)}</span>
+                </div>
+                <div class="flex items-center justify-between mb-1 gap-2">
+                    <label class="text-[9px] text-gray-500 w-12">Y (%)</label>
+                    <input type="range" min="0" max="100" step="0.1" value="${rm.y}" oninput="app.updateLogoRemover('${clipId}', '${rm.id}', 'y', this.value)" class="flex-grow h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer range-sm accent-red-500">
+                    <span class="text-[9px] text-gray-400 w-6 text-right">${Math.round(rm.y)}</span>
+                </div>
+                <div class="flex items-center justify-between mb-1 gap-2">
+                    <label class="text-[9px] text-gray-500 w-12">Width</label>
+                    <input type="range" min="1" max="100" step="0.1" value="${rm.width}" oninput="app.updateLogoRemover('${clipId}', '${rm.id}', 'width', this.value)" class="flex-grow h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer range-sm accent-red-500">
+                    <span class="text-[9px] text-gray-400 w-6 text-right">${Math.round(rm.width)}</span>
+                </div>
+                <div class="flex items-center justify-between mb-1 gap-2">
+                    <label class="text-[9px] text-gray-500 w-12">Height</label>
+                    <input type="range" min="1" max="100" step="0.1" value="${rm.height}" oninput="app.updateLogoRemover('${clipId}', '${rm.id}', 'height', this.value)" class="flex-grow h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer range-sm accent-red-500">
+                    <span class="text-[9px] text-gray-400 w-6 text-right">${Math.round(rm.height)}</span>
+                </div>
+                <div class="flex items-center justify-between mb-1 gap-2">
+                    <label class="text-[9px] text-gray-500 w-12">Strength</label>
+                    <input type="range" min="0" max="100" step="1" value="${rm.strength}" oninput="app.updateLogoRemover('${clipId}', '${rm.id}', 'strength', this.value)" class="flex-grow h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer range-sm accent-red-500">
+                    <span class="text-[9px] text-gray-400 w-6 text-right">${Math.round(rm.strength)}</span>
+                </div>
+            </div>`;
+        });
+    } else {
+        removersHTML += `<div class="text-[10px] text-gray-500 text-center py-2 italic">No removers added.</div>`;
     }
+    
+    removersHTML += `</div></div>`;
+    panel.insertAdjacentHTML('beforeend', removersHTML);
 };
+
+    window.EditorApp.prototype.updateProProperty = function(clipId, objName, prop, value) {
+        const clip = this.findClipById(clipId);
+        if(clip) {
+            if(window.app)window.app.ensureProProperties(clip);
+            if(!clip[objName]) clip[objName] = {};
+            
+            let parsedValue = parseFloat(value);
+            const stringProps = ['fontFamily', 'fontWeight', 'fontStyle', 'textDecoration', 'textAlign', 'textTransform', 'in', 'out'];
+            
+            if (prop.toLowerCase().includes('color') && !prop.includes('Opacity')) {
+                parsedValue = forceHex(value);
+            } else if (stringProps.includes(prop)) {
+                parsedValue = value;
+            }
+            
+            clip[objName][prop] = parsedValue;
+            this.requestRedraw();
+            this.syncToStore(); // ✅ keep Zustand in sync after every property change
+            
+            // Refresh properties panel for text toggles to update their active HTML state
+            const requiresPanelRefresh = ['fontWeight', 'fontStyle', 'textDecoration', 'textAlign', 'textTransform'].includes(prop);
+            if (requiresPanelRefresh && this.updateEffectControls) {
+                this.updateEffectControls();
+            }
+        }
+    };
 
 window.EditorApp.prototype.updateClipSource = function(clipId, newText) {
     const clip = this.findClipById(clipId);
     if (clip && clip.type === 'text') {
         clip.src = newText;
         if(this.syncOverlays) this.syncOverlays(); 
+        // BUG #4 FIX: sync Zustand so React re-renders the clip label in the timeline
+        if(this.syncToStore) this.syncToStore();
+        if(this.requestRedraw) this.requestRedraw();
     }
 };
 
 window.EditorApp.prototype.addKeyframeUI = function(clipId, prop) {
     const clip = this.findClipById(clipId);
     if (!clip) return;
-    ensureProProperties(clip);
+    if(window.app)window.app.ensureProProperties(clip);
     const timeRelative = this.currentTime - clip.start;
     let currentVal = clip.properties[prop];
     clip.addKeyframe(prop, timeRelative, currentVal);
@@ -603,6 +618,9 @@ window.EditorApp.prototype.applyAttributesToAll = function(sourceClipId, mode) {
     if (!sourceClip) return;
     const track = this.tracks.find(t => t.id === sourceClip.trackId);
     if (!track) return;
+
+    // BUG #3 FIX: save undo state before mutating all clips
+    this.saveState();
     const styleSnapshot = {
         type: sourceClip.type,
         properties: { ...sourceClip.properties },
@@ -636,121 +654,155 @@ window.EditorApp.prototype.applyAttributesToAll = function(sourceClipId, mode) {
              Object.assign(targetClip.textStyle, styleSnapshot.textStyle);
              Object.assign(targetClip.properties, styleSnapshot.properties); 
         }
-        ensureProProperties(targetClip);
+        if(window.app)window.app.ensureProProperties(targetClip);
     });
     this.requestRedraw();
+    // BUG #3 FIX: sync Zustand so React re-renders the timeline with the new styles
+    this.syncToStore();
+    this.log(`✨ Applied style to all ${mode.replace('_', ' ')} clips on ${track.name}`);
 };
 
-window.EditorApp.prototype.exportToMP4 = async function() {
-    const btn = document.getElementById('export-mp4-btn');
-    const isSecure = typeof SharedArrayBuffer !== 'undefined';
-    if (!isSecure) {
-        if (btn) btn.innerText = "🔴 Rec (WebM)...";
-        this.startCanvasRecording(null);
-        return;
-    }
-    if (typeof FFmpeg === 'undefined') {
-        this.startCanvasRecording(null);
-        return;
-    }
-    const { createFFmpeg } = FFmpeg;
-    const ffmpeg = createFFmpeg({ log: true });
-    if(btn) btn.innerText = "⏳ Init FFmpeg...";
-    try {
-        await ffmpeg.load();
-        const assets = new Set();
-        this.tracks.forEach(t => t.clips.forEach(c => {
-            if(c.type === 'video' || c.type === 'image' || c.type === 'audio') assets.add(c.src);
-        }));
-        for (const src of assets) {
-            try {
-                const data = await fetch(src).then(r => r.arrayBuffer());
-                const fileName = src.replace(/[^a-zA-Z0-9._-]/g, '_'); 
-                ffmpeg.FS('writeFile', fileName, new Uint8Array(data));
-            } catch(e) { }
-        }
-        if(btn) btn.innerText = "🔴 Rec (MP4)...";
-        this.startCanvasRecording(ffmpeg);
-    } catch (e) {
-        if(btn) btn.innerText = "🔴 Rec (Fallback)...";
-        this.startCanvasRecording(null); 
-    }
-};
+// The following export functions have been moved to src/editor-engine/features/video_export.ts
+// exportToMP4, startCanvasRecording, downloadBlob
 
-window.EditorApp.prototype.startCanvasRecording = function(ffmpeg) {
-    this.pausePlayback();
-    this.seek(0);
-    this.currentTime = 0; 
-    if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const audioDest = this.audioCtx.createMediaStreamDestination();
-    this.players.forEach(player => {
-        if (!player._sourceNode) {
-            try {
-                player._sourceNode = this.audioCtx.createMediaElementSource(player);
-                player._sourceNode.connect(this.audioCtx.destination);
-            } catch (e) { }
-        }
-        if (player._sourceNode) player._sourceNode.connect(audioDest);
-    });
-    if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
-    let canvasStream;
-    try { canvasStream = this.canvas.captureStream(30); } catch(e) { return; }
-    const combinedTracks = [...canvasStream.getVideoTracks(), ...audioDest.stream.getAudioTracks()];
-    const combinedStream = new MediaStream(combinedTracks);
-    let options = { mimeType: 'video/webm' };
-    if (MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) options = { mimeType: 'video/webm; codecs=vp9' };
-    let recorder;
-    try { recorder = new MediaRecorder(combinedStream, options); } catch(e) { return; }
-    const chunks = [];
-    recorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
-    recorder.onstop = async () => {
-        const webmBlob = new Blob(chunks, { type: 'video/webm' });
-        const btn = document.getElementById('export-mp4-btn');
-        if (ffmpeg) {
-            if (btn) btn.innerText = "⚙️ Encoding MP4...";
-            try {
-                const webmData = await new Response(webmBlob).arrayBuffer();
-                ffmpeg.FS('writeFile', 'rec.webm', new Uint8Array(webmData));
-                await ffmpeg.run('-i', 'rec.webm', '-c:v', 'copy', '-c:a', 'aac', 'out.mp4'); 
-                const data = ffmpeg.FS('readFile', 'out.mp4');
-                const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' });
-                this.downloadBlob(mp4Blob, 'project_43_final.mp4');
-            } catch (e) {
-                this.downloadBlob(webmBlob, 'project_43_backup.webm');
-            }
-        } else {
-            this.downloadBlob(webmBlob, 'project_43_export.webm');
-        }
-        if (btn) btn.innerText = "Export MP4/WebM";
+window.EditorApp.prototype.renderTransitionEffectControls = function(panel, trans, trackId) {
+    const createSelect = (label, prop, options) => {
+        let optsHtml = options.map(opt => `<option value="${opt.value}" ${trans[prop] === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('');
+        return `
+        <div class="flex items-center justify-between mb-3">
+            <label class="text-[10px] text-gray-400 w-20 flex-shrink-0">${label}</label>
+            <select class="flex-1 bg-[#050811] text-[10px] text-gray-200 rounded border border-gray-700 px-2 py-1 outline-none focus:border-orange-500 transition-colors cursor-pointer"
+                onchange="app.updateTransitionProp('${trans.id}', '${prop}', this.value, '${trackId}')">
+                ${optsHtml}
+            </select>
+        </div>`;
     };
-    recorder.start();
-    this.playbackRate = 1; 
-    this.isPlaying = true; 
-    this.lastTick = performance.now(); 
-    const btn = document.getElementById('export-mp4-btn');
-    const checkEnd = setInterval(() => {
-        const remaining = Math.max(0, this.duration - this.currentTime);
-        const mins = Math.floor(remaining / 60);
-        const secs = Math.floor(remaining % 60);
-        if (btn) btn.innerText = `🔴 Rec (${mins}:${secs.toString().padStart(2, '0')})...`;
-        if (this.currentTime >= this.duration) {
-            clearInterval(checkEnd);
-            this.pausePlayback();
-            recorder.stop();
-            if (btn) btn.innerText = "Processing...";
-        }
-    }, 500); 
-    const recordLoop = () => { if (recorder.state === 'recording') this.playbackLoop(performance.now()); };
-    recordLoop();
+
+    const createNumberInput = (label, prop, min, max, step) => {
+        const numId = `numInput_${prop}_${trans.id}`;
+        const rangeId = `rangeInput_${prop}_${trans.id}`;
+        return `
+        <div class="mb-3 flex items-center justify-between gap-3">
+            <label class="text-[10px] text-gray-400 w-20 flex-shrink-0">${label}</label>
+            <div class="flex-grow flex items-center gap-2">
+                <input type="range" id="${rangeId}" min="${min}" max="${max}" step="${step}" value="${trans[prop]}" 
+                    class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer range-sm accent-orange-500"
+                    oninput="app.updateTransitionProp('${trans.id}', '${prop}', parseFloat(this.value), '${trackId}'); document.getElementById('${numId}').value = this.value;">
+                <div class="flex items-center gap-1 w-16 justify-end flex-shrink-0">
+                    <input type="number" id="${numId}" value="${trans[prop]}" min="${min}" max="${max}" step="${step}" lang="en" dir="ltr"
+                        class="bg-[#050811] border border-gray-700 rounded text-[10px] text-gray-200 w-12 py-0.5 text-center focus:border-orange-500 focus:text-white outline-none transition-colors font-mono"
+                        oninput="app.updateTransitionProp('${trans.id}', '${prop}', parseFloat(this.value), '${trackId}'); document.getElementById('${rangeId}').value = this.value;">
+                    <span class="text-[9px] text-gray-500 w-3">s</span>
+                </div>
+            </div>
+        </div>`;
+    };
+
+    const html = `
+        <div class="mb-3 pb-2 mt-2 px-2">
+            <h4 class="font-bold text-xs text-orange-400 mb-4 flex items-center border-b border-orange-900/60 pb-2">
+                <i class="fa-solid fa-film mr-2"></i> TRANSITION CONTROLS
+            </h4>
+            
+            ${createSelect('Type', 'type', [
+                { value: 'cross_dissolve', label: 'Cross Dissolve' },
+                { value: 'fade', label: 'Fade to Black' },
+                { value: 'wipe', label: 'Wipe Right' },
+                { value: 'zoom', label: 'Zoom Blur' }
+            ])}
+
+            ${createSelect('Alignment', 'alignment', [
+                { value: 'center', label: 'Center at Cut' },
+                { value: 'start', label: 'Start at Cut' },
+                { value: 'end', label: 'End at Cut' }
+            ])}
+
+            ${createNumberInput('In Offset', 'inOffset', 0.1, 5.0, 0.1)}
+            ${createNumberInput('Out Offset', 'outOffset', 0.1, 5.0, 0.1)}
+            
+            <button class="w-full mt-4 bg-red-600/30 hover:bg-red-600/80 border border-red-700 text-[10px] text-white rounded py-1.5 transition-colors"
+                onclick="app.deleteTransition('${trans.id}', '${trackId}')">
+                <i class="fa-solid fa-trash mr-1"></i> Delete Transition
+            </button>
+        </div>
+    `;
+    panel.innerHTML = html;
 };
 
-window.EditorApp.prototype.downloadBlob = function(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+window.EditorApp.prototype.updateTransitionProp = function(transId, prop, value, trackId) {
+    const transInfo = this.findTransitionById(transId);
+    if (transInfo) {
+        transInfo.trans[prop] = value;
+        
+        // For numeric props (sliders), skip re-rendering the panel to avoid losing focus.
+        // Just patch the sibling input/range element's value directly.
+        const isNumericProp = (prop === 'inOffset' || prop === 'outOffset');
+        if (!isNumericProp) {
+            // For type/alignment selects: full re-render is fine (no focus issue)
+            this.updateEffectControls();
+        }
+        // Always redraw canvas and sync store
+        this.requestRedraw();
+        this.syncToStore();
+    }
 };
+
+window.EditorApp.prototype.addLogoRemover = function(clipId) {
+    const clip = this.findClipById(clipId);
+    if (!clip) return;
+    if (!clip.logoRemovers) clip.logoRemovers = [];
+    
+    clip.logoRemovers.push({
+        id: 'rm_' + Math.random().toString(36).substr(2, 9),
+        x: 50,
+        y: 50,
+        width: 10,
+        height: 10,
+        mode: 'blur',
+        strength: 50,
+        cloneX: 0,
+        cloneY: 0
+    });
+    
+    this.updateEffectControls();
+    this.requestRedraw();
+    this.syncToStore();
+};
+
+window.EditorApp.prototype.updateLogoRemover = function(clipId, rmId, prop, value) {
+    const clip = this.findClipById(clipId);
+    if (!clip || !clip.logoRemovers) return;
+    
+    const rm = clip.logoRemovers.find(r => r.id === rmId);
+    if (!rm) return;
+    
+    if (prop === 'mode') {
+        rm[prop] = value;
+    } else {
+        rm[prop] = parseFloat(value) || 0;
+    }
+    
+    if (prop === 'mode') {
+        this.updateEffectControls();
+    } else {
+        // Sync sibling input/slider manually if needed, but it's simpler to just redraw
+        const sibling = event ? event.target.nextElementSibling || event.target.previousElementSibling : null;
+        if (sibling && sibling.tagName === 'SPAN') sibling.innerText = Math.round(rm[prop]);
+    }
+    
+    this.requestRedraw();
+    this.syncToStore();
+};
+
+window.EditorApp.prototype.deleteLogoRemover = function(clipId, rmId) {
+    const clip = this.findClipById(clipId);
+    if (!clip || !clip.logoRemovers) return;
+    
+    clip.logoRemovers = clip.logoRemovers.filter(r => r.id !== rmId);
+    
+    this.updateEffectControls();
+    this.requestRedraw();
+    this.syncToStore();
+};
+
+

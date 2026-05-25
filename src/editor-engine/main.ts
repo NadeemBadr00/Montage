@@ -1,6 +1,6 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 // Entry point for the Legacy Editor Engine
-import './core/editing_engine';
+import './core/engine';
 import './core/assets';
 import './core/timeline';
 import './core/video_preview';
@@ -15,7 +15,10 @@ import './ai/gemini_chat';
 import './ai/gemini_plan';
 import './ai/ai';
 import './core/file_store';
+import { exportToMP4ClientSide } from './features/video_export';
 
 console.log('Editor Engine Initialized via Vite');
 
-
+(window as any).EditorApp.prototype.exportVideoClientSide = function(options: any) {
+    exportToMP4ClientSide(this, options);
+};

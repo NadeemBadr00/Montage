@@ -16,7 +16,6 @@ export default function Startup() {
   const [autoSrt, setAutoSrt]     = useState(true);
   const [error, setError]         = useState(false);
   const [saving, setSaving]       = useState(false);
-
   const videoRef = useRef<HTMLInputElement>(null);
   const srtRef   = useRef<HTMLInputElement>(null);
   const planRef  = useRef<HTMLInputElement>(null);
@@ -93,6 +92,9 @@ export default function Startup() {
           />
           <input ref={srtRef}  type="file" accept=".srt"  className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setSrtFile(f); }} />
           <input ref={planRef} type="file" accept=".json" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setPlanFile(f); }} />
+
+          {/* Error Message */}
+          {error && <p style={{ color: '#ef4444', fontSize: '.8rem', fontWeight: 700, textAlign: 'center', marginTop: '.5rem' }}><i className="fa-solid fa-circle-exclamation" /> يرجى رفع فيديو أولاً!</p>}
 
           {/* Mode Buttons */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.75rem', marginBottom: '1rem' }}>

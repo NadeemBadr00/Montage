@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1400" width="1920" height="1400">
+  <defs>
+    <linearGradient id="baseGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#dddddd"/>
+      <stop offset="100%" stop-color="#999999"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="30" stdDeviation="25" flood-opacity="0.3"/>
+    </filter>
+    <mask id="holeMaskMonitor">
+      <rect width="100%" height="100%" fill="white"/>
+      <rect x="140" y="140" width="1640" height="880" fill="black"/>
+    </mask>
+  </defs>
+  <path d="M 800 1350 Q 750 1350 700 1370 L 1220 1370 Q 1170 1350 1120 1350 Z" fill="#bbbbbb" filter="url(#shadow)"/>
+  <rect x="900" y="1050" width="120" height="300" fill="url(#baseGrad)"/>
+  <g mask="url(#holeMaskMonitor)">
+      <rect x="100" y="100" width="1720" height="980" rx="20" ry="20" fill="#e8e8e8" filter="url(#shadow)"/>
+      <rect x="120" y="120" width="1680" height="940" fill="#111111"/>
+      <rect x="120" y="1020" width="1680" height="40" fill="#e8e8e8"/>
+      <circle cx="960" cy="1040" r="10" fill="#bbbbbb"/>
+  </g>
+</svg>

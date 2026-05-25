@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>تجربة WebCodecs (بالصوت والصورة)</title>
+    <!-- مكتبة لإنشاء ملف MP4 محلياً وفك تشفيره -->
+    <script src="https://unpkg.com/mp4-muxer/build/mp4-muxer.js"></script>
+    <script src="https://unpkg.com/mp4box@0.5.2/dist/mp4box.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; background: #111; color: #fff; }
+        .container { max-width: 600px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; }
+        button { background: #00ffcc; color: #000; border: none; padding: 12px 24px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #00ccaa; }
+        #log { margin-top: 20px; background: #000; padding: 10px; font-family: monospace; border-radius: 5px; height: 150px; overflow-y: auto; color: #00ff00; }
+        video { margin-top: 20px; width: 100%; border-radius: 8px; border: 2px solid #444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🎵🛠️ تجربة دمج الفيديوهات (الاحترافية)</h2>
+        <p>النسخة دي بتستخدم محرك VideoDecoder الاحترافي عشان تخلص الرندرة في ثواني.</p>
+        
+        <div style="margin-top: 10px;">
+            <label for="qualitySelect">جودة الفيديو: </label>
+            <select id="qualitySelect" style="padding: 5px; font-size: 16px; border-radius: 5px; margin-bottom: 10px; margin-left: 15px;">
+                <option value="2160">4K (UHD)</option>
+                <option value="1440">2K (QHD)</option>
+                <option value="1080">1080p (FHD)</option>
+                <option value="720" selected>720p (HD)</option>
+                <option value="540">540p (qHD)</option>
+                <option value="480">480p (SD)</option>
+                <option value="360">360p (Low)</option>
+                <option value="240">240p (Very Low)</option>
+                <option value="144">144p (Tiny)</option>
+            </select>
+
+            <label for="compressionSelect">حجم الملف: </label>
+            <select id="compressionSelect" style="padding: 5px; font-size: 16px; border-radius: 5px; margin-bottom: 10px; margin-left: 15px;">
+                <option value="1">جودة أصلية (حجم كبير)</option>
+                <option value="0.6" selected>متوازن (حجم مناسب)</option>
+                <option value="0.3">مضغوط جداً (حجم صغير)</option>
+                <option value="0.1">أقصى ضغط ممكن (حجم نملة 🐜)</option>
+            </select>
+
+            <label for="codecSelect">نوع الضغط (Codec): </label>
+            <select id="codecSelect" style="padding: 5px; font-size: 16px; border-radius: 5px; margin-bottom: 10px;">
+                <option value="avc" selected>H.264 (الأكثر توافقاً)</option>
+                <option value="hevc">HEVC / H.265 (أفضل جودة وحجم)</option>
+            </select>
+        </div>
+
+        <div style="margin-top: 10px; background: #333; padding: 10px; border-radius: 5px;">
+            <h4>إعدادات الذكاء الاصطناعي (AI Sandwich Mode):</h4>
+            <label for="aiTightness">قوة قص الحواف (إزالة الهالة المزعجة): </label>
+            <input type="range" id="aiTightness" min="10" max="250" value="127" style="vertical-align: middle;">
+            <span id="aiTightnessVal">127</span>
+            
+            <script>
+                document.getElementById('aiTightness').oninput = function() {
+                    document.getElementById('aiTightnessVal').innerText = this.value;
+                    if (window.applyTightnessPreview) window.applyTightnessPreview();
+                };
+            </script>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <button id="previewBtn" style="background: #ff9900; color: #fff; margin-bottom: 10px; width: 100%;">👁️ تجربة القص الحية على فريم عشوائي</button>
+            <canvas id="previewCanvas" width="640" height="360" style="border: 2px dashed #ff9900; border-radius: 8px; width: 100%; display: none; margin-bottom: 15px; background: #000;"></canvas>
+            
+            <button id="startBtn">بدء دمج محلي (سريع جداً) 🚀</button>
+            <button id="cloudBtn" style="background: #ff5555; margin-right: 10px;">بدء الرندرة السحابية (Cloud) ☁️</button>
+        </div>
+        
+        <div id="log">مستعد للبدء...</div>
+        
+        <video id="resultVideo" controls style="display: none;"></video>
+        <video id="hiddenPreviewVideo" src="/1.mp4" crossorigin="anonymous" preload="auto" style="display: none;"></video>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: 'AIzaSyC-fNlQQHC4Fqbx2wIBoyPOm8o43PUhJrk',
+            projectId: 'ai-roadmap-nadeem',
+            storageBucket: 'ai-roadmap-nadeem.firebasestorage.app',
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        function log(msg) {
+            const el = document.getElementById('log');
+            el.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+            el.scrollTop = el.scrollHeight;
+            console.log(msg);
+        }
+
+        function getQualitySettings() {
+            const h = parseInt(document.getElementById('qualitySelect').value);
+            const w = Math.round((h * 16) / 9);
+            const compressionMult = parseFloat(document.getElementById('compressionSelect').value);
+            const selectedCodec = document.getElementById('codecSelect').value;
+            
+            let bitrate = 4_000_000; 
+            if (h >= 2160) bitrate = 40_000_000;
+            else if (h >= 1440) bitrate = 16_000_000;
+            else if (h >= 1080) bitrate = 8_000_000;
+            else if (h === 540) bitrate = 3_000_000;
+            else if (h === 480) bitrate = 2_500_000;
+            else if (h === 360) bitrate = 1_000_000;
+            else if (h === 240) bitrate = 700_000;
+            else if (h === 144) bitrate = 400_000;
+
+            bitrate = Math.round(bitrate * compressionMult);
+
+            let muxerCodec = 'avc';
+            let encoderCodecString = 'avc1.42001f'; // H.264 Level 3.1 (720p)
+            if (h >= 2160) {
+                encoderCodecString = 'avc1.640033'; // H.264 High Profile Level 5.1 (4K)
+            } else if (h >= 1080) {
+                encoderCodecString = 'avc1.42002a'; // H.264 Baseline Level 4.2 (1080p)
+            }
+            
+            if (selectedCodec === 'hevc') {
+                muxerCodec = 'hevc';
+                // HEVC Main Profile, Level 5.0 (يدعم 4K و 1080p بكفاءة)
+                encoderCodecString = 'hev1.1.6.L150.90'; 
+            }
+
+            return { width: w, height: h, bitrate, muxerCodec, encoderCodecString, selectedCodec };
+        }
+
+        // =====================================================================
+        // المعاينة الحية (Live Preview)
+        // =====================================================================
+        let cachedFData = null;
+        let cachedMData = null;
+
+        window.applyTightnessPreview = function() {
+            if (!cachedFData || !cachedMData) return;
+            const pCanvas = document.getElementById('previewCanvas');
+            const pCtx = pCanvas.getContext('2d');
+            
+            // الطبقة 1: رسم الفريم الأصلي بالكامل (عشان الشاشة متبقاش سودة)
+            const origCanvas = new OffscreenCanvas(pCanvas.width, pCanvas.height);
+            origCanvas.getContext('2d').putImageData(cachedFData, 0, 0);
+            pCtx.globalCompositeOperation = 'source-over';
+            pCtx.drawImage(origCanvas, 0, 0, pCanvas.width, pCanvas.height);
+            
+            // الطبقة 2: رسم الصورة الخلفية (اللي بتتحط ورا الشخص المفرغ وقدام الخلفية الأصلية)
+            if (window.bgImgLoaded) {
+                const imgW = pCanvas.width * 0.8;
+                const imgH = (window.bgImgLoaded.height / window.bgImgLoaded.width) * imgW || (pCanvas.height * 0.6);
+                pCtx.drawImage(window.bgImgLoaded, (pCanvas.width - imgW) / 2, (pCanvas.height - imgH) / 2, imgW, imgH);
+            }
+            
+            // الطبقة 3: رسم الشخصية بعد القص الدقيق
+            const tightness = parseInt(document.getElementById('aiTightness').value);
+            const workingData = new ImageData(new Uint8ClampedArray(cachedFData.data), cachedFData.width, cachedFData.height);
+            
+            for(let i = 0; i < workingData.data.length; i += 4) {
+                const mVal = cachedMData.data[i+3];
+                if (mVal > tightness) {
+                    workingData.data[i+3] = 255; 
+                } else {
+                    workingData.data[i] = 0; workingData.data[i+1] = 0; workingData.data[i+2] = 0; workingData.data[i+3] = 0;
+                }
+            }
+            
+            const tempCanvas = new OffscreenCanvas(pCanvas.width, pCanvas.height);
+            tempCanvas.getContext('2d').putImageData(workingData, 0, 0);
+            pCtx.drawImage(tempCanvas, 0, 0, pCanvas.width, pCanvas.height);
+        };
+
+        async function initAIModelIfNeeded() {
+            if (!window.segmentationModel) {
+                log("🧠 جاري تحميل نموذج الذكاء الاصطناعي للمعاينة...");
+                window.segmentationModel = new SelfieSegmentation({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/${file}`
+                });
+                window.segmentationModel.setOptions({ modelSelection: 1 });
+                window.segmentationModel.onResults((results) => {
+                    if (window.currentMaskResolve) window.currentMaskResolve(results.segmentationMask);
+                });
+                await window.segmentationModel.initialize();
+                log("✅ الذكاء الاصطناعي جاهز!");
+            }
+        }
+
+        document.getElementById('previewBtn').addEventListener('click', async () => {
+            document.getElementById('previewBtn').disabled = true;
+            document.getElementById('previewBtn').innerText = "⏳ جاري استخراج فريم ومعالجته...";
+            
+            if (!window.bgImgLoaded) {
+                window.bgImgLoaded = new Image();
+                if (window.bgFile) {
+                    window.bgImgLoaded.src = URL.createObjectURL(window.bgFile);
+                } else {
+                    window.bgImgLoaded.src = '/bg.png';
+                }
+                await new Promise(r => { window.bgImgLoaded.onload = r; window.bgImgLoaded.onerror = r; });
+            }
+
+            await initAIModelIfNeeded();
+
+            const vid = document.getElementById('hiddenPreviewVideo');
+            vid.currentTime = Math.random() * (vid.duration - 1 || 5);
+            
+            vid.onseeked = async () => {
+                const pCanvas = document.getElementById('previewCanvas');
+                pCanvas.style.display = 'block';
+                
+                window.currentMaskResolve = (mask) => {
+                    const tempCtx = new OffscreenCanvas(pCanvas.width, pCanvas.height).getContext('2d');
+                    tempCtx.drawImage(vid, 0, 0, pCanvas.width, pCanvas.height);
+                    cachedFData = tempCtx.getImageData(0, 0, pCanvas.width, pCanvas.height);
+                    // حل مشكلة فلاتر الـ WebGL: نرسم الماسك الأول على كانفاس خام
+                    const rawMaskCanvas = document.createElement('canvas');
+                    rawMaskCanvas.width = pCanvas.width; rawMaskCanvas.height = pCanvas.height;
+                    rawMaskCanvas.getContext('2d').drawImage(mask, 0, 0, pCanvas.width, pCanvas.height);
+
+                    // التمويه اتلغى عشان نبقى زي البايثون بالظبط
+                    const maskCanvas = document.createElement('canvas');
+                    maskCanvas.width = pCanvas.width; maskCanvas.height = pCanvas.height;
+                    const maskCtx = maskCanvas.getContext('2d');
+                    maskCtx.drawImage(rawMaskCanvas, 0, 0, pCanvas.width, pCanvas.height);
+                    cachedMData = maskCtx.getImageData(0, 0, pCanvas.width, pCanvas.height);
+                    
+                    window.applyTightnessPreview();
+                    
+                    document.getElementById('previewBtn').disabled = false;
+                    document.getElementById('previewBtn').innerHTML = "👁️ تجربة فريم عشوائي آخر";
+                    log("✅ المعاينة الحية جاهزة، حرك شريط الحواف عشان تشوف النتيجة في نفس اللحظة!");
+                };
+                
+                await window.segmentationModel.send({ image: vid });
+            };
+        });
+
+        // =====================================================================
+        // الكود الأول: دمج وتصدير MP4 المحلي
+        // =====================================================================
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('cloudBtn').disabled = true;
+            log("🚀 جاري بدء المعالجة المحلية الاحترافية...");
+
+            try {
+                const { width, height, bitrate, muxerCodec, encoderCodecString, selectedCodec } = getQualitySettings();
+                log(`⚙️ الجودة: ${width}x${height} | البت ريت: ${bitrate/1000}kbps | كوديك: ${selectedCodec.toUpperCase()}`);
+                
+                // التأكد من دعم الكوديك على كارت الشاشة
+                const support = await VideoEncoder.isConfigSupported({ codec: encoderCodecString, width, height, bitrate });
+                if (!support.supported) {
+                    throw new Error(`كارت الشاشة بتاعك مش بيدعم ضغط الفيديوهات بصيغة ${selectedCodec.toUpperCase()} على المتصفح ده.`);
+                }
+
+                const fps = 30, sampleRate = 44100, audioChannels = 2;
+                const canvas = new OffscreenCanvas(width, height);
+                const ctx = canvas.getContext('2d');
+                
+                // كانفاس مؤقت لعملية إزالة الخلفية (Chroma Key)
+                const tempCanvas = new OffscreenCanvas(width, height);
+                const tempCtx = tempCanvas.getContext('2d');
+
+                let muxer = new Mp4Muxer.Muxer({
+                    target: new Mp4Muxer.ArrayBufferTarget(),
+                    video: { codec: muxerCodec, width, height },
+                    audio: { codec: 'aac', sampleRate, numberOfChannels: audioChannels },
+                    fastStart: "in-memory",
+                    firstTimestampBehavior: 'offset'
+                });
+
+                let frameCount = 0;
+                const videoEncoder = new VideoEncoder({
+                    output: (chunk, meta) => {
+                        try {
+                            if (meta && meta.decoderConfig === null) {
+                                delete meta.decoderConfig;
+                            }
+                            muxer.addVideoChunk(chunk, meta);
+                        } catch (e) {
+                            log("❌ خطأ Muxer: " + e.message);
+                        }
+                    },
+                    error: e => log("❌ خطأ VideoEncoder: " + e.message)
+                });
+                
+                videoEncoder.configure({ codec: encoderCodecString, width, height, bitrate, bitrateMode: "variable", framerate: fps, hardwareAcceleration: "prefer-hardware" });
+
+                const audioEncoder = new AudioEncoder({
+                    output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+                    error: e => log("❌ خطأ AudioEncoder: " + e.message)
+                });
+                audioEncoder.configure({ codec: 'mp4a.40.2', sampleRate, numberOfChannels: audioChannels, bitrate: 128_000 });
+
+                let currentVideoTimeUs = 0;
+                let currentAudioTimeUs = 0;
+
+                // ⚡️ دالة قراءة الفيديو بالطريقة الاحترافية (MP4Box + VideoDecoder)
+                async function processVideo(videoSrc) {
+                    return new Promise(async (resolve, reject) => {
+                        try {
+                            let buffer;
+                            if (window.videoFile) {
+                                log(`📦 تحميل الفيديو من الذاكرة المحلية (IndexedDB)...`);
+                                buffer = await window.videoFile.arrayBuffer();
+                            } else {
+                                log(`🎬 سحب الداتا الخام لفيديو ${videoSrc}...`);
+                                const response = await fetch(videoSrc);
+                                buffer = await response.arrayBuffer();
+                            }
+                            buffer.fileStart = 0;
+                            log(`📦 تم تحميل ${buffer.byteLength} بايت، جاري فك التشفير...`);
+
+                            const mp4boxfile = MP4Box.createFile();
+                            let decoder;
+                            let trackDurationUs = 0;
+                            
+                            mp4boxfile.onError = (e) => {
+                                log("❌ خطأ MP4Box: " + e);
+                                reject(e);
+                            };
+
+                            mp4boxfile.onReady = (info) => {
+                                try {
+                                    log(`📝 الملف جاهز، جاري قراءة معلومات الـ Track...`);
+                                    const track = info.videoTracks[0];
+                                    if (!track) throw new Error("لا يوجد مسار فيديو!");
+                                    trackDurationUs = (track.duration / track.timescale) * 1_000_000;
+                                    
+                                    let description;
+                                    const trak = mp4boxfile.getTrackById(track.id);
+                                    for (const entry of trak.mdia.minf.stbl.stsd.entries) {
+                                        if (entry.avcC) {
+                                            const stream = new DataStream(undefined, 0, DataStream.BIG_ENDIAN);
+                                            entry.avcC.write(stream);
+                                            description = stream.buffer.slice(8);
+                                            break;
+                                        }
+                                    }
+
+                                    let frameQueue = [];
+                                    let processingAI = false;
+
+                                    const processQueue = async () => {
+                                        if (processingAI || frameQueue.length === 0) {
+                                            if (frameQueue.length === 0) window.isQueueEmpty = true;
+                                            return;
+                                        }
+                                        processingAI = true;
+                                        window.isQueueEmpty = false;
+                                        
+                                        const { frame, isKeyFrame } = frameQueue.shift();
+
+                                        // الطبقة 1: الفيديو الأصلي في الخلفية
+                                        ctx.globalCompositeOperation = 'source-over';
+                                        ctx.drawImage(frame, 0, 0, width, height);
+
+                                        // الطبقة 2: الطبقة الوسطى (صورة bg.png)
+                                        if (window.bgImgLoaded) {
+                                            const imgW = width * 0.8;
+                                            const imgH = (window.bgImgLoaded.height / window.bgImgLoaded.width) * imgW || (height * 0.6);
+                                            ctx.drawImage(window.bgImgLoaded, (width - imgW) / 2, (height - imgH) / 2, imgW, imgH);
+                                        }
+
+                                        // الطبقة 3: الذكاء الاصطناعي (Selfie Segmentation) بتطبيق خوارزمية بايثون بالضبط!
+                                        window.currentMaskResolve = (mask) => {
+                                            // 1. رسم الفريم الأصلي في الكانفاس المؤقت وقراءة البيكسلات
+                                            tempCtx.globalCompositeOperation = 'source-over';
+                                            tempCtx.clearRect(0, 0, width, height);
+                                            tempCtx.drawImage(frame, 0, 0, width, height);
+                                            const frameImgData = tempCtx.getImageData(0, 0, width, height);
+                                            const fData = frameImgData.data;
+
+                                            // 2. رسم الماسك وحل مشكلة البلوكات الغريبة
+                                            const rawMaskCanvas = document.createElement('canvas');
+                                            rawMaskCanvas.width = width; rawMaskCanvas.height = height;
+                                            rawMaskCanvas.getContext('2d').drawImage(mask, 0, 0, width, height);
+
+                                            const maskCanvas = document.createElement('canvas');
+                                            maskCanvas.width = width; maskCanvas.height = height;
+                                            const maskCtx = maskCanvas.getContext('2d');
+                                            maskCtx.drawImage(rawMaskCanvas, 0, 0, width, height);
+                                            const maskImgData = maskCtx.getImageData(0, 0, width, height);
+                                            const mData = maskImgData.data;
+
+                                            // 3. تطبيق شرط (mask > tightness) لقص الحواف بقوة وإزالة الهالة
+                                            const tightness = parseInt(document.getElementById('aiTightness').value);
+                                            for (let i = 0; i < fData.length; i += 4) {
+                                                // نعتمد فقط على الـ Alpha Channel
+                                                const maskValue = mData[i+3]; 
+                                                
+                                                if (maskValue > tightness) {
+                                                    fData[i+3] = 255;
+                                                } else {
+                                                    fData[i] = 0; fData[i+1] = 0; fData[i+2] = 0; fData[i+3] = 0;
+                                                }
+                                            }
+
+                                            // إرجاع الفريم المعالج للكانفاس المؤقت
+                                            tempCtx.putImageData(frameImgData, 0, 0);
+                                            
+                                            // رسم الطبقة الثالثة بعد القص الدقيق
+                                            ctx.globalCompositeOperation = 'source-over';
+                                            ctx.drawImage(tempCanvas, 0, 0, width, height);
+
+                                            const newFrame = new VideoFrame(canvas, { timestamp: currentVideoTimeUs + frame.timestamp });
+                                            videoEncoder.encode(newFrame, { keyFrame: isKeyFrame });
+                                            newFrame.close();
+                                            frame.close();
+                                            
+                                            frameCount++;
+                                            if (frameCount % 60 === 0) log(`⏳ معالجة وضغط ${frameCount} فريم...`);
+                                            
+                                            processingAI = false;
+                                            processQueue(); // معالجة الفريم اللي بعده
+                                        };
+
+                                        // إنشاء صورة مؤقتة لأن MediaPipe يحتاج عنصر canvas أو image
+                                        const tmpCanvas = new OffscreenCanvas(frame.displayWidth, frame.displayHeight);
+                                        const tmpCtx = tmpCanvas.getContext('2d');
+                                        tmpCtx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
+                                        
+                                        await window.segmentationModel.send({ image: tmpCanvas });
+                                    };
+
+                                    decoder = new VideoDecoder({
+                                        output: (frame) => {
+                                            frameQueue.push({ frame, isKeyFrame: frameCount % 60 === 0 });
+                                            processQueue();
+                                        },
+                                        error: e => {
+                                            log("❌ خطأ Decoder: " + e.message);
+                                            reject(e);
+                                        }
+                                    });
+
+                                    log(`🚀 تشغيل VideoDecoder بنوع: ${track.codec}`);
+                                    decoder.configure({
+                                        codec: track.codec,
+                                        codedWidth: track.video.width,
+                                        codedHeight: track.video.height,
+                                        description: description,
+                                        hardwareAcceleration: "prefer-hardware"
+                                    });
+
+                                    mp4boxfile.setExtractionOptions(track.id);
+                                    mp4boxfile.start();
+                                } catch (err) {
+                                    log("❌ خطأ داخل onReady: " + err.message);
+                                    reject(err);
+                                }
+                            };
+
+                            let extractionComplete = false;
+                            mp4boxfile.onSamples = (id, user, samples) => {
+                                try {
+                                    for (const sample of samples) {
+                                        decoder.decode(new EncodedVideoChunk({
+                                            type: sample.is_sync ? "key" : "delta",
+                                            timestamp: (sample.cts * 1_000_000) / sample.timescale,
+                                            duration: (sample.duration * 1_000_000) / sample.timescale,
+                                            data: sample.data
+                                        }));
+                                    }
+                                } catch (err) {
+                                    log("❌ خطأ داخل onSamples: " + err.message);
+                                    reject(err);
+                                }
+                            };
+
+                            log("▶️ بدء إدخال الداتا...");
+                            mp4boxfile.appendBuffer(buffer);
+                            mp4boxfile.flush();
+                            
+                            // ننتظر شوية عشان نتأكد إن الـ decoder لحق يستلم الداتا
+                            log("⏳ انتظار تفريغ الـ Decoder...");
+                            if (decoder) {
+                                await decoder.flush();
+                                currentVideoTimeUs += Math.round(trackDurationUs);
+                                resolve();
+                            } else {
+                                throw new Error("لم يتم تهيئة الـ Decoder، ربما الملف غير مدعوم.");
+                            }
+
+                        } catch (err) {
+                            log("❌ خطأ عام: " + err.message);
+                            reject(err);
+                        }
+                    });
+                }
+
+                // تجهيز الذكاء الاصطناعي لو ما تمش تحميله في المعاينة
+                await initAIModelIfNeeded();
+
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
+                async function processAudio(videoSrc) {
+                    log(`🔊 سحب الصوت...`);
+                    let buffer;
+                    if (window.videoFile) {
+                        buffer = await window.videoFile.arrayBuffer();
+                    } else {
+                        const response = await fetch(videoSrc);
+                        buffer = await response.arrayBuffer();
+                    }
+                    const audioBuffer = await audioContext.decodeAudioData(buffer);
+                    const chunkSize = 4096;
+                    for (let offset = 0; offset < audioBuffer.length; offset += chunkSize) {
+                        const frameCount = Math.min(chunkSize, audioBuffer.length - offset);
+                        const data = new Float32Array(frameCount * audioChannels);
+                        for (let c = 0; c < audioChannels; c++) {
+                            const srcChannel = c < audioBuffer.numberOfChannels ? c : 0;
+                            data.set(audioBuffer.getChannelData(srcChannel).subarray(offset, offset + frameCount), c * frameCount);
+                        }
+                        const audioData = new AudioData({
+                            format: 'f32-planar', sampleRate, numberOfFrames: frameCount, numberOfChannels: audioChannels,
+                            timestamp: currentAudioTimeUs + Math.round((offset / sampleRate) * 1_000_000), data
+                        });
+                        audioEncoder.encode(audioData);
+                        audioData.close();
+                    }
+                    currentAudioTimeUs += Math.round(audioBuffer.duration * 1_000_000);
+                }
+
+                log("🖼️ جاري تحميل صورة الخلفية (الطبقة الثانية)...");
+                window.bgImgLoaded = new Image();
+                window.bgImgLoaded.src = '/bg.png';
+                await new Promise(r => { window.bgImgLoaded.onload = r; window.bgImgLoaded.onerror = r; });
+
+                await processVideo('/1.mp4'); await processAudio('/1.mp4');
+
+                // انتظار تفريغ الـ AI Queue
+                log("⏳ انتظار تفريغ الـ AI والـ Encoder...");
+                while (true) {
+                    if (window.isQueueEmpty) break; 
+                    await new Promise(r => setTimeout(r, 100));
+                }
+
+                await videoEncoder.flush(); await audioEncoder.flush();
+                muxer.finalize();
+                const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
+                const finalUrl = URL.createObjectURL(blob);
+                
+                log("✅ اكتمل الدمج المحلي!");
+                const resultVideo = document.getElementById('resultVideo');
+                resultVideo.src = finalUrl;
+                resultVideo.style.display = 'block';
+
+                const a = document.createElement('a');
+                a.href = finalUrl;
+                a.download = `3_${height}p.mp4`;
+                a.click();
+                
+            } catch (err) { log("❌ خطأ: " + err.message); }
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('cloudBtn').disabled = false;
+        });
+
+        // =====================================================================
+        // الكود الثاني: الرندرة السحابية (Cloud Functions 8GB)
+        // =====================================================================
+        document.getElementById('cloudBtn').addEventListener('click', async () => {
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('cloudBtn').disabled = true;
+            log("☁️ جاري تجهيز الطلب السحابي...");
+
+            try {
+                const { width, height } = getQualitySettings();
+                log(`⚙️ جودة الرندرة: ${width}x${height}`);
+
+                // 1. رفع الفيديوهات للـ Storage عشان السيرفر يقدر يشوفهم
+                async function uploadLocalVideo(path, name) {
+                    log(`⬆️ جاري رفع ${name} للسيرفر...`);
+                    const res = await fetch(path);
+                    const blob = await res.blob();
+                    const fileRef = ref(storage, `test_assets/${name}`);
+                    await uploadBytes(fileRef, blob);
+                    return await getDownloadURL(fileRef);
+                }
+
+                const url1 = await uploadLocalVideo('/1.mp4', `1_${Date.now()}.mp4`);
+                const url2 = await uploadLocalVideo('/2.mp4', `2_${Date.now()}.mp4`);
+                log(`✅ تم الرفع بنجاح! تجهيز Timeline...`);
+
+                // 2. تجهيز التايم لاين بالجودة المحددة
+                const timeline = {
+                    projectId: "test_cloud",
+                    resolution: { width, height },
+                    fps: 30,
+                    duration: 16, 
+                    tracks: [
+                        {
+                            id: "track_0",
+                            clips: [
+                                { id: "c1", type: "video", src: url1, localPath: url1, start: 0, duration: 8, properties: { width, height, x: 0, y: 0 } },
+                                { id: "c2", type: "video", src: url2, localPath: url2, start: 8, duration: 8, properties: { width, height, x: 0, y: 0 } }
+                            ]
+                        }
+                    ]
+                };
+
+                // 3. إرسال الطلب
+                log("📡 إرسال الطلب للسيرفر (8GB RAM)...");
+                const docRef = await addDoc(collection(db, "renders"), {
+                    status: "QUEUED",
+                    timeline: timeline,
+                    createdAt: serverTimestamp()
+                });
+
+                log(`⏱️ السيرفر بدأ المعالجة (Job: ${docRef.id})... بنراقب الحالة.`);
+                const startTime = Date.now();
+
+                // 4. مراقبة النتيجة
+                const unsubscribe = onSnapshot(docRef, (doc) => {
+                    const data = doc.data();
+                    if (!data) return;
+                    
+                    if (data.status === "PROCESSING") {
+                        log(`⚙️ السيرفر شغال دلوقتي...`);
+                    } else if (data.status === "COMPLETED") {
+                        const timeTaken = ((Date.now() - startTime) / 1000).toFixed(1);
+                        log(`✅ اكتملت الرندرة السحابية في ${timeTaken} ثانية!`);
+                        
+                        const resultVideo = document.getElementById('resultVideo');
+                        resultVideo.src = data.downloadUrl;
+                        resultVideo.style.display = 'block';
+                        
+                        unsubscribe();
+                        document.getElementById('startBtn').disabled = false;
+                        document.getElementById('cloudBtn').disabled = false;
+                    } else if (data.status === "FAILED") {
+                        log(`❌ فشل السيرفر: ${data.error}`);
+                        unsubscribe();
+                        document.getElementById('startBtn').disabled = false;
+                        document.getElementById('cloudBtn').disabled = false;
+                    }
+                });
+
+            } catch (err) {
+                log("❌ خطأ: " + err.message);
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('cloudBtn').disabled = false;
+            }
+        });
+        // محاولة تحميل الملفات من IndexedDB عند فتح الصفحة
+        async function loadFromDB() {
+            return new Promise((resolve) => {
+                const req = indexedDB.open('p43_file_store', 1);
+                req.onsuccess = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('files')) { resolve(); return; }
+                    const tx = db.transaction('files', 'readonly');
+                    const store = tx.objectStore('files');
+                    
+                    const reqVid = store.get('p43_video');
+                    reqVid.onsuccess = (ev) => {
+                        if (ev.target.result) {
+                            window.videoFile = ev.target.result;
+                            document.getElementById('hiddenPreviewVideo').src = URL.createObjectURL(window.videoFile);
+                            log('📥 تم تحميل فيديو المشروع من الذاكرة بنجاح.');
+                        } else {
+                            document.getElementById('hiddenPreviewVideo').src = '/1.mp4';
+                        }
+                    };
+
+                    const reqBg = store.get('p43_bg_image');
+                    reqBg.onsuccess = (ev) => {
+                        if (ev.target.result) {
+                            window.bgFile = ev.target.result;
+                            log('📥 تم تحميل صورة الخلفية من الذاكرة بنجاح.');
+                        }
+                    };
+
+                    tx.oncomplete = resolve;
+                };
+                req.onerror = () => {
+                    document.getElementById('hiddenPreviewVideo').src = '/1.mp4';
+                    resolve();
+                };
+            });
+        }
+        
+        window.addEventListener('DOMContentLoaded', async () => {
+            log('جاري فحص الذاكرة المحلية للمشروع...');
+            await loadFromDB();
+        });
+    </script>
+</body>
+</html>

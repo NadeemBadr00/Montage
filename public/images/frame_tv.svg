@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1200" width="2000" height="1200">
+  <defs>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="25" stdDeviation="20" flood-opacity="0.5"/>
+    </filter>
+    <mask id="holeMaskTV">
+      <rect width="100%" height="100%" fill="white"/>
+      <rect x="70" y="120" width="1860" height="960" fill="black"/>
+    </mask>
+  </defs>
+  <path d="M 300 1100 L 250 1180 L 280 1180 L 320 1100 Z" fill="#222"/>
+  <path d="M 340 1100 L 380 1180 L 410 1180 L 360 1100 Z" fill="#222"/>
+  <path d="M 1600 1100 L 1550 1180 L 1580 1180 L 1620 1100 Z" fill="#222"/>
+  <path d="M 1640 1100 L 1680 1180 L 1710 1180 L 1660 1100 Z" fill="#222"/>
+  <g mask="url(#holeMaskTV)">
+      <rect x="50" y="100" width="1900" height="1000" rx="10" ry="10" fill="#222" stroke="#444" stroke-width="4" filter="url(#shadow)"/>
+      <rect x="70" y="1080" width="1860" height="15" fill="#111"/>
+  </g>
+</svg>

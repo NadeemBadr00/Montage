@@ -73,7 +73,8 @@ window.EditorApp.prototype.setupRazorLine = function() {
         document.body.style.cursor = 'crosshair';
         const rect = this.timelineContent.getBoundingClientRect();
         let xPos = e.clientX - rect.left; 
-        if (xPos > TRACK_HEADER_WIDTH) {
+        const currentHeaderWidth = this.headerWidth || 140;
+        if (xPos > currentHeaderWidth) {
             this.razorLine.style.display = 'block';
             this.razorLine.style.left = `${xPos}px`;
         } else {
@@ -106,9 +107,9 @@ window.EditorApp.prototype.calculateVisibleWindow = function() {
         startPx: startPx,
         endPx: endPx
     };
-    const totalWidth = (this.duration * this.pixelsPerSecond) + 300;
+    const minWidth = containerWidth;
+    const totalWidth = Math.max(minWidth, (this.duration * this.pixelsPerSecond) + 300);
     this.timelineContent.style.width = `${totalWidth}px`;
-    this.timelineContent.style.paddingLeft = '140px'; 
 };
 
 window.EditorApp.prototype.renderAll = function() {
@@ -121,7 +122,13 @@ window.EditorApp.prototype.updateTimelineLayout = function() { this.dirty = true
 window.EditorApp.prototype.renderVirtualRuler = function() {
     if (!this.rulerContainer) return;
     this.rulerContainer.innerHTML = ''; 
-    const step = this.pixelsPerSecond > 50 ? 1 : 5; 
+    
+    let step = 1;
+    if (this.pixelsPerSecond < 10) step = 20;
+    else if (this.pixelsPerSecond < 20) step = 10;
+    else if (this.pixelsPerSecond < 50) step = 5;
+    else if (this.pixelsPerSecond < 100) step = 2;
+
     const startSec = Math.floor(this.visibleRange.start);
     const endSec = Math.ceil(this.visibleRange.end);
     for (let s = startSec; s <= endSec; s += 1) {
@@ -141,162 +148,11 @@ window.EditorApp.prototype.renderVirtualRuler = function() {
 };
 
 window.EditorApp.prototype.renderVirtualTracks = function() {
-    if (!this.tracksContainer) return;
-    this.tracksContainer.innerHTML = '';
-
     if(this.refreshProjectTopology) this.refreshProjectTopology();
-
-    this.tracks.forEach((track, trackIndex) => {
-        
-        const divider = document.createElement('div');
-        divider.className = 'track-separator';
-        divider.innerHTML = `<button class="track-insert-btn group-hover:opacity-100" title="Insert Track Here"><i class="fa-solid fa-plus"></i></button>`;
-        divider.querySelector('button').onclick = () => {
-             if(app.handleSmartTrackInsertion) app.handleSmartTrackInsertion(trackIndex);
-             else app.addNewTrack('video', trackIndex);
-        };
-        divider.style.marginLeft = "-140px";
-        this.tracksContainer.appendChild(divider);
-
-        const trackRow = document.createElement('div');
-        trackRow.className = "track-row group";
-        trackRow.dataset.trackId = track.id; 
-        trackRow.dataset.trackType = track.type;
-        
-        const label = document.createElement('div');
-        label.className = "track-label-fixed cursor-grab active:cursor-grabbing hover:bg-gray-800 transition-colors";
-        
-        let trackIcon = 'fa-video';
-        if(track.type === 'audio') trackIcon = 'fa-music';
-        if(track.type === 'subtitle') trackIcon = 'fa-closed-captioning';
-
-        label.innerHTML = `
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-grip-vertical text-gray-600 text-[10px] cursor-grab"></i>
-                <div class="flex items-center">
-                    <i class="fa-solid ${trackIcon} mr-2 opacity-50 text-[9px]"></i> 
-                    <span class="truncate w-10 text-[10px] font-bold">${track.name}</span>
-                </div>
-            </div>
-        `;
-        label.style.marginLeft = "-140px";
-        
-        label.draggable = true;
-        label.ondragstart = (e) => {
-            e.dataTransfer.setData('text/plain', track.id);
-            e.dataTransfer.effectAllowed = 'move';
-            label.classList.add('opacity-50', 'border', 'border-yellow-500');
-        };
-        label.ondragend = () => {
-            label.classList.remove('opacity-50', 'border', 'border-yellow-500');
-        };
-        label.ondragover = (e) => {
-            e.preventDefault(); e.stopPropagation();
-            label.style.background = '#374151'; 
-        };
-        label.ondragleave = () => { label.style.background = ''; };
-        label.ondrop = (e) => {
-            e.preventDefault(); e.stopPropagation();
-            label.style.background = '';
-            const sourceTrackId = e.dataTransfer.getData('text/plain');
-            if (sourceTrackId) { app.moveTrack(sourceTrackId, track.id); }
-        };
-
-        const controlsDiv = document.createElement('div');
-        controlsDiv.className = "flex gap-1 items-center ml-auto";
-
-        const muteBtn = document.createElement('button');
-        muteBtn.className = `w-4 h-4 text-[9px] rounded flex items-center justify-center border border-gray-700 ${track.isMuted ? 'bg-red-900/50 text-red-500 border-red-800' : 'bg-gray-800 text-gray-400'}`;
-        muteBtn.innerHTML = 'M';
-        muteBtn.onclick = (e) => { e.stopPropagation(); this.toggleTrackMute(track.id); };
-
-        const soloBtn = document.createElement('button');
-        soloBtn.className = `w-4 h-4 text-[9px] rounded flex items-center justify-center border border-gray-700 ${track.isSolo ? 'bg-yellow-900/50 text-yellow-400 border-yellow-800' : 'bg-gray-800 text-gray-400'}`;
-        soloBtn.innerHTML = 'S';
-        soloBtn.onclick = (e) => { e.stopPropagation(); this.toggleTrackSolo(track.id); };
-
-        const delBtn = document.createElement('button');
-        delBtn.className = "track-btn delete text-gray-500 hover:text-red-500 ml-1";
-        delBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
-        delBtn.onclick = (e) => { e.stopPropagation(); if(confirm('Delete Track?')) this.deleteTrack(track.id); };
-
-        controlsDiv.append(muteBtn, soloBtn, delBtn);
-        label.appendChild(controlsDiv);
-        trackRow.appendChild(label);
-
-        this.setupTrackDropZone(trackRow, track);
-
-        const visibleClips = track.clips.filter(clip => {
-            const clipEnd = clip.start + clip.duration;
-            return (clipEnd >= this.visibleRange.start && clip.start <= this.visibleRange.end);
-        });
-
-        visibleClips.forEach(clip => {
-            const clipEl = this.createClipElement(clip, track);
-            trackRow.appendChild(clipEl);
-        });
-
-        this.tracksContainer.appendChild(trackRow);
-    });
-
-    const addTrackRow = document.createElement('div');
-    addTrackRow.className = "flex flex-col items-center justify-center py-4 gap-2 opacity-50 hover:opacity-100 transition-opacity";
-    addTrackRow.style.marginLeft = "-140px"; 
-    
-    addTrackRow.innerHTML = `
-        <div class="flex gap-2">
-            <button onclick="app.addNewTrack('video')" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs border border-gray-600 flex items-center gap-2">
-                <i class="fa-solid fa-plus"></i> Add Video Track
-            </button>
-            <button onclick="app.addNewTrack('audio')" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs border border-gray-600 flex items-center gap-2">
-                <i class="fa-solid fa-plus"></i> Add Audio Track
-            </button>
-        </div>
-    `;
-    this.tracksContainer.appendChild(addTrackRow);
+    // DOM logic has been migrated to React (TimelineTracks.tsx)
 };
 
-window.EditorApp.prototype.setupTrackDropZone = function(trackRow, track) {
-    trackRow.ondragover = (e) => { e.preventDefault(); trackRow.classList.add('drag-over'); };
-    trackRow.ondragleave = () => { trackRow.classList.remove('drag-over', 'drag-over-error'); };
-    trackRow.ondrop = (e) => {
-        e.preventDefault();
-        trackRow.classList.remove('drag-over', 'drag-over-error');
-        const data = e.dataTransfer.getData('application/json');
-        if (!data) return;
-        try {
-            const asset = JSON.parse(data);
-            if (track.type === 'subtitle') { this.log("🚫 Subtitle tracks are read-only."); return; }
-            let isValid = false;
-            if ((asset.type === 'video' || asset.type === 'image') && (track.type === 'video' || track.type === 'overlay' || track.type === 'main')) isValid = true;
-            else if (asset.type === 'audio' && track.type === 'audio') isValid = true;
-            if (!isValid) { trackRow.classList.add('drag-over-error'); setTimeout(() => trackRow.classList.remove('drag-over-error'), 500); return; }
-            this.saveState(); 
-            const containerRect = document.getElementById('timeline-scroll-area').getBoundingClientRect();
-            const scrollLeft = document.getElementById('timeline-scroll-area').scrollLeft;
-            const relativeX = (e.clientX - containerRect.left) + scrollLeft - 140;
-            const dropTime = Math.max(0, relativeX / this.pixelsPerSecond);
-            const duration = asset.type === 'image' ? 5 : 10; 
-            const newClip = new Clip(`drop_${Date.now()}`, asset.name, dropTime, duration, asset.type, asset.src);
-            track.addClip(newClip);
-            this.resolveCollisions(track.id, newClip);
-            
-            if (asset.type === 'video') {
-                const audioTrack = this.tracks.find(t => t.type === 'audio');
-                if (audioTrack) {
-                    const audioClip = new Clip(`drop_a_${Date.now()}`, `${asset.name} [Audio]`, dropTime, duration, 'audio', asset.src);
-                    audioTrack.addClip(audioClip);
-                    this.resolveCollisions(audioTrack.id, audioClip);
-                }
-            }
-            
-            if(this.refreshProjectTopology) this.refreshProjectTopology(); 
-
-            this.log(`✅ Dropped ${asset.name} at ${this.formatTime(dropTime)}`);
-            this.renderTracks();
-        } catch (err) { console.error(err); }
-    };
-};
+// setupTrackDropZone removed (handled by React)
 
 // 🔥 CORE AUDIO LOGIC: Debug + Fallback
 window.EditorApp.prototype.drawWaveform = function(canvas, clip) {
@@ -462,89 +318,9 @@ window.EditorApp.prototype.finalizeWaveform = function(jobInfo, peaks, isSimulat
 };
 
 
-window.EditorApp.prototype.createClipElement = function(clip, track) {
-    const clipEl = document.createElement('div');
-    clipEl.className = `timeline-clip ${track.colorClass} shadow-md`;
-    clipEl.dataset.id = clip.id;
-    if (this.selectedClipIds.has(clip.id)) clipEl.classList.add('selected');
-    const leftPos = this.timeToPixels(clip.start);
-    const widthPos = this.timeToPixels(clip.duration) - 1; 
-    clipEl.style.transform = `translate3d(${leftPos}px, 0, 0)`; 
-    clipEl.style.width = `${Math.max(2, widthPos)}px`; 
-    
-    if(clip.properties && clip.properties.opacity < 100) {
-        clipEl.style.opacity = (clip.properties.opacity / 100) + 0.2;
-    }
+// createClipElement removed (handled by React)
 
-    let icon = 'fa-film';
-    let contentHTML = `<span class="text-xs font-bold truncate z-10 relative">${clip.name}</span>`;
-
-    if (clip.type === 'audio') {
-        icon = 'fa-music';
-        const canvasW = Math.max(10, widthPos);
-        const canvasH = 36; 
-        contentHTML = `
-            <canvas width="${canvasW}" height="${canvasH}" class="absolute top-0 left-0 w-full h-full pointer-events-none opacity-90"></canvas>
-            <span class="text-xs font-bold truncate z-10 relative ml-1 shadow-black drop-shadow-md text-white mix-blend-difference">${clip.name}</span>
-        `;
-    }
-    else if (clip.type === 'image') icon = 'fa-image';
-    else if (clip.type === 'text') icon = 'fa-font';
-
-    clipEl.innerHTML = `
-        <div class="clip-handle left" data-action="trim-in"></div>
-        <div class="clip-content px-2 pointer-events-none flex items-center gap-1 w-full h-full relative overflow-hidden">
-            <i class="fa-solid ${icon} text-[9px] opacity-70 z-10 relative"></i>
-            ${contentHTML}
-        </div>
-        <div class="clip-handle right" data-action="trim-out"></div>
-    `;
-    
-    if (clip.type === 'audio') {
-        const canvas = clipEl.querySelector('canvas');
-        if(canvas) this.drawWaveform(canvas, clip);
-    }
-
-    this.addSmartDragLogic(clipEl, clip, track);
-
-    clipEl.oncontextmenu = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.selectClip(clip.id, false);
-        this.showContextMenu(e.clientX, e.clientY, clip.id);
-    };
-
-    return clipEl;
-};
-
-window.EditorApp.prototype.showContextMenu = function(x, y, clipId) {
-    let menu = document.getElementById('context-menu');
-    if (!menu) return;
-    const clip = this.findClipById(clipId);
-    const btnTranscribe = document.getElementById('ctx-transcribe');
-    if (clip && (clip.type === 'video' || clip.type === 'audio')) {
-        btnTranscribe.classList.remove('hidden');
-        btnTranscribe.onclick = () => {
-            if (window.aiManager) {
-                window.aiManager.generateSubtitlesForClip(clip);
-                menu.classList.add('hidden');
-            } else {
-                this.log("⚠️ AI Manager not loaded.");
-            }
-        };
-    } else {
-        btnTranscribe.classList.add('hidden');
-    }
-    menu.classList.remove('hidden');
-    menu.style.left = `${x}px`;
-    menu.style.top = `${y}px`;
-
-    const btnRipple = document.getElementById('ctx-ripple');
-    const btnDelete = document.getElementById('ctx-delete');
-    
-    if(btnRipple) btnRipple.onclick = () => { this.rippleDelete(); menu.classList.add('hidden'); };
-    if(btnDelete) btnDelete.onclick = () => { this.deleteSelectedClip(); menu.classList.add('hidden'); };
-};
+// showContextMenu removed (handled by React)
 
 window.EditorApp.prototype.timeToPixels = function(seconds) { return seconds * this.pixelsPerSecond; };
 window.EditorApp.prototype.pixelsToTime = function(pixels) { return pixels / this.pixelsPerSecond; };
@@ -640,7 +416,8 @@ window.EditorApp.prototype.addSmartDragLogic = function(element, clip, track) {
             if(this.refreshProjectTopology) this.refreshProjectTopology();
             
             this.renderTracks();
-            this.updateEffectControls(); 
+            this.updateEffectControls();
+            this.syncToStore(); // ✅ sync Zustand after every drag/trim/move
             this.log(`Action Completed: ${mode}`);
         };
         document.addEventListener('mousemove', moveHandler); document.addEventListener('mouseup', upHandler);

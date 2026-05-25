@@ -1,0 +1,170 @@
+// command_parser.ts
+// Central logic for parsing string commands
+
+export function parseSmartTime(timeStr: string): number {
+    if (!timeStr) return 0;
+    const matches = Array.from(timeStr.matchAll(/(\d+)([hms])/g));
+    let totalSeconds = 0;
+    let found = false;
+
+    for (const match of matches) {
+        found = true;
+        const val = parseInt(match[1]);
+        const unit = match[2];
+        if (unit === 'h') totalSeconds += val * 3600;
+        if (unit === 'm') totalSeconds += val * 60;
+        if (unit === 's') totalSeconds += val;
+    }
+    
+    if (!found && !isNaN(timeStr as any)) return parseInt(timeStr);
+    return totalSeconds;
+}
+
+export function parseCommand(cmdString: string): any {
+    const cmd = cmdString.trim().toLowerCase();
+    if (!cmd) return null;
+
+    if (cmd === 'undo') return { type: 'UNDO' };
+    if (cmd === 'redo') return { type: 'REDO' };
+
+    // Range Delete: d10s:20sv3
+    const rangeDelRegex = /^d([0-9hms]+):([0-9hms]+)([vta]\d+)$/;
+    const rangeDelMatch = cmd.match(rangeDelRegex);
+    if (rangeDelMatch) {
+        return {
+            type: 'RANGE_DELETE',
+            startTime: parseSmartTime(rangeDelMatch[1]),
+            endTime: parseSmartTime(rangeDelMatch[2]),
+            trackName: rangeDelMatch[3].toUpperCase()
+        };
+    }
+
+    // Clip Index Delete: d1v2
+    const clipDelRegex = /^d(\d+)([vta]\d+)$/;
+    const clipDelMatch = cmd.match(clipDelRegex);
+    if (clipDelMatch) {
+        return {
+            type: 'CLIP_INDEX_DELETE',
+            index: parseInt(clipDelMatch[1]),
+            trackName: clipDelMatch[2].toUpperCase()
+        };
+    }
+
+    // Clear Track: dv2
+    const trackClearRegex = /^d([vta]\d+)$/;
+    const trackClearMatch = cmd.match(trackClearRegex);
+    if (trackClearMatch) {
+        return {
+            type: 'TRACK_CLEAR',
+            trackName: trackClearMatch[1].toUpperCase()
+        };
+    }
+
+    // Upload Command: u10s:20sv1
+    const uploadRegex = /^u([0-9hms]+)(?::([0-9hms]+))?([vta]\d+)$/;
+    const uploadMatch = cmd.match(uploadRegex);
+    if (uploadMatch) {
+        const startTime = parseSmartTime(uploadMatch[1]);
+        const endTimeStr = uploadMatch[2];
+        const trackName = uploadMatch[3].toUpperCase();
+        
+        let finalDuration = null;
+        if (endTimeStr) {
+            const endTime = parseSmartTime(endTimeStr);
+            if (endTime > startTime) {
+                finalDuration = endTime - startTime;
+            }
+        }
+        return {
+            type: 'UPLOAD',
+            startTime,
+            finalDuration,
+            trackName
+        };
+    }
+
+    // Cut Command: c20sv1
+    const cutRegex = /^c(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?([vta]\d+)$/;
+    const cutMatch = cmd.match(cutRegex);
+    if (cutMatch) {
+        const h = parseInt(cutMatch[1] || '0');
+        const m = parseInt(cutMatch[2] || '0');
+        const s = parseInt(cutMatch[3] || '0');
+        return {
+            type: 'CUT',
+            time: (h * 3600) + (m * 60) + s,
+            trackName: cutMatch[4].toUpperCase()
+        };
+    }
+
+    // Move Command
+    if (cmd.startsWith('mv')) {
+        return { type: 'MOVE', paramsStr: cmd.substring(2) };
+    }
+
+    // Remove Silence Command
+    const rmsRegex = /^rms([vta]\d+)e(.+)$/i;
+    const rmsMatch = cmd.match(rmsRegex);
+    if (rmsMatch) {
+        return {
+            type: 'REMOVE_SILENCE',
+            sourceTrack: rmsMatch[1].toUpperCase(),
+            exceptions: rmsMatch[2].toUpperCase().match(/[vta]\d+/gi) || []
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // BUG #1 FIX: Toolbar actions that had no CMD equivalents
+    // ─────────────────────────────────────────────────────────────
+
+    // Delete selected clip(s): del
+    if (cmd === 'del') return { type: 'DELETE_SELECTED' };
+
+    // Ripple-delete selected clip(s): rdel
+    if (cmd === 'rdel') return { type: 'RIPPLE_DELETE_SELECTED' };
+
+    // Duplicate selected clip: dup
+    if (cmd === 'dup') return { type: 'DUPLICATE_SELECTED' };
+
+    // Add text clip at playhead: txt
+    if (cmd === 'txt') return { type: 'ADD_TEXT' };
+
+    // Add video track: atv
+    if (cmd === 'atv') return { type: 'ADD_TRACK', trackType: 'video' };
+
+    // Add audio track: ata
+    if (cmd === 'ata') return { type: 'ADD_TRACK', trackType: 'audio' };
+
+    // Property commands (Scale, Opacity, Rotation, ScaleX, ScaleY)
+    // FIX #4: Require explicit 'c' separator before clip index: sc150c1v1
+    // This eliminates ambiguity (e.g. sc1501v1 = scale 150 clip 1, or scale 1 clip 50 + 1?)
+    // Legacy format sc150%1v1 (with %) is also still supported.
+    const propRegex = /^(sc|op|ro|sx|sy)(-?\d+)[%c](\d+)([vta]\d+)$/i;
+    const propMatch = cmd.match(propRegex);
+    if (propMatch) {
+        const cmdMap: any = { sc: 'scale', op: 'opacity', ro: 'rotation', sx: 'scaleX', sy: 'scaleY' };
+        return {
+            type: 'PROPERTY_UPDATE',
+            property: cmdMap[propMatch[1].toLowerCase()],
+            val: parseInt(propMatch[2]),
+            index: parseInt(propMatch[3]),
+            trackName: propMatch[4].toUpperCase()
+        };
+    }
+
+    // Size (Squeeze) — FIX #4: use 'c' before clip index to match new convention
+    // Format: sz{W}x{H}c{INDEX}{TRACK}  e.g. sz1920x1080c1v1
+    const sizeRegex = /^sz(\d+)x(\d+)c(\d+)([vta]\d+)$/i;
+    const sizeMatch = cmd.match(sizeRegex);
+    if (sizeMatch) {
+        return {
+            type: 'SIZE_UPDATE',
+            w: parseInt(sizeMatch[1]),
+            h: parseInt(sizeMatch[2]),
+            index: parseInt(sizeMatch[3]),
+            trackName: sizeMatch[4].toUpperCase()
+        };
+    }
+
+    return null;
+}
