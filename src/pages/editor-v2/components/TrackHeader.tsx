@@ -108,8 +108,8 @@ export default function TrackHeader({ track }: TrackHeaderProps) {
                 window.removeEventListener('mousemove', onMouseMove);
                 window.removeEventListener('mouseup', onMouseUp);
                 // FIX #4: push final height to Zustand after resize is done
-                if ((window as any).app?.syncToStore) {
-                    (window as any).app.syncToStore();
+                if ((window as any).app?.commitStateToReact) {
+                    (window as any).app.commitStateToReact();
                 }
             };
             window.addEventListener('mousemove', onMouseMove);

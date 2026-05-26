@@ -300,7 +300,7 @@ export class GeminiPlan {
             window.app.renderTracks();
             window.app.syncOverlays();
             if (window.app.saveState)  window.app.saveState();   // enable undo
-            if (window.app.syncToStore) window.app.syncToStore(); // update React timeline
+            if (window.app.commitStateToReact) window.app.commitStateToReact(); // update React timeline
             
             const cmdStr = `u${window.geminiChat.timeToCLI(item.start)}:${window.geminiChat.timeToCLI(item.end)}${targetTrackName}`;
             window.app.log(`> ⌨️ Auto-Executed: ${cmdStr} (Custom File)`);

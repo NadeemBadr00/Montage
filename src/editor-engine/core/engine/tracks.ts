@@ -168,7 +168,7 @@ export const injectEngineTracks = () => {
         if (this.renderTracks) this.renderTracks();
         if (this.syncOverlays) this.syncOverlays();
         this.requestRedraw();
-        this.syncToStore();
+        this.commitStateToReact();
     };
 
     window.EditorApp.prototype.moveTrack = function(sourceTrackId: number, targetTrackId: number) {
@@ -184,7 +184,7 @@ export const injectEngineTracks = () => {
         if (this.renderTracks) this.renderTracks();
         if (this.syncOverlays) this.syncOverlays();
         this.requestRedraw();
-        this.syncToStore();
+        this.commitStateToReact();
     };
 
     window.EditorApp.prototype.deleteTrack = function(trackId: number) {
@@ -196,7 +196,7 @@ export const injectEngineTracks = () => {
             if (this.renderTracks) this.renderTracks();
             if (this.syncOverlays) this.syncOverlays();
             this.requestRedraw();
-            this.syncToStore();
+            this.commitStateToReact();
         }
     };
 
@@ -208,7 +208,7 @@ export const injectEngineTracks = () => {
             if (this.renderTracks) this.renderTracks();
             if(this.syncOverlays) this.syncOverlays();
             this.requestRedraw();
-            this.syncToStore();
+            this.commitStateToReact();
         }
     };
 
@@ -220,7 +220,7 @@ export const injectEngineTracks = () => {
             if (this.renderTracks) this.renderTracks();
             if(this.syncOverlays) this.syncOverlays();
             this.requestRedraw();
-            this.syncToStore();
+            this.commitStateToReact();
         }
     };
 };

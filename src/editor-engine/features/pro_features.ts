@@ -581,7 +581,7 @@ window.EditorApp.prototype.updateEffectControls = function() {
             
             clip[objName][prop] = parsedValue;
             this.requestRedraw();
-            this.syncToStore(); // ✅ keep Zustand in sync after every property change
+            this.commitStateToReact(); // ✅ keep Zustand in sync after every property change
             
             // Refresh properties panel for text toggles to update their active HTML state
             const requiresPanelRefresh = ['fontWeight', 'fontStyle', 'textDecoration', 'textAlign', 'textTransform'].includes(prop);
@@ -597,7 +597,7 @@ window.EditorApp.prototype.updateClipSource = function(clipId, newText) {
         clip.src = newText;
         if(this.syncOverlays) this.syncOverlays(); 
         // BUG #4 FIX: sync Zustand so React re-renders the clip label in the timeline
-        if(this.syncToStore) this.syncToStore();
+        if(this.commitStateToReact) this.commitStateToReact();
         if(this.requestRedraw) this.requestRedraw();
     }
 };
@@ -658,7 +658,7 @@ window.EditorApp.prototype.applyAttributesToAll = function(sourceClipId, mode) {
     });
     this.requestRedraw();
     // BUG #3 FIX: sync Zustand so React re-renders the timeline with the new styles
-    this.syncToStore();
+    this.commitStateToReact();
     this.log(`✨ Applied style to all ${mode.replace('_', ' ')} clips on ${track.name}`);
 };
 
@@ -743,7 +743,7 @@ window.EditorApp.prototype.updateTransitionProp = function(transId, prop, value,
         }
         // Always redraw canvas and sync store
         this.requestRedraw();
-        this.syncToStore();
+        this.commitStateToReact();
     }
 };
 
@@ -766,7 +766,7 @@ window.EditorApp.prototype.addLogoRemover = function(clipId) {
     
     this.updateEffectControls();
     this.requestRedraw();
-    this.syncToStore();
+    this.commitStateToReact();
 };
 
 window.EditorApp.prototype.updateLogoRemover = function(clipId, rmId, prop, value) {
@@ -791,7 +791,7 @@ window.EditorApp.prototype.updateLogoRemover = function(clipId, rmId, prop, valu
     }
     
     this.requestRedraw();
-    this.syncToStore();
+    this.commitStateToReact();
 };
 
 window.EditorApp.prototype.deleteLogoRemover = function(clipId, rmId) {
@@ -802,7 +802,7 @@ window.EditorApp.prototype.deleteLogoRemover = function(clipId, rmId) {
     
     this.updateEffectControls();
     this.requestRedraw();
-    this.syncToStore();
+    this.commitStateToReact();
 };
 
 

@@ -417,7 +417,7 @@ window.EditorApp.prototype.addSmartDragLogic = function(element, clip, track) {
             
             this.renderTracks();
             this.updateEffectControls();
-            this.syncToStore(); // ✅ sync Zustand after every drag/trim/move
+            this.commitStateToReact(); // ✅ sync Zustand after every drag/trim/move
             this.log(`Action Completed: ${mode}`);
         };
         document.addEventListener('mousemove', moveHandler); document.addEventListener('mouseup', upHandler);

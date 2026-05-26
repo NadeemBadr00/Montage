@@ -306,7 +306,7 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
            track.rebuildTree();
          }
          if ((window as any).app.renderAll) (window as any).app.renderAll();
-         (window as any).app.syncToStore();
+         (window as any).app.commitStateToReact();
       }
       
       // If it was just a click (no drag), move the playhead to that exact spot
@@ -425,7 +425,7 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
              track.rebuildTree();
            }
            if ((window as any).app.renderAll) (window as any).app.renderAll();
-           (window as any).app.syncToStore();
+           (window as any).app.commitStateToReact();
            // Save AFTER mutation to ensure localStorage has the final post-trim state
            if ((window as any).app.saveState) (window as any).app.saveState();
         }

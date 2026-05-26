@@ -64,6 +64,6 @@ export const injectEngineState = () => {
         if (this.renderTracks) this.renderTracks();
         if (this.syncOverlays) this.syncOverlays();
         this.requestRedraw();
-        this.syncToStore();
+        this.commitStateToReact();
     };
 };

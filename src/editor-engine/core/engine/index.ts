@@ -83,6 +83,10 @@ export class EditorApp {
         }
     }
 
+    commitStateToReact() {
+        this.syncToStore();
+    }
+
     /**
      * Central helper — stretch a clip to a new duration and update everything:
      * engine topology → Zustand duration → timeline dirty → full store sync.
@@ -96,6 +100,13 @@ export class EditorApp {
 
         // 1. Mutate clip duration on the live engine instance
         clip.duration = newDuration;
+
+        // 1.5 Rebuild the interval tree so the renderer knows the new duration
+        this.tracks.forEach(t => {
+            if (t.clips.some((c: any) => c.id === clipId)) {
+                if (t.rebuildTree) t.rebuildTree();
+            }
+        });
 
         // 2. Recalculate this.duration from all clips
         if ((this as any).refreshProjectTopology) (this as any).refreshProjectTopology();

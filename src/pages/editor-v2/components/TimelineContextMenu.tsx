@@ -41,7 +41,7 @@ export default function TimelineContextMenu() {
           app.deleteClip(legacyClip, parentTrack);
           parentTrack.rebuildTree();
           if (app.renderAll) app.renderAll();
-          app.syncToStore();
+          app.commitStateToReact();
         } else if (action === 'cut') {
           app.performSplit(legacyClip, parentTrack, { simulated: true });
         } else if (action === 'group') {

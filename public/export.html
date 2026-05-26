@@ -3,10 +3,513 @@
 <head>
     <meta charset="UTF-8">
     <title>تجربة WebCodecs (بالصوت والصورة)</title>
+    <!-- مكتبة الأيقونات لشبكات التواصل -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- مكتبة لإنشاء ملف MP4 محلياً وفك تشفيره -->
     <script src="https://unpkg.com/mp4-muxer/build/mp4-muxer.js"></script>
     <script src="https://unpkg.com/mp4box@0.5.2/dist/mp4box.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@0.1.1675465747/selfie_segmentation.js"></script>
+    <script>
+        function forceHex(value) {
+            if (!value || value === 'transparent') return '#000000';
+            if (value.startsWith('#')) return value;
+            return '#000000';
+        }
+
+        window.drawAdvancedText = function(ctx, clip, w, h, timeInSeconds, ratioX=1, ratioY=1, scaleRatio=1) {
+            const style = clip.textStyle || {};
+            let text = clip.src || clip.text || "Text";
+            
+            if (style.textTransform === 'uppercase') text = text.toUpperCase();
+            else if (style.textTransform === 'lowercase') text = text.toLowerCase();
+            else if (style.textTransform === 'capitalize') text = text.replace(/\b\w/g, c => c.toUpperCase());
+
+            const centerX = w / 2; const centerY = h / 2;
+            const posX = ((clip.properties && clip.properties.positionX) ? clip.properties.positionX : 0) * ratioX;
+            const posY = ((clip.properties && clip.properties.positionY) ? clip.properties.positionY : 0) * ratioY;
+            const rot = (clip.properties && clip.properties.rotation) ? clip.properties.rotation : 0;
+            // DO NOT apply scaleRatio here, because fontSize is based on h which is already scaled!
+            const scale = (clip.properties && clip.properties.scale !== undefined) ? (clip.properties.scale / 100) : 1;
+            const scaleX = (clip.properties && clip.properties.scaleX !== undefined) ? (clip.properties.scaleX / 100) : 1;
+            const scaleY = (clip.properties && clip.properties.scaleY !== undefined) ? (clip.properties.scaleY / 100) : 1;
+            const baseOpacity = (clip.properties && clip.properties.opacity !== undefined) ? (clip.properties.opacity / 100) : 1;
+
+            ctx.save();
+            ctx.translate(centerX + posX, centerY + posY);
+            
+            // --- Transitions Calculation ---
+            let currentScale = scale;
+            let currentAlpha = baseOpacity;
+            if (timeInSeconds !== undefined && clip.transitions) {
+                const trans = clip.transitions;
+                const localTime = timeInSeconds - clip.start;
+                const totalD = clip.duration;
+                const dIn = trans.duration || 0.5;
+                const dOut = trans.duration || 0.5;
+                
+                if (localTime < dIn && trans.in && trans.in !== 'none') {
+                    const p = localTime / dIn;
+                    if (trans.in === 'fade') currentAlpha = baseOpacity * p;
+                    else if (trans.in === 'zoomIn') { currentAlpha = baseOpacity * p; currentScale = scale * p; }
+                    else if (trans.in === 'pop') { currentAlpha = baseOpacity * p; currentScale = scale * Math.max(0.01, p + Math.sin(p * Math.PI) * 0.3); }
+                    else if (trans.in === 'slideUp') { currentAlpha = baseOpacity * p; ctx.translate(0, (1 - p) * 100); }
+                    else if (trans.in === 'typewriter') {
+                        const totalChars = text.length;
+                        const visibleChars = Math.max(1, Math.floor(p * totalChars));
+                        text = text.substring(0, visibleChars);
+                    }
+                } 
+                else if (localTime > totalD - dOut && trans.out && trans.out !== 'none') {
+                    const p = (totalD - localTime) / dOut;
+                    if (trans.out === 'fade') currentAlpha = baseOpacity * p;
+                    else if (trans.out === 'zoomOut') { currentAlpha = baseOpacity * p; currentScale = scale * p; }
+                    else if (trans.out === 'pop') { currentAlpha = baseOpacity * p; currentScale = scale * Math.max(0.01, p + Math.sin((1-p) * Math.PI) * 0.3); }
+                    else if (trans.out === 'slideDown') { currentAlpha = baseOpacity * p; ctx.translate(0, -(1 - p) * 100); }
+                }
+            }
+
+            ctx.globalAlpha = currentAlpha;
+            ctx.rotate((rot * Math.PI) / 180);
+            ctx.scale(currentScale * scaleX, currentScale * scaleY);
+            
+            const fontSize = h * 0.05; 
+            const fontStyle = style.fontStyle === 'italic' ? 'italic' : 'normal';
+            ctx.font = `${fontStyle} ${style.fontWeight || 'bold'} ${fontSize}px "${style.fontFamily || 'Cairo'}", "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
+            
+            const align = style.textAlign || 'center';
+            ctx.textAlign = align; 
+            ctx.textBaseline = "middle";
+
+            const maxWidth = w * 0.8;
+            const rawLines = text.split('\\n');
+            const lines = [];
+            
+            for (const rawLine of rawLines) {
+                const words = rawLine.split(' ');
+                let line = '';
+                for (let n = 0; n < words.length; n++) {
+                    const testLine = line + words[n] + ' ';
+                    const metrics = ctx.measureText(testLine);
+                    if (metrics.width > maxWidth && n > 0) { 
+                        lines.push(line.trim()); 
+                        line = words[n] + ' '; 
+                    } else { 
+                        line = testLine; 
+                    }
+                }
+                lines.push(line.trim());
+            }
+
+            const lineHeight = fontSize * 1.4;
+            const totalHeight = lines.length * lineHeight;
+            let maxLineWidth = 0;
+            lines.forEach(l => { const m = ctx.measureText(l); if(m.width > maxLineWidth) maxLineWidth = m.width; });
+            
+            const padding = style.padding !== undefined ? style.padding : 20;
+            const boxW = maxLineWidth + (padding * 2);
+            const boxH = totalHeight + (padding * 2);
+            const startY = -(totalHeight / 2) + (lineHeight / 2);
+
+            // Render Background
+            const bgOpacity = (style.backgroundOpacity !== undefined ? style.backgroundOpacity : 0) / 100;
+            if (bgOpacity > 0) {
+                ctx.save();
+                ctx.globalAlpha *= bgOpacity;
+                ctx.fillStyle = forceHex(style.backgroundColor);
+                ctx.fillRect(-boxW/2, -boxH/2, boxW, boxH);
+                ctx.restore();
+            }
+
+            if (style.shadowBlur > 0) {
+                ctx.shadowColor = "rgba(0,0,0,0.8)";
+                ctx.shadowBlur = style.shadowBlur;
+                ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
+            } else { ctx.shadowColor = "transparent"; }
+
+            ctx.fillStyle = forceHex(style.color);
+            ctx.strokeStyle = forceHex(style.strokeColor);
+            ctx.lineWidth = style.strokeWidth || 0;
+
+            // Calculate X origin based on alignment
+            let textX = 0;
+            if (align === 'left') textX = -boxW/2 + padding;
+            else if (align === 'right') textX = boxW/2 - padding;
+
+            lines.forEach((l, i) => {
+                const currentY = startY + (i * lineHeight);
+                const trimmed = l.trim();
+                if (style.strokeWidth > 0) ctx.strokeText(trimmed, textX, currentY);
+                ctx.fillText(trimmed, textX, currentY);
+                
+                // Render Underline
+                if (style.textDecoration === 'underline') {
+                    const m = ctx.measureText(trimmed);
+                    const lw = m.width;
+                    let lineX = textX;
+                    if (align === 'center') lineX -= lw / 2;
+                    else if (align === 'right') lineX -= lw;
+                    
+                    ctx.save();
+                    ctx.beginPath();
+                    const yOffset = currentY + (fontSize * 0.4);
+                    ctx.moveTo(lineX, yOffset);
+                    ctx.lineTo(lineX + lw, yOffset);
+                    ctx.lineWidth = Math.max(1, fontSize * 0.08);
+                    ctx.strokeStyle = forceHex(style.color);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            });
+            ctx.restore();
+        }
+
+        window.drawImageClip = function(ctx, clip, w, h, timeInSeconds, ratioX=1, ratioY=1, scaleRatio=1, frame=null) {
+            const img = window.imageCache[clip.src];
+            if (!img) return;
+            
+            const centerX = w / 2; const centerY = h / 2;
+            const posX = ((clip.properties && clip.properties.positionX) ? clip.properties.positionX : 0) * ratioX;
+            const posY = ((clip.properties && clip.properties.positionY) ? clip.properties.positionY : 0) * ratioY;
+            const rot = (clip.properties && clip.properties.rotation) ? clip.properties.rotation : 0;
+            // DO NOT apply scaleRatio here because drawW/drawH are already scaled down
+            const scale = (clip.properties && clip.properties.scale !== undefined) ? (clip.properties.scale / 100) : 1;
+            const scaleX = (clip.properties && clip.properties.scaleX !== undefined) ? (clip.properties.scaleX / 100) : 1;
+            const scaleY = (clip.properties && clip.properties.scaleY !== undefined) ? (clip.properties.scaleY / 100) : 1;
+            const baseOpacity = (clip.properties && clip.properties.opacity !== undefined) ? (clip.properties.opacity / 100) : 1;
+
+            ctx.save();
+            ctx.translate(centerX + posX, centerY + posY);
+            
+            let currentScale = scale;
+            let currentAlpha = baseOpacity;
+            if (timeInSeconds !== undefined && clip.transitions) {
+                const trans = clip.transitions;
+                const localTime = timeInSeconds - clip.start;
+                const totalD = clip.duration;
+                const dIn = trans.duration || 0.5;
+                const dOut = trans.duration || 0.5;
+                
+                if (localTime < dIn && trans.in && trans.in !== 'none') {
+                    const p = localTime / dIn;
+                    if (trans.in === 'fade') currentAlpha = baseOpacity * p;
+                    else if (trans.in === 'zoomIn') { currentAlpha = baseOpacity * p; currentScale = scale * p; }
+                    else if (trans.in === 'pop') { currentAlpha = baseOpacity * p; currentScale = scale * Math.max(0.01, p + Math.sin(p * Math.PI) * 0.3); }
+                    else if (trans.in === 'slideUp') { currentAlpha = baseOpacity * p; ctx.translate(0, (1 - p) * 100); }
+                } 
+                else if (localTime > totalD - dOut && trans.out && trans.out !== 'none') {
+                    const p = (totalD - localTime) / dOut;
+                    if (trans.out === 'fade') currentAlpha = baseOpacity * p;
+                    else if (trans.out === 'zoomOut') { currentAlpha = baseOpacity * p; currentScale = scale * p; }
+                    else if (trans.out === 'pop') { currentAlpha = baseOpacity * p; currentScale = scale * Math.max(0.01, p + Math.sin((1-p) * Math.PI) * 0.3); }
+                    else if (trans.out === 'slideDown') { currentAlpha = baseOpacity * p; ctx.translate(0, -(1 - p) * 100); }
+                }
+            }
+
+            ctx.globalAlpha = currentAlpha;
+            ctx.rotate((rot * Math.PI) / 180);
+            
+            // COVER mode logic matching getClipDrawRect in EditorApp
+            const baseW = window.exportManifest?.baseWidth || 1280;
+            const baseH = window.exportManifest?.baseHeight || 720;
+            const canvasRatio = baseW / baseH;
+            const imgRatio = img.width / img.height;
+            
+            let drawW, drawH;
+            if (canvasRatio > imgRatio) {
+                drawW = baseW; drawH = baseW / imgRatio;
+            } else {
+                drawH = baseH; drawW = baseH * imgRatio;
+            }
+            
+            // Apply scaleRatio to the calculated COVER dimensions
+            drawW *= ratioX;
+            drawH *= ratioY;
+
+            ctx.scale(currentScale * scaleX, currentScale * scaleY);
+            
+            // Draw inner media if this is a frame
+            if (clip.src.includes('frame_') && clip.properties && clip.properties.innerMediaSrc) {
+                window.drawInnerMedia(ctx, clip, drawW, drawH, frame);
+            }
+
+            // Draw the frame image
+            ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+            
+            // Draw social overlay
+            if (clip.src.includes('frame_') && clip.properties && clip.properties.overlayUI && clip.properties.overlayUI !== 'none') {
+                window.drawSocialOverlay(ctx, clip, drawW, drawH);
+            }
+
+            ctx.restore();
+        };
+
+        window.drawInnerMedia = function(ctx, clip, outerW, outerH, frame=null) {
+            let innerImg = null;
+            if (clip.properties.innerMediaType === 'image' && window.imageCache[clip.properties.innerMediaSrc]) {
+                innerImg = window.imageCache[clip.properties.innerMediaSrc];
+            } else if (clip.properties.innerMediaType === 'video') {
+                if (frame) {
+                    innerImg = frame;
+                } else if (window.cachedFData && window.cachedFData.data) {
+                    // For preview only - we draw the current video frame using cachedFData if available!
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = window.cachedFData.width;
+                    tempCanvas.height = window.cachedFData.height;
+                    tempCanvas.getContext('2d').putImageData(window.cachedFData, 0, 0);
+                    innerImg = tempCanvas;
+                }
+            }
+            if (!innerImg) return;
+
+            let wRatio = 1, hRatio = 1;
+            if (clip.src.includes('frame_phone')) { wRatio = 650/800; hRatio = 1450/1600; }
+            else if (clip.src.includes('frame_real_ipad')) { wRatio = 765/840; hRatio = 559/634; }
+            else if (clip.src.includes('frame_real_iphone')) { wRatio = 321/365; hRatio = 689/730; }
+            else if (clip.src.includes('frame_real_laptop')) { wRatio = 731/942; hRatio = 454/766; }
+            else if (clip.src.includes('frame_real_monitor')) { wRatio = 799/840; hRatio = 458/680; }
+            else if (clip.src.includes('frame_real_samsung')) { wRatio = 375/427; hRatio = 812/868; }
+            else if (clip.src.includes('frame_real_ui_instagram')) { wRatio = 395/462; hRatio = 850/913; }
+            else if (clip.src.includes('frame_real_ui_tiktok')) { wRatio = 350/427; hRatio = 750/818; }
+            else if (clip.src.includes('frame_real_ui_youtube')) { wRatio = 787/842; hRatio = 381/430; }
+            else if (clip.src.includes('frame_laptop')) { wRatio = 1240/1600; hRatio = 780/1200; }
+            else if (clip.src.includes('frame_monitor')) { wRatio = 1640/1920; hRatio = 880/1400; }
+            else if (clip.src.includes('frame_tv')) { wRatio = 1860/2000; hRatio = 960/1200; }
+            else if (clip.src.includes('frame_tablet')) { wRatio = 840/1200; hRatio = 1240/1600; }
+            
+            let innerScaleX = clip.properties.innerScaleX !== undefined ? parseFloat(clip.properties.innerScaleX) : 100;
+            let innerScaleY = clip.properties.innerScaleY !== undefined ? parseFloat(clip.properties.innerScaleY) : 100;
+            if (clip.properties.innerFitMode === 'tight') { innerScaleX *= 0.95; innerScaleY *= 0.95; }
+
+            const holeW = outerW * wRatio;
+            const holeH = outerH * hRatio;
+            
+            let dxFrac = 0; let dyFrac = 0;
+            if (clip.src.includes('frame_real_ipad')) { dxFrac = -0.5 / 840; dyFrac = -0.5 / 634; }
+            else if (clip.src.includes('frame_real_iphone')) { dxFrac = 0.0 / 365; dyFrac = -0.5 / 730; }
+            else if (clip.src.includes('frame_real_laptop')) { dxFrac = -0.5 / 942; dyFrac = -114.0 / 766; }
+            else if (clip.src.includes('frame_real_monitor')) { dxFrac = -0.5 / 840; dyFrac = -88.0 / 680; }
+            else if (clip.src.includes('frame_real_samsung')) { dxFrac = -3.0 / 427; dyFrac = -3.0 / 868; }
+            else if (clip.src.includes('frame_real_ui_instagram')) { dxFrac = -0.5 / 462; dyFrac = -1.5 / 913; }
+            else if (clip.src.includes('frame_real_ui_tiktok')) { dxFrac = -5.5 / 427; dyFrac = -4.0 / 818; }
+            else if (clip.src.includes('frame_real_ui_youtube')) { dxFrac = -6.5 / 842; dyFrac = 1.5 / 430; }
+            
+            const shiftX = dxFrac * outerW;
+            const shiftY = dyFrac * outerH;
+
+            ctx.save();
+            ctx.translate(shiftX, shiftY);
+            
+            const left = -holeW / 2;
+            const top = -holeH / 2;
+            
+            ctx.beginPath();
+            let br = clip.properties.innerBorderRadius !== undefined ? parseFloat(clip.properties.innerBorderRadius) : (clip.src.includes('frame_real') ? 0.06 : 0.0);
+            if (clip.properties.innerFitMode === 'smart') br = 0.15;
+            const r = br * Math.min(holeW, holeH);
+            if (ctx.roundRect && r > 0) ctx.roundRect(left, top, holeW, holeH, r);
+            else ctx.rect(left, top, holeW, holeH);
+            ctx.clip();
+            
+            ctx.fillStyle = '#000000';
+            ctx.fill();
+            
+            let mediaW = innerImg.displayWidth || innerImg.videoWidth || innerImg.width;
+            let mediaH = innerImg.displayHeight || innerImg.videoHeight || innerImg.height;
+            if (!mediaW || !mediaH) { mediaW = 1920; mediaH = 1080; }
+            
+            const rot = clip.properties.innerRotation || 0;
+            let effMediaW = mediaW;
+            let effMediaH = mediaH;
+            if (rot === 90 || rot === 270) {
+                effMediaW = mediaH;
+                effMediaH = mediaW;
+            }
+            
+            const mediaRatio = effMediaW / effMediaH;
+            const holeRatio = holeW / holeH;
+            let drawMediaW, drawMediaH;
+            
+            if (clip.properties.innerMode === 'fill') {
+                drawMediaW = holeW; drawMediaH = holeH;
+            } else if (clip.properties.innerMode === 'fit') {
+                if (holeRatio > mediaRatio) { drawMediaH = holeH; drawMediaW = holeH * mediaRatio; }
+                else { drawMediaW = holeW; drawMediaH = holeW / mediaRatio; }
+            } else { // 'crop' (default)
+                if (holeRatio > mediaRatio) { drawMediaW = holeW; drawMediaH = holeW / mediaRatio; }
+                else { drawMediaH = holeH; drawMediaW = holeH * mediaRatio; }
+            }
+            
+            drawMediaW *= (innerScaleX / 100);
+            drawMediaH *= (innerScaleY / 100);
+            
+            let renderW = drawMediaW;
+            let renderH = drawMediaH;
+            if (rot === 90 || rot === 270) {
+                renderW = drawMediaH;
+                renderH = drawMediaW;
+            }
+            
+            const panX = ((clip.properties.innerOffsetX || 0) / 1000) * holeW;
+            const panY = ((clip.properties.innerOffsetY || 0) / 1000) * holeH;
+            ctx.translate(panX, panY);
+            
+            if (clip.properties.innerFlipX) ctx.scale(-1, 1);
+            if (clip.properties.innerFlipY) ctx.scale(1, -1);
+            if (rot) ctx.rotate(rot * Math.PI / 180);
+            
+            ctx.drawImage(innerImg, -renderW/2, -renderH/2, renderW, renderH);
+            ctx.restore();
+        };
+
+        window.drawSocialOverlay = function(ctx, clip, outerW, outerH) {
+            let wRatio = 1, hRatio = 1;
+            if (clip.src.includes('frame_phone')) { wRatio = 650/800; hRatio = 1450/1600; }
+            else if (clip.src.includes('frame_real_ipad')) { wRatio = 765/840; hRatio = 559/634; }
+            else if (clip.src.includes('frame_real_iphone')) { wRatio = 321/365; hRatio = 689/730; }
+            else if (clip.src.includes('frame_real_laptop')) { wRatio = 731/942; hRatio = 454/766; }
+            else if (clip.src.includes('frame_real_monitor')) { wRatio = 799/840; hRatio = 458/680; }
+            else if (clip.src.includes('frame_real_samsung')) { wRatio = 375/427; hRatio = 812/868; }
+            else if (clip.src.includes('frame_real_ui_instagram')) { wRatio = 395/462; hRatio = 850/913; }
+            else if (clip.src.includes('frame_real_ui_tiktok')) { wRatio = 350/427; hRatio = 750/818; }
+            else if (clip.src.includes('frame_real_ui_youtube')) { wRatio = 787/842; hRatio = 381/430; }
+            else if (clip.src.includes('frame_laptop')) { wRatio = 1240/1600; hRatio = 780/1200; }
+            else if (clip.src.includes('frame_monitor')) { wRatio = 1640/1920; hRatio = 880/1400; }
+            else if (clip.src.includes('frame_tv')) { wRatio = 1860/2000; hRatio = 960/1200; }
+            else if (clip.src.includes('frame_tablet')) { wRatio = 840/1200; hRatio = 1240/1600; }
+            
+            let innerScaleX = clip.properties.innerScaleX !== undefined ? parseFloat(clip.properties.innerScaleX) : 100;
+            let innerScaleY = clip.properties.innerScaleY !== undefined ? parseFloat(clip.properties.innerScaleY) : 100;
+            if (clip.properties.innerFitMode === 'tight') { innerScaleX *= 0.95; innerScaleY *= 0.95; }
+
+            const holeW = outerW * wRatio * (innerScaleX / 100);
+            const holeH = outerH * hRatio * (innerScaleY / 100);
+            
+            let dxFrac = 0; let dyFrac = 0;
+            if (clip.src.includes('frame_real_ipad')) { dxFrac = -0.5 / 840; dyFrac = -0.5 / 634; }
+            else if (clip.src.includes('frame_real_iphone')) { dxFrac = 0.0 / 365; dyFrac = -0.5 / 730; }
+            else if (clip.src.includes('frame_real_laptop')) { dxFrac = -0.5 / 942; dyFrac = -114.0 / 766; }
+            else if (clip.src.includes('frame_real_monitor')) { dxFrac = -0.5 / 840; dyFrac = -88.0 / 680; }
+            else if (clip.src.includes('frame_real_samsung')) { dxFrac = -3.0 / 427; dyFrac = -3.0 / 868; }
+            else if (clip.src.includes('frame_real_ui_instagram')) { dxFrac = -0.5 / 462; dyFrac = -1.5 / 913; }
+            else if (clip.src.includes('frame_real_ui_tiktok')) { dxFrac = -5.5 / 427; dyFrac = -4.0 / 818; }
+            else if (clip.src.includes('frame_real_ui_youtube')) { dxFrac = -6.5 / 842; dyFrac = 1.5 / 430; }
+            
+            const shiftX = dxFrac * outerW;
+            const shiftY = dyFrac * outerH;
+
+            ctx.save();
+            ctx.translate(shiftX, shiftY);
+            
+            const left = -holeW / 2;
+            const right = holeW / 2;
+            const top = -holeH / 2;
+            const bottom = holeH / 2;
+            
+            // Clipping to hole
+            ctx.beginPath();
+            let br = clip.properties.innerBorderRadius !== undefined ? parseFloat(clip.properties.innerBorderRadius) : (clip.src.includes('frame_real') ? 0.06 : 0.0);
+            if (clip.properties.innerFitMode === 'smart') br = 0.15;
+            const r = br * Math.min(holeW, holeH);
+            if (ctx.roundRect && r > 0) ctx.roundRect(left, top, holeW, holeH, r);
+            else ctx.rect(left, top, holeW, holeH);
+            ctx.clip();
+            
+            const uiType = clip.properties.overlayUI;
+            const scaleBase = Math.min(holeW, holeH) / 400;
+            
+            const drawText = (text, x, y, size, align, isBold) => {
+                ctx.font = `${isBold ? 'bold' : 'normal'} ${size}px "Segoe UI", sans-serif`;
+                ctx.textAlign = align;
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = 'white';
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 8;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+                ctx.fillText(text, x, y);
+                ctx.shadowColor = 'transparent';
+            };
+            
+            const drawIcon = (unicode, x, y, size, isBrand) => {
+                ctx.font = `900 ${size}px "Font Awesome 6 Free"`; 
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = 'white';
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+                ctx.fillText(unicode, x, y);
+                ctx.shadowColor = 'transparent';
+            };
+            
+            if (uiType === 'tiktok') {
+                const iconSize = 35 * scaleBase;
+                const textSize = 14 * scaleBase;
+                const iconX = right - (30 * scaleBase);
+                
+                drawIcon('\uf2bd', iconX, bottom - (260 * scaleBase), iconSize + 5, false); // User
+                drawIcon('\uf004', iconX, bottom - (190 * scaleBase), iconSize, false); // Heart
+                drawText(clip.properties.uiLikes || '1.2M', iconX, bottom - (160 * scaleBase), textSize, 'center', true);
+                drawIcon('\uf075', iconX, bottom - (120 * scaleBase), iconSize - 5, false); // Comment
+                drawText(clip.properties.uiComments || '45K', iconX, bottom - (90 * scaleBase), textSize, 'center', true);
+                drawIcon('\uf02e', iconX, bottom - (50 * scaleBase), iconSize - 5, false); // Bookmark
+                drawText(clip.properties.uiShares || '12K', iconX, bottom - (20 * scaleBase), textSize, 'center', true);
+                drawIcon('\uf1d8', iconX, bottom + (20 * scaleBase), iconSize - 5, false); // Share 
+                
+                const descX = left + (20 * scaleBase);
+                drawText(clip.properties.uiUsername || '@username', descX, bottom - (50 * scaleBase), textSize + 2, 'left', true);
+                drawText(clip.properties.uiDescription || 'Check out this awesome video! #viral', descX, bottom - (25 * scaleBase), textSize, 'left', false);
+            }
+            else if (uiType === 'instagram') {
+                const iconSize = 30 * scaleBase;
+                const textSize = 14 * scaleBase;
+                const iconX = right - (30 * scaleBase);
+                
+                drawIcon('\uf004', iconX, bottom - (170 * scaleBase), iconSize, false);
+                drawText(clip.properties.uiLikes || '1.2M', iconX, bottom - (145 * scaleBase), textSize, 'center', true);
+                drawIcon('\uf075', iconX, bottom - (110 * scaleBase), iconSize, false);
+                drawText(clip.properties.uiComments || '45K', iconX, bottom - (85 * scaleBase), textSize, 'center', true);
+                drawIcon('\uf1d8', iconX, bottom - (50 * scaleBase), iconSize, false);
+                drawText(clip.properties.uiShares || '12K', iconX, bottom - (25 * scaleBase), textSize, 'center', true);
+                drawIcon('\uf141', iconX, bottom + (10 * scaleBase), iconSize * 0.7, false);
+                
+                const descX = left + (20 * scaleBase);
+                drawIcon('\uf2bd', descX + 15*scaleBase, bottom - (50 * scaleBase), 30*scaleBase, false); 
+                drawText(clip.properties.uiUsername || '@username', descX + 40*scaleBase, bottom - (50 * scaleBase), textSize + 2, 'left', true);
+                drawText(clip.properties.uiDescription || 'Check out this awesome video! #viral', descX, bottom - (20 * scaleBase), textSize, 'left', false);
+            }
+            else if (uiType === 'youtube') {
+                const iconSize = 25 * scaleBase;
+                const textSize = 14 * scaleBase;
+                const rightX = right - (20 * scaleBase);
+                const leftX = left + (20 * scaleBase);
+                
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.fillRect(left, bottom - (10 * scaleBase), holeW, 4 * scaleBase);
+                ctx.fillStyle = '#cc0000';
+                ctx.fillRect(left, bottom - (10 * scaleBase), holeW * 0.3, 4 * scaleBase);
+                
+                drawIcon('\uf04b', leftX + 10*scaleBase, bottom - (30 * scaleBase), iconSize*0.8, false); 
+                
+                drawIcon('\uf004', rightX - 140*scaleBase, bottom - (30 * scaleBase), iconSize, false);
+                drawText(clip.properties.uiLikes || '1.2M', rightX - 110*scaleBase, bottom - (30 * scaleBase), textSize, 'left', true);
+                drawIcon('\uf075', rightX - 60*scaleBase, bottom - (30 * scaleBase), iconSize, false);
+                
+                ctx.fillStyle = '#cc0000';
+                ctx.beginPath();
+                if(ctx.roundRect) ctx.roundRect(rightX - 250*scaleBase, bottom - (45*scaleBase), 90*scaleBase, 30*scaleBase, 15*scaleBase);
+                else ctx.rect(rightX - 250*scaleBase, bottom - (45*scaleBase), 90*scaleBase, 30*scaleBase);
+                ctx.fill();
+                drawText('SUBSCRIBE', rightX - 205*scaleBase, bottom - (30*scaleBase), textSize*0.8, 'center', true);
+                
+                drawText(clip.properties.uiUsername || 'Channel Name', leftX, bottom - (70 * scaleBase), textSize + 2, 'left', true);
+                drawText(clip.properties.uiDescription || '1.5M Subscribers', leftX, bottom - (50 * scaleBase), textSize, 'left', false);
+            }
+            
+            ctx.restore();
+        };
+    </script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; background: #111; color: #fff; }
         .container { max-width: 600px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; }
@@ -65,7 +568,15 @@
         </div>
 
         <div style="margin-top: 15px;">
-            <button id="previewBtn" style="background: #ff9900; color: #fff; margin-bottom: 10px; width: 100%;">👁️ تجربة القص الحية على فريم عشوائي</button>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                <button id="previewBtn" style="background: #ff9900; color: #fff; flex: 1; min-width: 200px;">👁️ تجربة فريم عشوائي آخر</button>
+                <div style="background: #222; padding: 5px 10px; border-radius: 5px; display: flex; align-items: center; gap: 5px; border: 1px solid #444;">
+                    <label style="color: #ccc; font-size: 14px;">الوقت:</label>
+                    <input type="text" inputmode="decimal" id="previewTimeInput" value="0.0" lang="en" dir="ltr" style="width: 70px; text-align: center; border-radius: 4px; border: 1px solid #666; background: #111; color: #fff; padding: 5px; font-family: monospace, sans-serif;">
+                    <span style="color: #ccc; font-size: 14px;">ث</span>
+                    <button id="previewTimeBtn" style="background: #00ccaa; padding: 6px 12px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; color: #000;">عرض الفريم</button>
+                </div>
+            </div>
             <canvas id="previewCanvas" width="640" height="360" style="border: 2px dashed #ff9900; border-radius: 8px; width: 100%; display: none; margin-bottom: 15px; background: #000;"></canvas>
             
             <button id="startBtn">بدء دمج محلي (سريع جداً) 🚀</button>
@@ -101,7 +612,9 @@
 
         function getQualitySettings() {
             const h = parseInt(document.getElementById('qualitySelect').value);
-            const w = Math.round((h * 16) / 9);
+            let w = Math.round((h * 16) / 9);
+            if (w % 2 !== 0) w -= 1; // كروت الشاشة بترفض الأرقام الفردية في أبعاد الفيديو
+            
             const compressionMult = parseFloat(document.getElementById('compressionSelect').value);
             const selectedCodec = document.getElementById('codecSelect').value;
             
@@ -141,39 +654,79 @@
         let cachedMData = null;
 
         window.applyTightnessPreview = function() {
-            if (!cachedFData || !cachedMData) return;
+            if (!cachedFData) return;
             const pCanvas = document.getElementById('previewCanvas');
             const pCtx = pCanvas.getContext('2d');
             
-            // الطبقة 1: رسم الفريم الأصلي بالكامل (عشان الشاشة متبقاش سودة)
-            const origCanvas = new OffscreenCanvas(pCanvas.width, pCanvas.height);
-            origCanvas.getContext('2d').putImageData(cachedFData, 0, 0);
-            pCtx.globalCompositeOperation = 'source-over';
-            pCtx.drawImage(origCanvas, 0, 0, pCanvas.width, pCanvas.height);
+            pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
             
-            // الطبقة 2: رسم الصورة الخلفية (اللي بتتحط ورا الشخص المفرغ وقدام الخلفية الأصلية)
-            if (window.bgImgLoaded) {
-                const imgW = pCanvas.width * 0.8;
-                const imgH = (window.bgImgLoaded.height / window.bgImgLoaded.width) * imgW || (pCanvas.height * 0.6);
-                pCtx.drawImage(window.bgImgLoaded, (pCanvas.width - imgW) / 2, (pCanvas.height - imgH) / 2, imgW, imgH);
-            }
-            
-            // الطبقة 3: رسم الشخصية بعد القص الدقيق
-            const tightness = parseInt(document.getElementById('aiTightness').value);
-            const workingData = new ImageData(new Uint8ClampedArray(cachedFData.data), cachedFData.width, cachedFData.height);
-            
-            for(let i = 0; i < workingData.data.length; i += 4) {
-                const mVal = cachedMData.data[i+3];
-                if (mVal > tightness) {
-                    workingData.data[i+3] = 255; 
-                } else {
-                    workingData.data[i] = 0; workingData.data[i+1] = 0; workingData.data[i+2] = 0; workingData.data[i+3] = 0;
+            if (window.exportManifest && window.exportManifest.tracks) {
+                const baseW = window.exportManifest.baseWidth || 1280;
+                const baseH = window.exportManifest.baseHeight || 720;
+                const ratioX = pCanvas.width / baseW;
+                const ratioY = pCanvas.height / baseH;
+                const scaleRatio = Math.min(ratioX, ratioY);
+
+                const vid = document.getElementById('hiddenPreviewVideo');
+                const timeInSeconds = window.previewTargetTime !== undefined ? window.previewTargetTime : (vid ? vid.currentTime : 0);
+                
+                const origCanvas = new OffscreenCanvas(pCanvas.width, pCanvas.height);
+                origCanvas.getContext('2d').putImageData(cachedFData, 0, 0);
+
+                for (let j = window.exportManifest.tracks.length - 1; j >= 0; j--) {
+                    const track = window.exportManifest.tracks[j];
+                    for (const clip of track.clips) {
+                        if (timeInSeconds >= clip.start && timeInSeconds < clip.start + clip.duration) {
+                            
+                            pCtx.save();
+                            const centerX = pCanvas.width / 2; const centerY = pCanvas.height / 2;
+                            const posX = (clip.properties?.positionX || 0) * ratioX;
+                            const posY = (clip.properties?.positionY || 0) * ratioY;
+                            const rot = clip.properties?.rotation || 0;
+                            const scale = (clip.properties?.scale !== undefined ? clip.properties.scale / 100 : 1);
+                            const scaleX = (clip.properties?.scaleX !== undefined ? clip.properties.scaleX / 100 : 1);
+                            const scaleY = (clip.properties?.scaleY !== undefined ? clip.properties.scaleY / 100 : 1);
+                            let currentAlpha = clip.properties?.opacity !== undefined ? clip.properties.opacity / 100 : 1;
+
+                            if (clip.type === 'video' || clip.type === 'main' || clip.type === 'speaker') {
+                                pCtx.translate(centerX + posX, centerY + posY);
+                                pCtx.rotate((rot * Math.PI) / 180);
+                                pCtx.scale(scale * scaleX, scale * scaleY);
+                                pCtx.globalAlpha = currentAlpha;
+
+                                if (clip.aiSegmentation?.enabled && cachedMData) {
+                                    const tightness = parseInt(document.getElementById('aiTightness').value);
+                                    const workingData = new ImageData(new Uint8ClampedArray(cachedFData.data), cachedFData.width, cachedFData.height);
+                                    
+                                    for(let i = 0; i < workingData.data.length; i += 4) {
+                                        const mVal = cachedMData.data[i+3];
+                                        if (mVal > tightness) {
+                                            workingData.data[i+3] = 255; 
+                                        } else {
+                                            workingData.data[i] = 0; workingData.data[i+1] = 0; workingData.data[i+2] = 0; workingData.data[i+3] = 0;
+                                        }
+                                    }
+                                    const tempCanvas = new OffscreenCanvas(pCanvas.width, pCanvas.height);
+                                    tempCanvas.getContext('2d').putImageData(workingData, 0, 0);
+                                    
+                                    pCtx.drawImage(tempCanvas, -pCanvas.width/2, -pCanvas.height/2, pCanvas.width, pCanvas.height);
+                                } else {
+                                    pCtx.drawImage(origCanvas, -pCanvas.width/2, -pCanvas.height/2, pCanvas.width, pCanvas.height);
+                                }
+                                pCtx.restore();
+                            } else if (clip.type === 'text') {
+                                pCtx.restore();
+                                window.drawAdvancedText(pCtx, clip, pCanvas.width, pCanvas.height, timeInSeconds, ratioX, ratioY, scaleRatio);
+                            } else if (clip.type === 'image' && window.imageCache && window.imageCache[clip.src]) {
+                                pCtx.restore();
+                                window.drawImageClip(pCtx, clip, pCanvas.width, pCanvas.height, timeInSeconds, ratioX, ratioY, scaleRatio, origCanvas);
+                            } else {
+                                pCtx.restore();
+                            }
+                        }
+                    }
                 }
             }
-            
-            const tempCanvas = new OffscreenCanvas(pCanvas.width, pCanvas.height);
-            tempCanvas.getContext('2d').putImageData(workingData, 0, 0);
-            pCtx.drawImage(tempCanvas, 0, 0, pCanvas.width, pCanvas.height);
         };
 
         async function initAIModelIfNeeded() {
@@ -189,11 +742,37 @@
                 await window.segmentationModel.initialize();
                 log("✅ الذكاء الاصطناعي جاهز!");
             }
+            
+            if (!window.imageCache) {
+                window.imageCache = {};
+                if (window.exportManifest && window.exportManifest.tracks) {
+                    for (const track of window.exportManifest.tracks) {
+                        for (const clip of track.clips) {
+                            if (clip.type === 'image' && clip.src && !window.imageCache[clip.src]) {
+                                log(`🖼️ جاري تحميل صورة للمعاينة: ${clip.src.substring(0, 30)}...`);
+                                const img = new Image();
+                                img.src = clip.src;
+                                await new Promise(r => { img.onload = r; img.onerror = r; });
+                                window.imageCache[clip.src] = img;
+                            }
+                            if (clip.properties && clip.properties.innerMediaSrc && clip.properties.innerMediaType === 'image' && !window.imageCache[clip.properties.innerMediaSrc]) {
+                                log(`🖼️ جاري تحميل الميديا الداخلية: ${clip.properties.innerMediaSrc.substring(0, 30)}...`);
+                                const img = new Image();
+                                img.src = clip.properties.innerMediaSrc;
+                                await new Promise(r => { img.onload = r; img.onerror = r; });
+                                window.imageCache[clip.properties.innerMediaSrc] = img;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        document.getElementById('previewBtn').addEventListener('click', async () => {
-            document.getElementById('previewBtn').disabled = true;
-            document.getElementById('previewBtn').innerText = "⏳ جاري استخراج فريم ومعالجته...";
+        async function triggerPreview(specificTime) {
+            const btn = document.getElementById('previewBtn');
+            const origText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = "⏳ جاري استخراج فريم ومعالجته...";
             
             if (!window.bgImgLoaded) {
                 window.bgImgLoaded = new Image();
@@ -208,7 +787,36 @@
             await initAIModelIfNeeded();
 
             const vid = document.getElementById('hiddenPreviewVideo');
-            vid.currentTime = Math.random() * (vid.duration - 1 || 5);
+            
+            let maxDuration = (window.exportManifest && window.exportManifest.duration) ? window.exportManifest.duration : (vid.duration || 5);
+            let targetTime = specificTime;
+            
+            if (targetTime === undefined) {
+                targetTime = Math.random() * maxDuration;
+                if (window.exportManifest && window.exportManifest.tracks) {
+                    const interestingClips = [];
+                    for (const track of window.exportManifest.tracks) {
+                        for (const clip of track.clips) {
+                            if (clip.type === 'text' || clip.type === 'image' || clip.aiSegmentation?.enabled) {
+                                interestingClips.push(clip);
+                            }
+                        }
+                    }
+                    if (interestingClips.length > 0) {
+                        const randomClip = interestingClips[Math.floor(Math.random() * interestingClips.length)];
+                        targetTime = randomClip.start + (Math.random() * randomClip.duration);
+                    }
+                }
+            }
+            
+            document.getElementById('previewTimeInput').value = targetTime.toFixed(2);
+            window.previewTargetTime = targetTime;
+            
+            if (targetTime > vid.duration) {
+                vid.currentTime = vid.duration - 0.1;
+            } else {
+                vid.currentTime = Math.max(0, targetTime);
+            }
             
             vid.onseeked = async () => {
                 const pCanvas = document.getElementById('previewCanvas');
@@ -218,27 +826,28 @@
                     const tempCtx = new OffscreenCanvas(pCanvas.width, pCanvas.height).getContext('2d');
                     tempCtx.drawImage(vid, 0, 0, pCanvas.width, pCanvas.height);
                     cachedFData = tempCtx.getImageData(0, 0, pCanvas.width, pCanvas.height);
-                    // حل مشكلة فلاتر الـ WebGL: نرسم الماسك الأول على كانفاس خام
-                    const rawMaskCanvas = document.createElement('canvas');
-                    rawMaskCanvas.width = pCanvas.width; rawMaskCanvas.height = pCanvas.height;
-                    rawMaskCanvas.getContext('2d').drawImage(mask, 0, 0, pCanvas.width, pCanvas.height);
-
-                    // التمويه اتلغى عشان نبقى زي البايثون بالظبط
-                    const maskCanvas = document.createElement('canvas');
-                    maskCanvas.width = pCanvas.width; maskCanvas.height = pCanvas.height;
-                    const maskCtx = maskCanvas.getContext('2d');
-                    maskCtx.drawImage(rawMaskCanvas, 0, 0, pCanvas.width, pCanvas.height);
-                    cachedMData = maskCtx.getImageData(0, 0, pCanvas.width, pCanvas.height);
+                    
+                    const tempMaskCanvas = new OffscreenCanvas(pCanvas.width, pCanvas.height);
+                    tempMaskCanvas.getContext('2d').drawImage(mask, 0, 0, pCanvas.width, pCanvas.height);
+                    cachedMData = tempMaskCanvas.getContext('2d').getImageData(0, 0, pCanvas.width, pCanvas.height);
                     
                     window.applyTightnessPreview();
                     
                     document.getElementById('previewBtn').disabled = false;
                     document.getElementById('previewBtn').innerHTML = "👁️ تجربة فريم عشوائي آخر";
-                    log("✅ المعاينة الحية جاهزة، حرك شريط الحواف عشان تشوف النتيجة في نفس اللحظة!");
+                    log("✅ المعاينة جاهزة.");
                 };
                 
-                await window.segmentationModel.send({ image: vid });
+                const tempCtx = new OffscreenCanvas(pCanvas.width, pCanvas.height).getContext('2d');
+                tempCtx.drawImage(vid, 0, 0, pCanvas.width, pCanvas.height);
+                await window.segmentationModel.send({ image: tempCtx.canvas });
             };
+        }
+
+        document.getElementById('previewBtn').addEventListener('click', () => triggerPreview());
+        document.getElementById('previewTimeBtn').addEventListener('click', () => {
+            const val = parseFloat(document.getElementById('previewTimeInput').value);
+            if (!isNaN(val)) triggerPreview(val);
         });
 
         // =====================================================================
@@ -247,6 +856,7 @@
         document.getElementById('startBtn').addEventListener('click', async () => {
             document.getElementById('startBtn').disabled = true;
             document.getElementById('cloudBtn').disabled = true;
+            window.lastEncodedTimeUs = 0; // Reset state for multiple renders
             log("🚀 جاري بدء المعالجة المحلية الاحترافية...");
 
             try {
@@ -298,11 +908,48 @@
                 });
                 audioEncoder.configure({ codec: 'mp4a.40.2', sampleRate, numberOfChannels: audioChannels, bitrate: 128_000 });
 
-                let currentVideoTimeUs = 0;
                 let currentAudioTimeUs = 0;
 
+                // استخراج مسارات الفيديو والصوت من التايم لاين عشان نطبق القص (Cuts)
+                const videoClips = [];
+                const audioClips = [];
+                window.imageCache = {};
+
+                if (window.exportManifest && window.exportManifest.tracks) {
+                    for (const track of window.exportManifest.tracks) {
+                        for (const clip of track.clips) {
+                            if (clip.type === 'video') videoClips.push(clip);
+                            if (clip.type === 'audio') audioClips.push(clip);
+                            if (clip.type === 'image' && clip.src && !window.imageCache[clip.src]) {
+                                log(`🖼️ جاري تحميل صورة: ${clip.src.substring(0, 30)}...`);
+                                const img = new Image();
+                                img.src = clip.src;
+                                await new Promise(r => { img.onload = r; img.onerror = r; });
+                                window.imageCache[clip.src] = img;
+                            }
+                            if (clip.properties && clip.properties.innerMediaSrc && clip.properties.innerMediaType === 'image' && !window.imageCache[clip.properties.innerMediaSrc]) {
+                                log(`🖼️ جاري تحميل الميديا الداخلية للتصدير: ${clip.properties.innerMediaSrc.substring(0, 30)}...`);
+                                const img = new Image();
+                                img.src = clip.properties.innerMediaSrc;
+                                await new Promise(r => { img.onload = r; img.onerror = r; });
+                                window.imageCache[clip.properties.innerMediaSrc] = img;
+                            }
+                        }
+                    }
+                }
+                // ترتيب المقاطع حسب وقت ظهورها على التايم لاين
+                videoClips.sort((a, b) => a.start - b.start);
+                audioClips.sort((a, b) => a.start - b.start);
+                
+                if (videoClips.length === 0) {
+                    videoClips.push({ start: 0, duration: 999999, sourceIn: 0, type: 'video' });
+                }
+                if (audioClips.length === 0) {
+                    audioClips.push({ start: 0, duration: 999999, sourceIn: 0, type: 'audio', src: 'file' });
+                }
+
                 // ⚡️ دالة قراءة الفيديو بالطريقة الاحترافية (MP4Box + VideoDecoder)
-                async function processVideo(videoSrc) {
+                async function processVideo(videoSrc, clip) {
                     return new Promise(async (resolve, reject) => {
                         try {
                             let buffer;
@@ -346,93 +993,191 @@
 
                                     let frameQueue = [];
                                     let processingAI = false;
+                                    window.isQueueEmpty = true;
+                                    
+                                    let tmpCanvas = null;
+                                    let tmpCtx = null;
 
                                     const processQueue = async () => {
                                         if (processingAI || frameQueue.length === 0) {
-                                            if (frameQueue.length === 0) window.isQueueEmpty = true;
+                                            if (frameQueue.length === 0 && !processingAI) window.isQueueEmpty = true;
                                             return;
                                         }
                                         processingAI = true;
                                         window.isQueueEmpty = false;
                                         
-                                        const { frame, isKeyFrame } = frameQueue.shift();
+                                        const { frame, isKeyFrame, timelineTimeUs } = frameQueue.shift();
 
-                                        // الطبقة 1: الفيديو الأصلي في الخلفية
+                                        const timeInSeconds = timelineTimeUs / 1_000_000;
+
+                                        // مسح الكانفاس للفريم الجديد
                                         ctx.globalCompositeOperation = 'source-over';
-                                        ctx.drawImage(frame, 0, 0, width, height);
+                                        ctx.clearRect(0, 0, width, height);
 
-                                        // الطبقة 2: الطبقة الوسطى (صورة bg.png)
-                                        if (window.bgImgLoaded) {
-                                            const imgW = width * 0.8;
-                                            const imgH = (window.bgImgLoaded.height / window.bgImgLoaded.width) * imgW || (height * 0.6);
-                                            ctx.drawImage(window.bgImgLoaded, (width - imgW) / 2, (height - imgH) / 2, imgW, imgH);
+                                        // التحقق مما إذا كان هناك مسار ذكاء اصطناعي نشط في هذا الفريم
+                                        let needsAI = false;
+                                        if (window.exportManifest && window.exportManifest.tracks) {
+                                            for (const track of window.exportManifest.tracks) {
+                                                for (const clip of track.clips) {
+                                                    if (timeInSeconds >= clip.start && timeInSeconds < clip.start + clip.duration) {
+                                                        if ((clip.type === 'video' || clip.type === 'main' || clip.type === 'speaker') && clip.aiSegmentation?.enabled) {
+                                                            needsAI = true;
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
 
-                                        // الطبقة 3: الذكاء الاصطناعي (Selfie Segmentation) بتطبيق خوارزمية بايثون بالضبط!
-                                        window.currentMaskResolve = (mask) => {
-                                            // 1. رسم الفريم الأصلي في الكانفاس المؤقت وقراءة البيكسلات
-                                            tempCtx.globalCompositeOperation = 'source-over';
-                                            tempCtx.clearRect(0, 0, width, height);
-                                            tempCtx.drawImage(frame, 0, 0, width, height);
-                                            const frameImgData = tempCtx.getImageData(0, 0, width, height);
-                                            const fData = frameImgData.data;
+                                        const baseW = window.exportManifest?.baseWidth || 1280;
+                                        const baseH = window.exportManifest?.baseHeight || 720;
+                                        const ratioX = width / baseW;
+                                        const ratioY = height / baseH;
+                                        const scaleRatio = Math.min(ratioX, ratioY);
 
-                                            // 2. رسم الماسك وحل مشكلة البلوكات الغريبة
-                                            const rawMaskCanvas = document.createElement('canvas');
-                                            rawMaskCanvas.width = width; rawMaskCanvas.height = height;
-                                            rawMaskCanvas.getContext('2d').drawImage(mask, 0, 0, width, height);
+                                        const renderAllLayers = (mask) => {
+                                            let activeLayerNames = [];
+                                            if (window.exportManifest && window.exportManifest.tracks) {
+                                                // الترتيب من تحت لفوق (من V1 لأعلى تراك)
+                                                for (let i = window.exportManifest.tracks.length - 1; i >= 0; i--) {
+                                                    const track = window.exportManifest.tracks[i];
+                                                    for (const clipTrack of track.clips) {
+                                                        if (timeInSeconds >= clipTrack.start && timeInSeconds < clipTrack.start + clipTrack.duration) {
+                                                            const layerLogName = track.trackName ? `[${track.trackName}] (${clipTrack.type.toUpperCase()})` : clipTrack.type.toUpperCase();
+                                                            
+                                                            const posX = clipTrack.properties?.positionX || 0;
+                                                            const posY = clipTrack.properties?.positionY || 0;
+                                                            const rot = clipTrack.properties?.rotation || 0;
+                                                            const scale = (clipTrack.properties?.scale !== undefined ? clipTrack.properties.scale / 100 : 1);
+                                                            const scaleX = (clipTrack.properties?.scaleX !== undefined ? clipTrack.properties.scaleX / 100 : 1);
+                                                            const scaleY = (clipTrack.properties?.scaleY !== undefined ? clipTrack.properties.scaleY / 100 : 1);
+                                                            let currentAlpha = clipTrack.properties?.opacity !== undefined ? clipTrack.properties.opacity / 100 : 1;
 
-                                            const maskCanvas = document.createElement('canvas');
-                                            maskCanvas.width = width; maskCanvas.height = height;
-                                            const maskCtx = maskCanvas.getContext('2d');
-                                            maskCtx.drawImage(rawMaskCanvas, 0, 0, width, height);
-                                            const maskImgData = maskCtx.getImageData(0, 0, width, height);
-                                            const mData = maskImgData.data;
+                                                            // حساب التأثيرات الديناميكية لتسجيلها في اللوج
+                                                            let dynScale = scale * scaleX;
+                                                            if (clipTrack.transitions) {
+                                                                const trans = clipTrack.transitions;
+                                                                const localTime = timeInSeconds - clipTrack.start;
+                                                                const totalD = clipTrack.duration;
+                                                                const dIn = trans.duration || 0.5;
+                                                                const dOut = trans.duration || 0.5;
+                                                                if (localTime < dIn && trans.in === 'pop') dynScale = scale * Math.max(0.01, (localTime/dIn) + Math.sin((localTime/dIn)*Math.PI)*0.3);
+                                                                else if (localTime > totalD - dOut && trans.out === 'pop') { const p = (totalD-localTime)/dOut; dynScale = scale * Math.max(0.01, p + Math.sin((1-p)*Math.PI)*0.3); }
+                                                                
+                                                                if (localTime < dIn && trans.in === 'fade') currentAlpha = (clipTrack.properties?.opacity !== undefined ? clipTrack.properties.opacity / 100 : 1) * (localTime / dIn);
+                                                                else if (localTime > totalD - dOut && trans.out === 'fade') currentAlpha = (clipTrack.properties?.opacity !== undefined ? clipTrack.properties.opacity / 100 : 1) * ((totalD - localTime) / dOut);
+                                                            }
 
-                                            // 3. تطبيق شرط (mask > tightness) لقص الحواف بقوة وإزالة الهالة
-                                            const tightness = parseInt(document.getElementById('aiTightness').value);
-                                            for (let i = 0; i < fData.length; i += 4) {
-                                                // نعتمد فقط على الـ Alpha Channel
-                                                const maskValue = mData[i+3]; 
-                                                
-                                                if (maskValue > tightness) {
-                                                    fData[i+3] = 255;
-                                                } else {
-                                                    fData[i] = 0; fData[i+1] = 0; fData[i+2] = 0; fData[i+3] = 0;
+                                                            let details = [];
+                                                            details.push(`Scale: ${Math.round(dynScale * 100)}%`);
+                                                            if (posX || posY) details.push(`Pos: ${posX.toFixed(0)},${posY.toFixed(0)}`);
+                                                            if (rot) details.push(`Rot: ${rot}°`);
+                                                            if (currentAlpha < 1) details.push(`Opacity: ${Math.round(currentAlpha * 100)}%`);
+                                                            
+                                                            activeLayerNames.push(layerLogName + (clipTrack.aiSegmentation?.enabled ? ' [AI Removal]' : '') + ` {${details.join(', ')}}`);
+                                                            
+                                                            if (clipTrack.type === 'video' || clipTrack.type === 'main' || clipTrack.type === 'speaker') {
+                                                                ctx.save();
+                                                                // تطبيق Transform للفيديوهات فقط
+                                                                const centerX = width / 2; const centerY = height / 2;
+                                                                const posX = (clipTrack.properties?.positionX || 0) * ratioX;
+                                                                const posY = (clipTrack.properties?.positionY || 0) * ratioY;
+                                                                const rot = clipTrack.properties?.rotation || 0;
+                                                                // DO NOT apply scaleRatio here because ctx.drawImage uses width/height which are already scaled
+                                                                const scale = (clipTrack.properties?.scale !== undefined ? clipTrack.properties.scale / 100 : 1);
+                                                                const scaleX = (clipTrack.properties?.scaleX !== undefined ? clipTrack.properties.scaleX / 100 : 1);
+                                                                const scaleY = (clipTrack.properties?.scaleY !== undefined ? clipTrack.properties.scaleY / 100 : 1);
+                                                                let currentAlpha = clipTrack.properties?.opacity !== undefined ? clipTrack.properties.opacity / 100 : 1;
+
+                                                                ctx.translate(centerX + posX, centerY + posY);
+                                                                ctx.rotate((rot * Math.PI) / 180);
+                                                                ctx.scale(scale * scaleX, scale * scaleY);
+                                                                ctx.globalAlpha = currentAlpha;
+
+                                                                if (clipTrack.aiSegmentation?.enabled && mask) {
+                                                                    tempCtx.globalCompositeOperation = 'source-over';
+                                                                    tempCtx.clearRect(0, 0, width, height);
+                                                                    tempCtx.drawImage(frame, 0, 0, width, height);
+                                                                    const frameImgData = tempCtx.getImageData(0, 0, width, height);
+                                                                    
+                                                                    const rawMaskCanvas = document.createElement('canvas');
+                                                                    rawMaskCanvas.width = width; rawMaskCanvas.height = height;
+                                                                    rawMaskCanvas.getContext('2d').drawImage(mask, 0, 0, width, height);
+                                                                    
+                                                                    const maskCanvas = document.createElement('canvas');
+                                                                    maskCanvas.width = width; maskCanvas.height = height;
+                                                                    const maskCtx = maskCanvas.getContext('2d');
+                                                                    maskCtx.drawImage(rawMaskCanvas, 0, 0, width, height);
+                                                                    const mData = maskCtx.getImageData(0, 0, width, height).data;
+                                                                    
+                                                                    const fData = frameImgData.data;
+                                                                    const tightness = parseInt(document.getElementById('aiTightness').value);
+                                                                    for (let j = 0; j < fData.length; j += 4) {
+                                                                        if (mData[j+3] > tightness) fData[j+3] = 255;
+                                                                        else { fData[j] = 0; fData[j+1] = 0; fData[j+2] = 0; fData[j+3] = 0; }
+                                                                    }
+                                                                    tempCtx.putImageData(frameImgData, 0, 0);
+                                                                    ctx.drawImage(tempCanvas, -width/2, -height/2, width, height);
+                                                                } else {
+                                                                    ctx.drawImage(frame, -width/2, -height/2, width, height);
+                                                                }
+                                                                ctx.restore();
+                                                            } else if (clipTrack.type === 'text') {
+                                                                window.drawAdvancedText(ctx, clipTrack, width, height, timeInSeconds, ratioX, ratioY, scaleRatio);
+                                                            } else if (clipTrack.type === 'image' && window.imageCache[clipTrack.src]) {
+                                                                window.drawImageClip(ctx, clipTrack, width, height, timeInSeconds, ratioX, ratioY, scaleRatio, frame);
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
 
-                                            // إرجاع الفريم المعالج للكانفاس المؤقت
-                                            tempCtx.putImageData(frameImgData, 0, 0);
-                                            
-                                            // رسم الطبقة الثالثة بعد القص الدقيق
-                                            ctx.globalCompositeOperation = 'source-over';
-                                            ctx.drawImage(tempCanvas, 0, 0, width, height);
-
-                                            const newFrame = new VideoFrame(canvas, { timestamp: currentVideoTimeUs + frame.timestamp });
+                                            const newFrame = new VideoFrame(canvas, { timestamp: timelineTimeUs });
                                             videoEncoder.encode(newFrame, { keyFrame: isKeyFrame });
                                             newFrame.close();
                                             frame.close();
                                             
                                             frameCount++;
-                                            if (frameCount % 60 === 0) log(`⏳ معالجة وضغط ${frameCount} فريم...`);
+                                            if (frameCount % 60 === 0) log(`⏳ إطار ${frameCount} (التوقيت ${timeInSeconds.toFixed(1)}s): تم دمج [${activeLayerNames.join(' + ')}]`);
                                             
                                             processingAI = false;
-                                            processQueue(); // معالجة الفريم اللي بعده
+                                            processQueue();
                                         };
-
-                                        // إنشاء صورة مؤقتة لأن MediaPipe يحتاج عنصر canvas أو image
-                                        const tmpCanvas = new OffscreenCanvas(frame.displayWidth, frame.displayHeight);
-                                        const tmpCtx = tmpCanvas.getContext('2d');
-                                        tmpCtx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
-                                        
-                                        await window.segmentationModel.send({ image: tmpCanvas });
-                                    };
+                                            if (needsAI) {
+                                                window.currentMaskResolve = renderAllLayers;
+                                                if (!tmpCanvas || tmpCanvas.width !== frame.displayWidth || tmpCanvas.height !== frame.displayHeight) {
+                                                    tmpCanvas = new OffscreenCanvas(frame.displayWidth, frame.displayHeight);
+                                                    tmpCtx = tmpCanvas.getContext('2d', { willReadFrequently: true });
+                                                }
+                                                tmpCtx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
+                                                await window.segmentationModel.send({ image: tmpCanvas });
+                                            } else {
+                                                renderAllLayers(null);
+                                            }
+                                        };
 
                                     decoder = new VideoDecoder({
                                         output: (frame) => {
-                                            frameQueue.push({ frame, isKeyFrame: frameCount % 60 === 0 });
-                                            processQueue();
+                                            const frameTimeUs = frame.timestamp;
+                                            const sourceInUs = (clip.sourceIn || 0) * 1_000_000;
+                                            const sourceEndUs = sourceInUs + ((clip.duration || 999999) * 1_000_000);
+                                            
+                                            // 1. هل الفريم جوه الجزء المقصوص؟
+                                            if (frameTimeUs >= sourceInUs && frameTimeUs <= sourceEndUs) {
+                                                // 2. تعيين التوقيت الجديد على حسب التايم لاين!
+                                                const timelineTimeUs = (clip.start * 1_000_000) + (frameTimeUs - sourceInUs);
+                                                
+                                                // التأكد من عدم وجود تداخل زمني (Overlaps) عشان الـ Encoder ميكراش
+                                                if (window.lastEncodedTimeUs && timelineTimeUs <= window.lastEncodedTimeUs) {
+                                                    frame.close();
+                                                    return;
+                                                }
+                                                window.lastEncodedTimeUs = timelineTimeUs;
+
+                                                frameQueue.push({ frame, isKeyFrame: frameCount % 60 === 0, timelineTimeUs });
+                                                processQueue();
+                                            } else {
+                                                frame.close(); // تجاهل الفريم المقصوص
+                                            }
                                         },
                                         error: e => {
                                             log("❌ خطأ Decoder: " + e.message);
@@ -478,11 +1223,13 @@
                             mp4boxfile.appendBuffer(buffer);
                             mp4boxfile.flush();
                             
-                            // ننتظر شوية عشان نتأكد إن الـ decoder لحق يستلم الداتا
                             log("⏳ انتظار تفريغ الـ Decoder...");
                             if (decoder) {
                                 await decoder.flush();
-                                currentVideoTimeUs += Math.round(trackDurationUs);
+                                // Wait for frame queue to fully process
+                                while (!window.isQueueEmpty) {
+                                    await new Promise(r => setTimeout(r, 50));
+                                }
                                 resolve();
                             } else {
                                 throw new Error("لم يتم تهيئة الـ Decoder، ربما الملف غير مدعوم.");
@@ -498,33 +1245,158 @@
                 // تجهيز الذكاء الاصطناعي لو ما تمش تحميله في المعاينة
                 await initAIModelIfNeeded();
 
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
-                async function processAudio(videoSrc) {
-                    log(`🔊 سحب الصوت...`);
-                    let buffer;
-                    if (window.videoFile) {
-                        buffer = await window.videoFile.arrayBuffer();
-                    } else {
-                        const response = await fetch(videoSrc);
-                        buffer = await response.arrayBuffer();
+                for (const clip of videoClips) {
+                    await processVideo("file", clip);
+                }
+
+                // processVideo already waits for the queue to empty internally.
+
+                // توليد الفريمات المتبقية للصور والنصوص لو التايم لاين مدته أطول من الفيديو
+                const targetDurationUs = (window.exportManifest.duration || 0) * 1_000_000;
+                let currentTimeUs = window.lastEncodedTimeUs ? window.lastEncodedTimeUs + (1_000_000 / fps) : 0;
+                
+                if (currentTimeUs < targetDurationUs) {
+                    log(`⏳ استكمال الفريمات المتبقية (صور ونصوص فقط)...`);
+                    const syntheticFrames = Math.ceil((targetDurationUs - currentTimeUs) / (1_000_000 / fps));
+                    for (let i = 0; i < syntheticFrames; i++) {
+                        const timeInSeconds = currentTimeUs / 1_000_000;
+                        
+                        ctx.globalCompositeOperation = 'source-over';
+                        ctx.clearRect(0, 0, width, height);
+                        
+                        const baseW = window.exportManifest?.baseWidth || 1280;
+                        const baseH = window.exportManifest?.baseHeight || 720;
+                        const ratioX = width / baseW;
+                        const ratioY = height / baseH;
+                        const scaleRatio = Math.min(ratioX, ratioY);
+                        
+                        let activeLayerNamesSynth = [];
+                        if (window.exportManifest && window.exportManifest.tracks) {
+                            for (let j = window.exportManifest.tracks.length - 1; j >= 0; j--) {
+                                const track = window.exportManifest.tracks[j];
+                                for (const clipTrack of track.clips) {
+                                    if (timeInSeconds >= clipTrack.start && timeInSeconds < clipTrack.start + clipTrack.duration) {
+                                        const layerLogName = track.trackName ? `[${track.trackName}] (${clipTrack.type.toUpperCase()})` : clipTrack.type.toUpperCase();
+                                        
+                                        const posX = (clipTrack.properties?.positionX || 0) * ratioX;
+                                        const posY = (clipTrack.properties?.positionY || 0) * ratioY;
+                                        const rot = clipTrack.properties?.rotation || 0;
+                                        // DO NOT apply scaleRatio here
+                                        const scale = (clipTrack.properties?.scale !== undefined ? clipTrack.properties.scale / 100 : 1);
+                                        const scaleX = (clipTrack.properties?.scaleX !== undefined ? clipTrack.properties.scaleX / 100 : 1);
+                                        const scaleY = (clipTrack.properties?.scaleY !== undefined ? clipTrack.properties.scaleY / 100 : 1);
+                                        let currentAlpha = clipTrack.properties?.opacity !== undefined ? clipTrack.properties.opacity / 100 : 1;
+
+                                        let dynScale = scale * scaleX;
+                                        if (clipTrack.transitions) {
+                                            const trans = clipTrack.transitions;
+                                            const localTime = timeInSeconds - clipTrack.start;
+                                            const totalD = clipTrack.duration;
+                                            const dIn = trans.duration || 0.5;
+                                            const dOut = trans.duration || 0.5;
+                                            if (localTime < dIn && trans.in === 'pop') dynScale = scale * Math.max(0.01, (localTime/dIn) + Math.sin((localTime/dIn)*Math.PI)*0.3);
+                                            else if (localTime > totalD - dOut && trans.out === 'pop') { const p = (totalD-localTime)/dOut; dynScale = scale * Math.max(0.01, p + Math.sin((1-p)*Math.PI)*0.3); }
+                                            
+                                            if (localTime < dIn && trans.in === 'fade') currentAlpha = (clipTrack.properties?.opacity !== undefined ? clipTrack.properties.opacity / 100 : 1) * (localTime / dIn);
+                                            else if (localTime > totalD - dOut && trans.out === 'fade') currentAlpha = (clipTrack.properties?.opacity !== undefined ? clipTrack.properties.opacity / 100 : 1) * ((totalD - localTime) / dOut);
+                                        }
+
+                                        let details = [];
+                                        details.push(`Scale: ${Math.round(dynScale * 100)}%`);
+                                        if (posX || posY) details.push(`Pos: ${posX.toFixed(0)},${posY.toFixed(0)}`);
+                                        if (rot) details.push(`Rot: ${rot}°`);
+                                        if (currentAlpha < 1) details.push(`Opacity: ${Math.round(currentAlpha * 100)}%`);
+
+                                        activeLayerNamesSynth.push(layerLogName + (clipTrack.aiSegmentation?.enabled ? ' [AI Removal]' : '') + ` {${details.join(', ')}}`);
+                                        ctx.save();
+                                        if (clipTrack.type === 'text') {
+                                            window.drawAdvancedText(ctx, clipTrack, width, height, timeInSeconds, ratioX, ratioY, scaleRatio);
+                                        } else if (clipTrack.type === 'image' && window.imageCache[clipTrack.src]) {
+                                            window.drawImageClip(ctx, clipTrack, width, height, timeInSeconds, ratioX, ratioY, scaleRatio);
+                                        }
+                                        ctx.restore();
+                                    }
+                                }
+                            }
+                        }
+                        
+                        const newFrame = new VideoFrame(canvas, { timestamp: currentTimeUs });
+                        videoEncoder.encode(newFrame, { keyFrame: frameCount % 60 === 0 });
+                        newFrame.close();
+                        
+                        currentTimeUs += (1_000_000 / fps);
+                        frameCount++;
+                        if (frameCount % 60 === 0) {
+                            log(`⏳ إطار ${frameCount} (استكمال عند ${timeInSeconds.toFixed(1)}s): تم رسم [${activeLayerNamesSynth.join(' + ')}]`);
+
+                            await new Promise(r => setTimeout(r, 0));
+                        }
                     }
-                    const audioBuffer = await audioContext.decodeAudioData(buffer);
+                }
+
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate });
+                const audioCache = {};
+
+                async function processAudioClip(clip) {
+                    log(`🔊 معالجة مقطع صوت من التايم لاين...`);
+                    let audioBuffer;
+                    
+                    // تحديد المصدر (فيديو أساسي أو مؤثر صوتي خارجي)
+                    const isMainFile = clip.src === 'file' || !clip.src || clip.src.includes('p43_video');
+                    const cacheKey = isMainFile ? 'main' : clip.src;
+
+                    if (audioCache[cacheKey]) {
+                        audioBuffer = audioCache[cacheKey];
+                    } else {
+                        let buffer;
+                        if (isMainFile && window.videoFile) {
+                            buffer = await window.videoFile.arrayBuffer();
+                        } else {
+                            const response = await fetch(isMainFile ? '/1.mp4' : clip.src);
+                            buffer = await response.arrayBuffer();
+                        }
+                        audioBuffer = await audioContext.decodeAudioData(buffer);
+                        audioCache[cacheKey] = audioBuffer;
+                    }
+
+                    const sourceInSeconds = clip.sourceIn || 0;
+                    const durationSeconds = clip.duration || audioBuffer.duration;
+                    
+                    const startSample = Math.floor(sourceInSeconds * sampleRate);
+                    const endSample = Math.floor((sourceInSeconds + durationSeconds) * sampleRate);
+                    const totalSamples = Math.min(endSample - startSample, audioBuffer.length - startSample);
+                    
+                    if (totalSamples <= 0) return;
+
                     const chunkSize = 4096;
-                    for (let offset = 0; offset < audioBuffer.length; offset += chunkSize) {
-                        const frameCount = Math.min(chunkSize, audioBuffer.length - offset);
+                    for (let offset = 0; offset < totalSamples; offset += chunkSize) {
+                        const frameCount = Math.min(chunkSize, totalSamples - offset);
                         const data = new Float32Array(frameCount * audioChannels);
+                        
                         for (let c = 0; c < audioChannels; c++) {
                             const srcChannel = c < audioBuffer.numberOfChannels ? c : 0;
-                            data.set(audioBuffer.getChannelData(srcChannel).subarray(offset, offset + frameCount), c * frameCount);
+                            const channelData = audioBuffer.getChannelData(srcChannel).subarray(
+                                startSample + offset, 
+                                startSample + offset + frameCount
+                            );
+                            data.set(channelData, c * frameCount);
                         }
+                        
+                        const timestampUs = (clip.start * 1_000_000) + Math.round((offset / sampleRate) * 1_000_000);
+                        
+                        // منع التداخل الزمني عشان الـ Muxer ميكراش
+                        if (window.lastAudioEncodedTimeUs && timestampUs <= window.lastAudioEncodedTimeUs) {
+                            continue;
+                        }
+                        window.lastAudioEncodedTimeUs = timestampUs;
+
                         const audioData = new AudioData({
                             format: 'f32-planar', sampleRate, numberOfFrames: frameCount, numberOfChannels: audioChannels,
-                            timestamp: currentAudioTimeUs + Math.round((offset / sampleRate) * 1_000_000), data
+                            timestamp: timestampUs, data
                         });
                         audioEncoder.encode(audioData);
                         audioData.close();
                     }
-                    currentAudioTimeUs += Math.round(audioBuffer.duration * 1_000_000);
                 }
 
                 log("🖼️ جاري تحميل صورة الخلفية (الطبقة الثانية)...");
@@ -532,7 +1404,9 @@
                 window.bgImgLoaded.src = '/bg.png';
                 await new Promise(r => { window.bgImgLoaded.onload = r; window.bgImgLoaded.onerror = r; });
 
-                await processVideo('/1.mp4'); await processAudio('/1.mp4');
+                for (const clip of audioClips) {
+                    await processAudioClip(clip);
+                }
 
                 // انتظار تفريغ الـ AI Queue
                 log("⏳ انتظار تفريغ الـ AI والـ Encoder...");
@@ -673,6 +1547,54 @@
                         if (ev.target.result) {
                             window.bgFile = ev.target.result;
                             log('📥 تم تحميل صورة الخلفية من الذاكرة بنجاح.');
+                        }
+                    };
+
+                    const reqManifest = store.get('p43_export_manifest');
+                    reqManifest.onsuccess = async (ev) => {
+                        if (ev.target.result) {
+                            const text = await ev.target.result.text();
+                            window.exportManifest = JSON.parse(text);
+                            log('📥 تم تحميل خريطة التايم لاين (Manifest) بنجاح.');
+                            
+                            // طباعة اللقطة (Snapshot) للتأكيد وتعيين أسماء التراكات
+                            if (window.exportManifest.tracks) {
+                                const getTrackName = (type, index) => {
+                                    if (['video', 'main', 'overlay'].includes(type)) return `V${index}`;
+                                    if (['audio'].includes(type)) return `A${index}`;
+                                    if (['text', 'subtitle'].includes(type)) return `T${index}`;
+                                    return `X${index}`;
+                                };
+                                let trackCounters = { video: 1, audio: 1, text: 1 };
+                                const reversedTracks = [...window.exportManifest.tracks].reverse();
+                                
+                                const snapshot = reversedTracks.map(t => {
+                                    let typeGroup = 'video';
+                                    if (['audio'].includes(t.type)) typeGroup = 'audio';
+                                    if (['text', 'subtitle'].includes(t.type)) typeGroup = 'text';
+                                    const tName = getTrackName(t.type, trackCounters[typeGroup]++);
+                                    
+                                    // تخزين اسم التراك الحقيقي عشان نستخدمه في الرندرة
+                                    t.trackName = tName;
+                                    
+                                    let trackTransStr = "";
+                                    if (t.transitions && t.transitions.length > 0) {
+                                        trackTransStr = "\n  [Track Transitions: " + t.transitions.map(tr => `${tr.type} @ ${tr.cutTime.toFixed(3)}s (Dur: ${((tr.inOffset || 0.5) + (tr.outOffset || 0.5)).toFixed(3)}s)`).join(", ") + "]";
+                                    }
+                                    return `[${tName}] (${t.type.toUpperCase()}):${trackTransStr}\n` + 
+                                        t.clips.map((c, cIdx) => {
+                                            const ai = c.aiSegmentation?.enabled ? "Yes" : "No";
+                                            let transStr = "none(1.0s) -> none(1.0s)";
+                                            if (c.transitions) {
+                                                const dur = (c.transitions.duration || 1.0).toFixed(1);
+                                                transStr = `${c.transitions.in || 'none'}(${dur}s) -> ${c.transitions.out || 'none'}(${dur}s)`;
+                                            }
+                                            return `  - ${cIdx+1}${tName.toLowerCase()} (${c.start.toFixed(3)}s -> ${(c.start + c.duration).toFixed(3)}s) | AI Removal: ${ai} | Transitions: ${transStr}\n    Props: ${JSON.stringify(c.properties || {})}`;
+                                        }).join('\n');
+                                }).reverse().join('\n\n');
+                                
+                                log(`📸 لقطة التايم لاين الحالية (بواسطة محرك التصدير):\n${snapshot}`);
+                            }
                         }
                     };
 

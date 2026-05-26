@@ -957,7 +957,7 @@ window.EditorApp.prototype.updateEffectControls = function() {
     <div id="smart-frame-controls-group" class="mb-3 pb-3 mt-1 bg-pink-900/20 p-3 rounded-lg border-2 border-pink-700 border-dashed transition-colors"
         ondragover="event.preventDefault(); this.classList.add('bg-pink-900/60', 'border-pink-400');"
         ondragleave="this.classList.remove('bg-pink-900/60', 'border-pink-400');"
-        ondrop="event.preventDefault(); this.classList.remove('bg-pink-900/60', 'border-pink-400'); const data = event.dataTransfer.getData('text/plain'); if(data) { try { const d = JSON.parse(data); if(d.type==='image' || d.type==='video') { const c = app.findClipById('${clipId}'); c.properties.innerMediaType = d.type; c.properties.innerMediaSrc = d.src; app.fitMediaToFrame('${clipId}', 'fill'); if(d.type==='video' && d.src){ const tv=document.createElement('video'); tv.preload='metadata'; tv.src=d.src; tv.onloadedmetadata=()=>{ if(isFinite(tv.duration)&&tv.duration>0){ app.stretchClipDuration('${clipId}', tv.duration); } }; } app.syncToStore(); app.requestRedraw(); app.updateEffectControls(); } } catch(e){} }">
+        ondrop="event.preventDefault(); this.classList.remove('bg-pink-900/60', 'border-pink-400'); const data = event.dataTransfer.getData('text/plain'); if(data) { try { const d = JSON.parse(data); if(d.type==='image' || d.type==='video') { const c = app.findClipById('${clipId}'); c.properties.innerMediaType = d.type; c.properties.innerMediaSrc = d.src; app.fitMediaToFrame('${clipId}', 'fill'); if(d.type==='video' && d.src){ const tv=document.createElement('video'); tv.preload='metadata'; tv.src=d.src; tv.onloadedmetadata=()=>{ if(isFinite(tv.duration)&&tv.duration>0){ app.stretchClipDuration('${clipId}', tv.duration); } }; } app.commitStateToReact(); app.requestRedraw(); app.updateEffectControls(); } } catch(e){} }">
 
         <h4 class="font-bold text-[13px] text-pink-400 mb-2 flex items-center justify-between">
             <span><i class="fa-solid fa-mobile-screen mr-1"></i> Frame Media</span>
@@ -1212,7 +1212,7 @@ window.EditorApp.prototype.updateUltraProp = function(clipId, objName, prop, val
     if ((objName === 'mask' && prop === 'type') || (objName === 'chromaKey' && prop === 'enabled') || prop === 'flipX' || prop === 'flipY' || prop === 'overlayUI') {
         this.updateEffectControls();
     }
-    this.syncToStore();
+    this.commitStateToReact();
     this.requestRedraw();
 };
 
@@ -1501,6 +1501,6 @@ window.EditorApp.prototype.fitMediaToFrame = function(frameClipId, mode) {
         }
     }
     
-    this.syncToStore();
+    this.commitStateToReact();
     this.requestRedraw();
 };

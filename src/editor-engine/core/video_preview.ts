@@ -389,7 +389,7 @@ window.EditorApp.prototype.setupCanvasInteraction = function() {
         this.snappedX = false; this.snappedY = false;
         this.requestRedraw();
         // ✅ Persist canvas position changes to Zustand so the store stays in sync
-        this.syncToStore();
+        this.commitStateToReact();
     });
 
     this.canvas.addEventListener('mouseleave', () => {
@@ -514,7 +514,7 @@ window.EditorApp.prototype.handleFrameUpload = function(e, frameClip) {
             }
         };
     } else {
-        this.syncToStore();
+        this.commitStateToReact();
         this.requestRedraw();
         if (this.updateEffectControls) this.updateEffectControls();
     }
@@ -581,7 +581,7 @@ window.EditorApp.prototype.openOnCanvasTextEditor = function(clip) {
         if (textarea.value !== clip.src) {
             this.saveState();
             clip.src = textarea.value;
-            this.syncToStore();
+            this.commitStateToReact();
             this.requestRedraw();
             this.updateEffectControls();
         }

@@ -156,27 +156,39 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           (window as any).app.requestRedraw?.();
       }
   },
-  addAsset: (asset) => set((state) => {
-    if (state.assetsList.some(a => a.id === asset.id)) return state;
-    return { assetsList: [...state.assetsList, asset] };
-  }),
-  addTrack: (track) => set((state) => {
-    if (state.tracks.some(t => t.id === track.id)) return state;
-    return { tracks: [...state.tracks, track] };
-  }),
+  addAsset: (asset) => {
+    get().addLog(`✅ تم إضافة ملف للذاكرة: ${asset.name}`);
+    set((state) => {
+      if (state.assetsList.some(a => a.id === asset.id)) return state;
+      return { assetsList: [...state.assetsList, asset] };
+    });
+  },
+  addTrack: (track) => {
+    get().addLog(`🛤️ تم إضافة تراك جديد: ${track.type}`);
+    set((state) => {
+      if (state.tracks.some(t => t.id === track.id)) return state;
+      return { tracks: [...state.tracks, track] };
+    });
+  },
   
-  addClipToTrack: (trackId, clip) => set((state) => ({
-    tracks: state.tracks.map(t => 
-      t.id === trackId ? { ...t, clips: [...t.clips, clip] } : t
-    )
-  })),
+  addClipToTrack: (trackId, clip) => {
+    get().addLog(`✂️ تم وضع مقطع في التايم لاين (نوع: ${clip.type}) في تراك رقم ${trackId}`);
+    set((state) => ({
+      tracks: state.tracks.map(t => 
+        t.id === trackId ? { ...t, clips: [...t.clips, clip] } : t
+      )
+    }));
+  },
 
-  updateClip: (clipId, updates) => set((state) => ({
-    tracks: state.tracks.map(t => ({
-      ...t,
-      clips: t.clips.map(c => c.id === clipId ? { ...c, ...updates } : c)
-    }))
-  })),
+  updateClip: (clipId, updates) => {
+    get().addLog(`⚙️ تم تعديل خصائص المقطع: ${clipId} (${Object.keys(updates).join(', ')})`);
+    set((state) => ({
+      tracks: state.tracks.map(t => ({
+        ...t,
+        clips: t.clips.map(c => c.id === clipId ? { ...c, ...updates } : c)
+      }))
+    }));
+  },
 
   moveClipToTrack: (clipId, sourceTrackId, targetTrackId) => set((state) => {
     if (sourceTrackId === targetTrackId) return state;
@@ -229,9 +241,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   
   setTool: (tool) => set({ activeTool: tool }),
   
-  addLog: (msg) => set((state) => ({ 
-    logs: [...state.logs, { msg, time: new Date().toLocaleTimeString('ar-EG', { hour12: false, hour: 'numeric', minute: 'numeric', second: 'numeric' }) }] 
-  })),
+  addLog: (msg) => {
+    console.log(`[Editor Log] ${msg}`);
+    set((state) => ({ 
+      logs: [{ msg, time: new Date().toLocaleTimeString('ar-EG', { hour12: false, hour: 'numeric', minute: 'numeric', second: 'numeric' }) }, ...state.logs].slice(0, 200)
+    }));
+  },
 }));
 
 // Expose to window for vanilla JS engine access

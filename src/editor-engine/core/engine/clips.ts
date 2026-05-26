@@ -69,7 +69,7 @@ export const injectEngineClips = () => {
         if(this.syncOverlays) this.syncOverlays(); 
         if(this.updateEffectControls) this.updateEffectControls();
         this.requestRedraw();
-        this.syncToStore();
+        this.commitStateToReact();
     };
 
     window.EditorApp.prototype.deepCopyClipData = function(source: any, target: any) {
@@ -155,7 +155,7 @@ export const injectEngineClips = () => {
             if (this.syncOverlays) this.syncOverlays();
             if (this.updateEffectControls) this.updateEffectControls();
             this.requestRedraw(); 
-            this.syncToStore();
+            this.commitStateToReact();
             
             // Open editor immediately
             if (this.openOnCanvasTextEditor) {
@@ -187,7 +187,7 @@ export const injectEngineClips = () => {
             if (this.renderTracks) this.renderTracks();
             if (this.syncOverlays) this.syncOverlays();
             this.requestRedraw(); 
-            this.syncToStore();
+            this.commitStateToReact();
         }
     };
 
@@ -225,7 +225,7 @@ export const injectEngineClips = () => {
         if (this.renderTracks) this.renderTracks();
         if (this.syncOverlays) this.syncOverlays();
         this.requestRedraw(); 
-        this.syncToStore();
+        this.commitStateToReact();
     };
 
     window.EditorApp.prototype.rippleDelete = function() {
@@ -264,7 +264,7 @@ export const injectEngineClips = () => {
             if (this.syncOverlays) this.syncOverlays();
             if (this.updateEffectControls) this.updateEffectControls();
             this.requestRedraw();
-            this.syncToStore();
+            this.commitStateToReact();
         }
     };
 
@@ -339,7 +339,7 @@ export const injectEngineClips = () => {
                     });
                 });
                 this.log(`🔗 Smart Grouped ${idsToGroup.length} clips with ID: ${groupId}`);
-                this.syncToStore();
+                this.commitStateToReact();
                 this.requestRedraw();
                 this.saveState(); // Save AFTER mutation
             } else {
@@ -359,7 +359,7 @@ export const injectEngineClips = () => {
                 });
             });
             this.log(`🔗 Ungrouped clips!`);
-            this.syncToStore();
+            this.commitStateToReact();
             this.deselectAll();
             if (keepSelectedId) {
                 this.selectClip(keepSelectedId);
@@ -400,7 +400,7 @@ export const injectEngineClips = () => {
             if (this.syncOverlays) this.syncOverlays();
             if(this.updateEffectControls) this.updateEffectControls();
             this.requestRedraw();
-            this.syncToStore();
+            this.commitStateToReact();
         }
     };
 
@@ -439,7 +439,7 @@ export const injectEngineClips = () => {
             if (this.renderTracks) this.renderTracks();
             if (this.syncOverlays) this.syncOverlays();
             this.requestRedraw();
-            this.syncToStore();
+            this.commitStateToReact();
         }
     };
 
@@ -488,7 +488,7 @@ window.EditorApp.prototype.addTransition = function(trackId, dropTime, transitio
         
         if (this.renderTracks) this.renderTracks();
         this.requestRedraw();
-        this.syncToStore();
+        this.commitStateToReact();
         
         // Auto-select the new transition so Effect Controls opens for it immediately
         if (this.selectTransition) this.selectTransition(newTrans.id);
@@ -553,7 +553,7 @@ window.EditorApp.prototype.addSmartTransition = function(trackId, time, edge) {
 
     if (this.renderTracks) this.renderTracks();
     this.requestRedraw();
-    this.syncToStore();
+    this.commitStateToReact();
 
     if (this.selectTransition) this.selectTransition(newTrans.id);
 };
@@ -573,7 +573,7 @@ window.EditorApp.prototype.deleteTransition = function(transId, trackId) {
     if (this.renderTracks) this.renderTracks();
     if (this.updateEffectControls) this.updateEffectControls();
     this.requestRedraw();
-    this.syncToStore();
+    this.commitStateToReact();
 };
 
 window.EditorApp.prototype.selectTransition = function(transId) {
@@ -676,7 +676,7 @@ window.EditorApp.prototype.cleanupOrphanedTransitions = function(trackId) {
     if (track.transitions.length !== initialLen) {
         this.requestRedraw();
         // ✅ Sync Zustand so React removes orphaned transitions from the UI
-        this.syncToStore();
+        this.commitStateToReact();
     }
 };
 

@@ -122,7 +122,7 @@ export const injectFrameActions = () => {
         }
 
         this.refreshProjectTopology();
-        this.syncToStore();
+        this.commitStateToReact();
         if (this.renderTracks) this.renderTracks();
         this.requestRedraw();
         if (this.updateEffectControls) this.updateEffectControls();

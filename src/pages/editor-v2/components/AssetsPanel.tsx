@@ -187,7 +187,7 @@ export default function AssetsPanel() {
                           };
                       }
 
-                      (window as any).app.syncToStore();
+                      (window as any).app.commitStateToReact();
                       (window as any).app.requestRedraw();
                       (window as any).app.updateEffectControls();
                   }
@@ -232,12 +232,12 @@ export default function AssetsPanel() {
                       if ((window as any).app.renderTracks) (window as any).app.renderTracks();
                       if ((window as any).app.saveState) (window as any).app.saveState();
                       (window as any).app.requestRedraw();
-                      (window as any).app.syncToStore();
+                      (window as any).app.commitStateToReact();
                   }
               } catch (err) {
                   console.error('AssetsPanel drop error:', err);
               } finally {
-                  if ((window as any).app?.syncToStore) (window as any).app.syncToStore();
+                  if ((window as any).app?.commitStateToReact) (window as any).app.commitStateToReact();
               }
           };
 
@@ -446,7 +446,7 @@ export default function AssetsPanel() {
                                     if ((window as any).app.resolveCollisions) (window as any).app.resolveCollisions(targetTrack.id, newClip);
                                     if ((window as any).app.saveState) (window as any).app.saveState();
                                     (window as any).app.requestRedraw();
-                                    (window as any).app.syncToStore();
+                                    (window as any).app.commitStateToReact();
                                 } else {
                                     if (tpl.type === 'audio') {
                                         (window as any).app.addNewTrack('audio');
@@ -456,7 +456,7 @@ export default function AssetsPanel() {
                                             newTarget.addClip(newClip);
                                             if ((window as any).app.saveState) (window as any).app.saveState();
                                             (window as any).app.requestRedraw();
-                                            (window as any).app.syncToStore();
+                                            (window as any).app.commitStateToReact();
                                         }
                                     }
                                 }

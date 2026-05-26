@@ -79,7 +79,7 @@ export const injectCommandCenterActions = () => {
         if (this.renderTracks) this.renderTracks();                     // marks canvas dirty
         if (this.syncOverlays) this.syncOverlays();                     // update canvas overlays
         this.requestRedraw();                                           // canvas redraw
-        this.syncToStore();                                             // ← Zustand → React re-render
+        this.commitStateToReact();                                             // ← Zustand → React re-render
     };
 
     // ─────────────────────────────────────────────────────────────
