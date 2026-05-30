@@ -23,10 +23,9 @@ export default function Login() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) {
-        localStorage.setItem('p43_user', JSON.stringify({
-          uid: user.uid, name: user.displayName, email: user.email,
-          photo: user.photoURL, loginTime: new Date().toISOString(),
-        }));
+        // If this is a brand new user, the backend `onUserCreated` trigger will 
+        // initialize their 30-day Ultra trial in Firestore automatically.
+        // We just redirect them to the home page.
         navigate('/', { replace: true });
       }
     });

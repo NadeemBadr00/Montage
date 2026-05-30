@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import Timeline from './components/Timeline';
 import Player from './components/Player';
@@ -8,17 +8,28 @@ import EffectControls from './components/EffectControls';
 import Modals from './components/Modals';
 import RightPanel from './components/RightPanel';
 import { useEditorStore } from '../../store/useEditorStore';
+import { useFileStore } from '../../hooks/useFileStore'; // Ensures window.FileStore is always registered
 
 // BUG #1 FIX: Expose Zustand store on window so the Legacy Engine
 // (video_preview.ts, tracks.ts, clips.ts) can call
 // window.useEditorStore.setState() reliably at any time.
 (window as any).useEditorStore = useEditorStore;
 
+// AutoMontage Bridge: keep window.mediaLibraryItems in sync with Zustand assetsList
+// This allows auto_montage.ts (a non-React module) to read all uploaded media.
+useEditorStore.subscribe(
+  (state) => { (window as any).mediaLibraryItems = state.assetsList; }
+);
+// Initial sync
+(window as any).mediaLibraryItems = useEditorStore.getState().assetsList;
+
+
 // Import the legacy engine (this will evaluate the scripts and register window classes)
 import '../../editor-engine/main';
 
 export default function EditorV2() {
   const { userData } = useAuth();
+  const { id } = useParams();
 
   useEffect(() => {
     const initEngine = async () => {
@@ -28,8 +39,13 @@ export default function EditorV2() {
         catch (e) { console.error(e); }
       }
 
-      // 2. Read settings from sessionStorage 
-      const raw = sessionStorage.getItem('p43_settings');
+      // 2. Read settings from localStorage 
+      if (!id) {
+        window.location.href = '/startup';
+        return;
+      }
+      
+      const raw = localStorage.getItem(`${id}_settings`);
       if (!raw) {
         // No settings -> redirect back to startup
         window.location.href = '/startup';
@@ -39,14 +55,20 @@ export default function EditorV2() {
       const settings = JSON.parse(raw);
       console.log("Starting Engine with settings:", settings);
 
-      // 3. Read video file from IndexedDB 
-      let videoFile = null;
+      // 3. Read video file from IndexedDB (FileStore is always available via import)
+      let videoFile: File | null = null;
       try {
-        if ((window as any).FileStore) {
-          videoFile = await (window as any).FileStore.load('p43_video');
+        const fs = (window as any).FileStore;
+        if (fs) {
+          videoFile = await fs.load(`${id}_video`) || null;
+        }
+        // Fallback: use the in-memory reference from Startup (same session, no refresh)
+        if (!videoFile && (window as any).__pendingVideoFile) {
+          videoFile = (window as any).__pendingVideoFile;
         }
       } catch(e) {
         console.error('IndexedDB read failed:', e);
+        videoFile = (window as any).__pendingVideoFile || null;
       }
 
       // 4. Start the engine using initProject (which sets up tracks)
@@ -59,17 +81,63 @@ export default function EditorV2() {
         // 5. Apply SRT file if any
         if (settings.hasSRT) {
           setTimeout(async () => {
-              const srtFile = await (window as any).FileStore?.load('p43_srt').catch(() => null);
+              const srtFile = await (window as any).FileStore?.load(`${id}_srt`).catch(() => null);
               if (srtFile && (window as any).aiManager) {
                   (window as any).aiManager.processExternalSRT(srtFile);
               }
           }, 1000);
         }
+
+        // 6. Load extra files (images, additional videos, audio) uploaded from Startup
+        setTimeout(async () => {
+          try {
+            const fs = (window as any).FileStore;
+            if (!fs) return;
+            const extraCount = parseInt(localStorage.getItem(`${id}_extra_count`) || '0', 10);
+
+            // Also check in-memory extras (same session)
+            const pendingExtras: File[] = (window as any).__pendingExtraFiles || [];
+
+            const extraFiles: File[] = [];
+            for (let i = 0; i < extraCount; i++) {
+              try {
+                const f = await fs.load(`${id}_extra_${i}`);
+                if (f) extraFiles.push(f);
+              } catch (_) {}
+            }
+
+            // Merge: prefer IndexedDB, fall back to in-memory
+            const allExtras = extraFiles.length > 0 ? extraFiles : pendingExtras;
+
+            if (allExtras.length > 0 && (window as any).useEditorStore) {
+              const { addAsset } = (window as any).useEditorStore.getState();
+              for (const file of allExtras) {
+                const src = URL.createObjectURL(file);
+                const type = file.type.startsWith('video/') ? 'video'
+                  : file.type.startsWith('image/') ? 'image'
+                  : file.type.startsWith('audio/') ? 'audio'
+                  : 'video';
+                const asset = {
+                  id: `extra_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+                  name: file.name,
+                  type,
+                  src,
+                  duration: undefined,
+                };
+                addAsset(asset);
+                console.log(`[EditorV2] Loaded extra file: ${file.name} (${type})`);
+              }
+              (window as any).app?.log?.(`📁 تم تحميل ${allExtras.length} ملف إضافي من المشروع`);
+            }
+          } catch (e) {
+            console.error('[EditorV2] Failed to load extra files:', e);
+          }
+        }, 1500); // بعد تهيئة الـ engine بـ 1.5 ثانية
       }
     };
 
     initEngine();
-  }, []);
+  }, [id]);
   return (
     <div className="flex flex-col h-screen w-full max-w-full bg-[#050811] text-gray-300 font-cairo overflow-hidden box-border m-0 p-0 absolute inset-0">
       {/* GLOBAL HEADER */}
@@ -123,7 +191,7 @@ export default function EditorV2() {
                     baseHeight: app.canvas?.height || 720
                   };
                   
-                  await (window as any).FileStore.save('p43_export_manifest', new Blob([JSON.stringify(exportManifest)], { type: 'application/json' }));
+                  await (window as any).FileStore.save(`${id}_export_manifest`, new Blob([JSON.stringify(exportManifest)], { type: 'application/json' }));
                 } catch(e) {
                   console.error('Failed to save export manifest', e);
                   useEditorStore.getState().addLog(`❌ فشل حفظ خريطة التصدير: ${e.message}`);
@@ -132,7 +200,7 @@ export default function EditorV2() {
                 if (btn) btn.className = "fa-solid fa-download";
               }
               useEditorStore.getState().addLog(`🎬 جاري التصدير (مدة التايم لاين: ${app?.duration.toFixed(2)} ثانية, الفريمات: ${app?.FPS})`);
-              window.open('/export.html', '_blank');
+              window.open(`/export.html?id=${id}`, '_blank');
             }}
           >
             <i id="export-btn-icon" className="fa-solid fa-download"></i> MP4 Export

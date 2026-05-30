@@ -1002,7 +1002,68 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
     if (this.renderWebGLComposition && renderJobs.length > 0) {
         const glCanvas = this.renderWebGLComposition(renderJobs, w, h);
         if (glCanvas) {
-            ctx.drawImage(glCanvas, 0, 0);
+            // ── Phase 2: Per-clip Color Grading ────────────────────────────
+            // Check if ANY clip in this frame has colorGrading applied.
+            // If so, we need to composite per-clip with CSS filters.
+            const hasColorGrading = renderJobs.some(job => {
+                const clip = job.clip || job.clipA;
+                return clip && clip.properties && clip.properties.colorGrading &&
+                    (clip.properties.colorGrading.brightness !== 100 ||
+                     clip.properties.colorGrading.contrast    !== 100 ||
+                     clip.properties.colorGrading.saturation  !== 100 ||
+                     clip.properties.colorGrading.hue         !== 0   ||
+                     clip.properties.colorGrading.tintColor);
+            });
+
+            if (hasColorGrading) {
+                // Render each clip individually with its own filter
+                for (const job of renderJobs) {
+                    const clip = job.clip || job.clipA;
+                    if (!clip) continue;
+                    const cg = clip.properties?.colorGrading;
+
+                    // Build isolated clip canvas via WebGL (single job)
+                    const singleGl = this.renderWebGLComposition([{ ...job }], w, h);
+                    if (!singleGl) continue;
+
+                    if (cg && (cg.brightness !== 100 || cg.contrast !== 100 || cg.saturation !== 100 || cg.hue !== 0)) {
+                        const filterStr = [
+                            `brightness(${cg.brightness / 100})`,
+                            `contrast(${cg.contrast / 100})`,
+                            `saturate(${cg.saturation / 100})`,
+                            `hue-rotate(${cg.hue}deg)`
+                        ].join(' ');
+                        ctx.save();
+                        ctx.filter = filterStr;
+                        ctx.drawImage(singleGl, 0, 0);
+                        ctx.filter = 'none';
+                        ctx.restore();
+                    } else {
+                        ctx.drawImage(singleGl, 0, 0);
+                    }
+
+                    // Tint overlay
+                    if (cg && cg.tintColor && cg.tintOpacity > 0) {
+                        const timeInClip = this.currentTime - clip.start;
+                        const { posX, posY, scale } = this.getClipTransform(clip, timeInClip);
+                        const { drawW, drawH } = this.getClipDrawRect(clip, w, h);
+                        const finalScale = (scale || 1);
+                        const drawFW = drawW * finalScale;
+                        const drawFH = drawH * finalScale;
+                        const drawX = (w / 2 + posX) - drawFW / 2;
+                        const drawY = (h / 2 + posY) - drawFH / 2;
+                        ctx.save();
+                        ctx.globalAlpha = cg.tintOpacity;
+                        ctx.fillStyle = cg.tintColor;
+                        ctx.fillRect(drawX, drawY, drawFW, drawFH);
+                        ctx.globalAlpha = 1;
+                        ctx.restore();
+                    }
+                }
+            } else {
+                // Fast path: no color grading, draw entire WebGL output at once
+                ctx.drawImage(glCanvas, 0, 0);
+            }
         }
         
         // 2.5 Render Social Media Overlays for Frames
@@ -1096,7 +1157,80 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
         }
     });
 
+    // 3.3 Render Shape Clips + Apply Ken Burns on video/image clips
+    // ─────────────────────────────────────────────────────────────
+    const allTracksForShapes = this.tracks.filter(t => !t.isMuted && (!anySolo || t.isSolo));
+    [...allTracksForShapes].reverse().forEach(track => {
+        const clips = track.getClipsAtTime(this.currentTime);
+        if (clips.length === 0) return;
+        const clip = clips[0];
+
+        // ── Ken Burns: animate positionX/Y + scale live during render ──
+        if ((clip.type === 'video' || clip.type === 'image') && clip.properties?.kenBurns) {
+            const kb = clip.properties.kenBurns;
+            const timeInClip = Math.max(0, this.currentTime - clip.start);
+            const t = clip.duration > 0 ? Math.min(1, timeInClip / clip.duration) : 0;
+            // Ease-in-out (smoothstep)
+            const ease = t * t * (3 - 2 * t);
+            clip.properties.positionX = kb.startX + (kb.endX - kb.startX) * ease;
+            clip.properties.positionY = kb.startY + (kb.endY - kb.startY) * ease;
+            // Scale is stored as % (100=normal), kenBurns scale is a multiplier
+            const startScalePct = (kb.startScale || 1) * 100;
+            const endScalePct   = (kb.endScale   || 1) * 100;
+            clip.properties.scale = startScalePct + (endScalePct - startScalePct) * ease;
+        }
+
+        // ── Shape clips: render directly on 2D canvas ──
+        if (clip.type !== 'shape') return;
+        const props = clip.properties || {};
+        const shapeW = ((props.widthPct  || 50) / 100) * w;
+        const shapeH = ((props.heightPct || 30) / 100) * h;
+        const cx = (w / 2) + (props.positionX || 0);
+        const cy = (h / 2) + (props.positionY || 0);
+        const rot = (props.rotation || 0) * Math.PI / 180;
+        const alpha = (props.opacity !== undefined ? props.opacity : 100) / 100;
+
+        // Parse color: supports #RRGGBB or #RRGGBBAA
+        let colorStr = props.shapeColor || '#ffffff';
+        let fillAlpha = 1;
+        if (colorStr.length === 9) { // #RRGGBBAA
+            fillAlpha = parseInt(colorStr.slice(7, 9), 16) / 255;
+            colorStr = colorStr.slice(0, 7);
+        }
+
+        ctx.save();
+        ctx.globalAlpha = alpha * fillAlpha;
+        ctx.fillStyle = colorStr;
+        ctx.strokeStyle = colorStr;
+        ctx.translate(cx, cy);
+        if (rot !== 0) ctx.rotate(rot);
+
+        const shapeType = props.shapeType || 'rect';
+        if (shapeType === 'rect') {
+            ctx.fillRect(-shapeW / 2, -shapeH / 2, shapeW, shapeH);
+        } else if (shapeType === 'circle') {
+            ctx.beginPath();
+            ctx.ellipse(0, 0, shapeW / 2, shapeH / 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (shapeType === 'triangle') {
+            ctx.beginPath();
+            ctx.moveTo(0, -shapeH / 2);
+            ctx.lineTo(shapeW / 2, shapeH / 2);
+            ctx.lineTo(-shapeW / 2, shapeH / 2);
+            ctx.closePath();
+            ctx.fill();
+        } else if (shapeType === 'line') {
+            ctx.lineWidth = Math.max(2, shapeH);
+            ctx.beginPath();
+            ctx.moveTo(-shapeW / 2, 0);
+            ctx.lineTo(shapeW / 2, 0);
+            ctx.stroke();
+        }
+        ctx.restore();
+    });
+
     // 3.5 Render Hovered Template (Preview from Assets Panel)
+
     if (this.hoveredTemplate) {
         ctx.save();
         const fakeClip = {
@@ -1147,6 +1281,7 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
                 const clipDir = animMode === 'in' ? animProgress : (1 - animProgress);
                 ctx.beginPath();
                 ctx.rect(0, 0, w * clipDir, h);
+
                 ctx.clip();
             }
         }

@@ -14,7 +14,9 @@ import './features/grid_feature';
 import './ai/gemini_chat';
 import './ai/gemini_plan';
 import './ai/ai';
+import './ai/auto_montage';
 import './core/file_store';
+
 import { exportToMP4ClientSide } from './features/video_export';
 
 console.log('Editor Engine Initialized via Vite');

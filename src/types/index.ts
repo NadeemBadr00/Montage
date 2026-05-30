@@ -1,9 +1,12 @@
 // ─── User ───────────────────────────────────────────────────────────────────
 export interface UserData {
-  name:     string;
-  email:    string;
-  photo:    string;
-  uid?:     string;
+  name:           string;
+  email:          string;
+  photo:          string;
+  uid?:           string;
+  plan?:          'free' | 'pro' | 'ultra';
+  planExpiresAt?: number | null;
+  billing?:       'monthly' | 'yearly' | null; // set when user has a paid subscription
 }
 
 // ─── Project / Timeline ─────────────────────────────────────────────────────

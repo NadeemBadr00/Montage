@@ -1342,7 +1342,7 @@
                     let audioBuffer;
                     
                     // تحديد المصدر (فيديو أساسي أو مؤثر صوتي خارجي)
-                    const isMainFile = clip.src === 'file' || !clip.src || clip.src.includes('p43_video');
+                    const isMainFile = clip.src === 'file' || !clip.src || clip.src.includes('_video');
                     const cacheKey = isMainFile ? 'main' : clip.src;
 
                     if (audioCache[cacheKey]) {
@@ -1523,6 +1523,9 @@
         });
         // محاولة تحميل الملفات من IndexedDB عند فتح الصفحة
         async function loadFromDB() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectId = urlParams.get('id') || 'p43';
+
             return new Promise((resolve) => {
                 const req = indexedDB.open('p43_file_store', 1);
                 req.onsuccess = (e) => {
@@ -1531,7 +1534,7 @@
                     const tx = db.transaction('files', 'readonly');
                     const store = tx.objectStore('files');
                     
-                    const reqVid = store.get('p43_video');
+                    const reqVid = store.get(`${projectId}_video`);
                     reqVid.onsuccess = (ev) => {
                         if (ev.target.result) {
                             window.videoFile = ev.target.result;
@@ -1542,7 +1545,7 @@
                         }
                     };
 
-                    const reqBg = store.get('p43_bg_image');
+                    const reqBg = store.get(`${projectId}_bg_image`);
                     reqBg.onsuccess = (ev) => {
                         if (ev.target.result) {
                             window.bgFile = ev.target.result;
@@ -1550,7 +1553,7 @@
                         }
                     };
 
-                    const reqManifest = store.get('p43_export_manifest');
+                    const reqManifest = store.get(`${projectId}_export_manifest`);
                     reqManifest.onsuccess = async (ev) => {
                         if (ev.target.result) {
                             const text = await ev.target.result.text();

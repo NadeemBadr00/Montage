@@ -1,9 +1,131 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useEditorStore } from '../../../store/useEditorStore';
+import { TTS_VOICES } from '../../../editor-engine/ai/tts_engine';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ChatMessage { id: number; role: 'user' | 'ai' | 'cmd' | 'error'; text: string; }
 interface SuggestionItem { cmd: string; desc: string; color: string; category: string; icon: string; }
+
+// ─── TTS Modal ──────────────────────────────────────────────────────────────────────────────
+function TTSModal({ onClose }: { onClose: () => void }) {
+  const [text, setText] = useState('');
+  const [voice, setVoice] = useState('Kore');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  const generate = async () => {
+    if (!text.trim()) { setError('اكتب النص المراد تحويله لصوت'); return; }
+    setError('');
+    setIsGenerating(true);
+    try {
+      const engine = (window as any).ttsEngine;
+      if (!engine) throw new Error('محرك TTS غير محمل');
+      const url = await engine.generate(text.trim(), voice);
+      setAudioUrl(url);
+    } catch (e: any) {
+      setError(e?.message || 'حدث خطأ أثناء توليد الصوت');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const addToTimeline = () => {
+    if (!audioUrl) return;
+    const engine = (window as any).ttsEngine;
+    const store = (window as any).useEditorStore?.getState?.();
+    if (!store) return;
+    const { tracks, addClipToTrack } = store;
+    const audioTrack = tracks?.find((t: any) => t.id === 'A2' || (t.type === 'audio' && t.id !== 'A1'));
+    if (audioTrack) {
+      const clip = {
+        id: `tts_${Date.now()}`,
+        name: `Voiceover_${voice}`,
+        src: audioUrl,
+        type: 'audio',
+        start: 0,
+        duration: 30,
+        volume: 1,
+      };
+      addClipToTrack(audioTrack.id, clip);
+      window.app?.log?.(`🎵 تم إضافة الـ voiceover للتراك: ${audioTrack.id}`);
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-[#0d1628] border border-purple-500/30 rounded-2xl w-full max-w-md mx-4 p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-white font-black text-lg flex items-center gap-2">
+            <span className="text-2xl">🔊</span> AI Voiceover
+          </h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">✕</button>
+        </div>
+
+        {/* Text input */}
+        <div className="mb-4">
+          <label className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 block">النص</label>
+          <textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="اكتب هنا النص اللي تحب يتحول لصوت..."
+            rows={4}
+            className="w-full bg-[#0a0f1d] border border-gray-700 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-purple-500/60 resize-none"
+          />
+          <p className="text-gray-600 text-[10px] mt-1">{text.length} حرف</p>
+        </div>
+
+        {/* Voice selector */}
+        <div className="mb-5">
+          <label className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 block">الصوت</label>
+          <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-1">
+            {TTS_VOICES.map(v => (
+              <button key={v.id} onClick={() => setVoice(v.id)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all text-xs ${
+                  voice === v.id ? 'border-purple-500/60 bg-purple-500/15 text-purple-300' : 'border-gray-800 bg-[#0f172a] text-gray-400 hover:border-gray-600'
+                }`}>
+                <span className="text-base">{v.gender === '♀' ? '👩' : '👨'}</span>
+                <div>
+                  <div className="font-bold text-white">{v.name}</div>
+                  <div className="text-[10px] opacity-60">{v.lang}</div>
+                </div>
+                {voice === v.id && <span className="ml-auto text-purple-400">✓</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Error */}
+        {error && <p className="text-red-400 text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
+
+        {/* Audio preview */}
+        {audioUrl && (
+          <div className="mb-4">
+            <label className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 block">معاينة الصوت</label>
+            <audio controls src={audioUrl} className="w-full h-9" />
+          </div>
+        )}
+
+        {/* Buttons */}
+        <div className="flex gap-3">
+          <button onClick={generate} disabled={isGenerating || !text.trim()}
+            className="flex-1 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+            {isGenerating ? (
+              <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> جاري...</>
+            ) : (<> 🔊 توليد</>)}
+          </button>
+          {audioUrl && (
+            <button onClick={addToTimeline}
+              className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-cyan-600 hover:bg-cyan-500 text-white transition-colors flex items-center justify-center gap-2">
+              ➕ إضافة للتايم لاين
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── CMD Reference ────────────────────────────────────────────────────────────
 const CMD_REFERENCE = [
@@ -175,9 +297,128 @@ function AutocompleteDropdown({
   );
 }
 
+// ─── AutoMontage Bar ──────────────────────────────────────────────────────────
+const MONTAGE_STYLES = [
+  { id: 'cinematic', label: 'سينمائي', icon: 'fa-film', color: 'text-amber-400' },
+  { id: 'energetic', label: 'نشيط', icon: 'fa-bolt', color: 'text-yellow-400' },
+  { id: 'documentary', label: 'وثائقي', icon: 'fa-video', color: 'text-blue-400' },
+  { id: 'social', label: 'سوشيال', icon: 'fa-hashtag', color: 'text-pink-400' },
+];
+
+function AutoMontageBar() {
+  const [style, setStyle] = useState('cinematic');
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [showStyles, setShowStyles] = useState(false);
+  const currentStyle = MONTAGE_STYLES.find(s => s.id === style) || MONTAGE_STYLES[0];
+
+  const handleRun = async () => {
+    const engine = (window as any).autoMontage;
+    if (!engine) {
+      (window as any).geminiChat?.pushMessage?.('ai', '⚠️ AutoMontage engine not loaded.');
+      return;
+    }
+    setRunning(true);
+    setProgress(0);
+    setStatusMsg('جاري التهيئة...');
+
+    try {
+      await engine.run(style, (msg: string, pct: number) => {
+        setProgress(pct);
+        setStatusMsg(msg);
+      });
+    } catch(e) {
+      console.error(e);
+    } finally {
+      setRunning(false);
+      setProgress(100);
+      setTimeout(() => { setProgress(0); setStatusMsg(''); }, 3000);
+    }
+  };
+
+  return (
+    <div className="flex-shrink-0 border-b border-gray-800/60 bg-gradient-to-r from-[#0a0f1d] to-[#0d1225] px-2.5 py-2">
+      {/* Header row */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className="flex items-center gap-1.5 flex-1">
+          <div className="w-5 h-5 rounded-md bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0">
+            <i className="fa-solid fa-wand-sparkles text-white text-[8px]" />
+          </div>
+          <span className="text-[10px] font-bold text-amber-400">AutoMontage</span>
+          <span className="text-[8px] text-gray-600">— مونتاج تلقائي بالذكاء الاصطناعي</span>
+        </div>
+        {/* Style selector */}
+        <div className="relative">
+          <button
+            onClick={() => setShowStyles(v => !v)}
+            disabled={running}
+            className={`flex items-center gap-1 bg-[#0f172a] border border-gray-700 hover:border-amber-500/50 rounded-lg px-2 py-1 text-[9px] ${currentStyle.color} transition-all`}
+          >
+            <i className={`fa-solid ${currentStyle.icon} text-[8px]`} />
+            {currentStyle.label}
+            <i className="fa-solid fa-chevron-down text-[6px] text-gray-600" />
+          </button>
+          {showStyles && (
+            <div className="absolute bottom-full right-0 mb-1 bg-[#0a0f1d] border border-gray-700 rounded-lg overflow-hidden shadow-xl z-50 min-w-[110px]">
+              {MONTAGE_STYLES.map(s => (
+                <button key={s.id}
+                  onClick={() => { setStyle(s.id); setShowStyles(false); }}
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-[9px] hover:bg-gray-800 transition-colors ${s.color} ${s.id === style ? 'bg-gray-800/60' : ''}`}
+                >
+                  <i className={`fa-solid ${s.icon} text-[8px]`} />
+                  {s.label}
+                  {s.id === style && <i className="fa-solid fa-check text-[7px] ml-auto" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      {(running || progress > 0) && (
+        <div className="mb-1.5">
+          <div className="flex items-center justify-between mb-0.5">
+            <span id="auto-montage-progress-text" className="text-[8px] text-gray-400 truncate flex-1">{statusMsg}</span>
+            <span className="text-[8px] text-amber-400 font-mono flex-shrink-0 ml-1">{progress}%</span>
+          </div>
+          <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
+            <div
+              id="auto-montage-progress-bar"
+              className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Run button */}
+      <button
+        id="auto-montage-run-btn"
+        onClick={handleRun}
+        disabled={running}
+        className={`w-full py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-2 ${
+          running
+            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+            : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-md shadow-amber-900/30 hover:shadow-amber-900/50 hover:scale-[1.02] active:scale-[0.98]'
+        }`}
+      >
+        {running ? (
+          <><i className="fa-solid fa-spinner fa-spin text-[9px]" />جاري التحليل والمونتاج...</>
+        ) : (
+          <><i className="fa-solid fa-magic text-[9px]" />✨ منتج الفيديو التلقائي</>
+        )}
+      </button>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function RightPanel() {
   const [activeTab, setActiveTab] = useState<'ai' | 'cmd'>('ai');
+  const [showTTSModal, setShowTTSModal] = useState(false);
 
   // ── Shared state ──────────────────────────────────────────────────────────
   const cmdHistory = useRef<string[]>([]);
@@ -202,7 +443,7 @@ export default function RightPanel() {
   // ── Execute badge (reference list) ────────────────────────────────────────
   const [executedBadge, setExecutedBadge] = useState<string | null>(null);
 
-  // Wire geminiChat callbacks
+  // Wire chat callbacks
   useEffect(() => {
     const waitForChat = () => {
       const chat = (window as any).geminiChat;
@@ -470,7 +711,8 @@ export default function RightPanel() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div id="right-panel" className="w-[300px] flex flex-col gap-2 flex-shrink-0 h-full">
+    <>
+      <div id="right-panel" className="w-[300px] flex flex-col gap-2 flex-shrink-0 h-full">
       <div className="editor-panel glow-border-red flex-grow flex flex-col overflow-hidden min-w-0">
 
         {/* Tabs */}
@@ -482,7 +724,7 @@ export default function RightPanel() {
               : 'text-gray-500 hover:text-gray-300'}`}
             onClick={() => setActiveTab('ai')}
           >
-            <i className="fa-solid fa-wand-magic-sparkles mr-1" />AI Assistant
+            <i className="fa-solid fa-wand-magic-sparkles mr-1" />AI4Montage Assistant
           </button>
           <button
             id="tab-cmd"
@@ -512,7 +754,7 @@ export default function RightPanel() {
                   <i className="fa-solid fa-closed-captioning text-sm group-hover:scale-110 transition-transform" />
                   <span className="text-[8px] text-gray-500 group-hover:text-gray-400">ترجمة SRT</span>
                 </button>
-                <input type="file" id="ai-srt-file-input" accept=".srt,video/*" className="hidden"
+                 <input type="file" id="ai-srt-file-input" accept=".srt,video/*" className="hidden"
                   onChange={e => {
                     const file = e.target.files?.[0];
                     if (!file) return;
@@ -523,6 +765,17 @@ export default function RightPanel() {
                     (e.target as HTMLInputElement).value = '';
                   }}
                 />
+
+                {/* 🔊 TTS Voiceover Button */}
+                <button
+                  id="ai-tts-btn"
+                  onClick={() => setShowTTSModal(true)}
+                  title="توليد صوت AI Voiceover"
+                  className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 transition-all group"
+                >
+                  <i className="fa-solid fa-microphone text-sm group-hover:scale-110 transition-transform" />
+                  <span className="text-[8px] text-gray-500 group-hover:text-gray-400">Voiceover</span>
+                </button>
 
                 <button
                   id="ai-plan-btn"
@@ -551,6 +804,10 @@ export default function RightPanel() {
                   onChange={e => { const plan = (window as any).geminiPlan; if (plan && e.target) plan.handlePlanUpload(e.target as HTMLInputElement); }}
                 />
               </div>
+
+              {/* ✨ AutoMontage Button */}
+              <AutoMontageBar />
+
 
               {/* CMD hint bar (shown only when in cmd mode) */}
               {isCmdMode && (
@@ -783,6 +1040,8 @@ export default function RightPanel() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+      {showTTSModal && <TTSModal onClose={() => setShowTTSModal(false)} />}
+    </>
   );
 }

@@ -1,277 +1,469 @@
-import { useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import AppLayout from '../components/AppLayout';
+import React, { useState, useCallback } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useDropzone } from 'react-dropzone';
+import {
+  UploadCloud, FileVideo, Image, Music, AlertCircle, Wand2,
+  Sliders, Check, X, Zap, Brain, ArrowLeft, Sparkles, FolderOpen, Trash2
+} from 'lucide-react';
+import { AnimatedLogo } from '../components/ui/AnimatedLogo';
 import { useFileStore } from '../hooks/useFileStore';
 
+// ─── Particle burst ──────────────────────────────────────────────────────────
+function useParticleBurst() {
+  const burst = useCallback((e: React.MouseEvent) => {
+    const canvas = document.getElementById('particle-canvas') as HTMLCanvasElement;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const particles: { x: number; y: number; vx: number; vy: number; life: number; color: string }[] = [];
+    const colors = ['#22d3ee', '#d946ef', '#818cf8', '#f9a8d4', '#34d399'];
+    for (let i = 0; i < 24; i++) {
+      const angle = (Math.PI * 2 / 24) * i + Math.random() * 0.3;
+      const speed = 2 + Math.random() * 5;
+      particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 1, color: colors[Math.floor(Math.random() * colors.length)] });
+    }
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let alive = false;
+      particles.forEach(p => {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.vx *= 0.98; p.life -= 0.025;
+        if (p.life > 0) {
+          alive = true;
+          ctx.beginPath(); ctx.arc(p.x, p.y, 3 * p.life, 0, Math.PI * 2);
+          ctx.fillStyle = p.color; ctx.globalAlpha = p.life; ctx.fill(); ctx.globalAlpha = 1;
+        }
+      });
+      if (alive) requestAnimationFrame(animate);
+      else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+    animate();
+  }, []);
+  return burst;
+}
+
+// ─── Suggestion Chips ────────────────────────────────────────────────────────
+const CHIPS = [
+  { label: 'Cinematic', category: 'style' },
+  { label: 'Slow Motion', category: 'effect' },
+  { label: 'Energetic', category: 'style' },
+  { label: 'Color Grade', category: 'style' },
+  { label: 'Epic Music', category: 'audio' },
+  { label: 'Zoom In', category: 'camera' },
+  { label: 'Vintage', category: 'style' },
+  { label: 'Social Media', category: 'camera' },
+];
+const CHIP_COLORS: Record<string, string> = {
+  camera: '#22d3ee', style: '#d946ef', effect: '#818cf8', audio: '#34d399',
+};
+
+// ─── File type helper ────────────────────────────────────────────────────────
+function getFileIcon(file: File) {
+  if (file.type.startsWith('video/')) return <FileVideo className="w-4 h-4 text-cyan-400" />;
+  if (file.type.startsWith('image/')) return <Image className="w-4 h-4 text-fuchsia-400" />;
+  if (file.type.startsWith('audio/')) return <Music className="w-4 h-4 text-green-400" />;
+  return <FileVideo className="w-4 h-4 text-slate-400" />;
+}
+function getFileColor(file: File) {
+  if (file.type.startsWith('video/')) return 'border-cyan-500/40 bg-cyan-500/10';
+  if (file.type.startsWith('image/')) return 'border-fuchsia-500/40 bg-fuchsia-500/10';
+  if (file.type.startsWith('audio/')) return 'border-green-500/40 bg-green-500/10';
+  return 'border-slate-500/40 bg-slate-500/10';
+}
+function formatSize(bytes: number) {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
 export default function Startup() {
-  const navigate  = useNavigate();
-  const { save, remove } = useFileStore();
+  const navigate = useNavigate();
+  const burst = useParticleBurst();
+  const fileStore = useFileStore();
 
-  const [file, setFile]           = useState<File | null>(null);
-  const [srtFile, setSrtFile]     = useState<File | null>(null);
-  const [planFile, setPlanFile]   = useState<File | null>(null);
-  const [dragOver, setDragOver]   = useState(false);
-  const [apiKey, setApiKey]       = useState('');
-  const [aiEnabled, setAiEnabled] = useState(true);
-  const [autoSrt, setAutoSrt]     = useState(true);
-  const [error, setError]         = useState(false);
-  const [saving, setSaving]       = useState(false);
-  const videoRef = useRef<HTMLInputElement>(null);
-  const srtRef   = useRef<HTMLInputElement>(null);
-  const planRef  = useRef<HTMLInputElement>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [error, setError] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [activeChips, setActiveChips] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault(); setDragOver(false);
-    const f = e.dataTransfer.files[0];
-    if (f?.type.startsWith('video/')) setFile(f);
+  // ─── Dropzone: قبول صور + فيديوهات + صوت ───────────────────────────────
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: {
+      'video/*': ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v'],
+      'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'],
+      'audio/*': ['.mp3', '.wav', '.aac', '.m4a', '.ogg'],
+    },
+    maxFiles: 50,
+    onDrop: (accepted, rejected) => {
+      if (accepted.length > 0) {
+        setFiles(prev => {
+          const existingNames = new Set(prev.map(f => f.name));
+          const newFiles = accepted.filter(f => !existingNames.has(f.name));
+          return [...prev, ...newFiles];
+        });
+        setError('');
+      }
+      if (rejected.length > 0) {
+        setError('بعض الملفات غير مدعومة. استخدم MP4, MOV, JPG, PNG, MP3 فقط.');
+      }
+    }
+  });
+
+  const removeFile = (idx: number) => setFiles(prev => prev.filter((_, i) => i !== idx));
+  const clearAll = () => setFiles([]);
+
+  const toggleChip = (label: string) => {
+    setActiveChips(prev => prev.includes(label) ? prev.filter(c => c !== label) : [...prev, label]);
+    if (!activeChips.includes(label)) {
+      setPrompt(p => p ? `${p}, ${label.toLowerCase()}` : label.toLowerCase());
+    }
   };
 
+  // إحصائيات الملفات
+  const videoFiles = files.filter(f => f.type.startsWith('video/'));
+  const imageFiles = files.filter(f => f.type.startsWith('image/'));
+  const audioFiles = files.filter(f => f.type.startsWith('audio/'));
+  const totalSize = files.reduce((s, f) => s + f.size, 0);
+
+  // ─── Start Project ────────────────────────────────────────────────────────
   const startProject = async (mode: 'manual' | 'sandwich') => {
-    if (!file) { setError(true); return; }
-    setSaving(true);
+    if (files.length === 0) { setError('ارفع ملفاً واحداً على الأقل قبل البدء.'); return; }
+    if (videoFiles.length === 0 && mode === 'sandwich') {
+      setError('Sandwich AI Mode يحتاج فيديو واحد على الأقل.');
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+
     try {
-      await save('p43_video', file);
-      srtFile  ? await save('p43_srt', srtFile)   : await remove('p43_srt');
-      planFile ? await save('p43_plan', planFile)  : await remove('p43_plan');
-      sessionStorage.setItem('p43_settings', JSON.stringify({
-        mode, apiKey, aiEnabled, hasSRT: !!srtFile, hasPlan: !!planFile,
-        autoTranscribe: autoSrt && !srtFile, videoName: file.name,
-      }));
-      navigate('/editor');
-    } catch { setSaving(false); alert('حدث خطأ. حاول مرة أخرى.'); }
+      const projectId = 'proj_' + Math.random().toString(36).slice(2, 10);
+
+      // 1. حفظ الـ settings
+      const settings = {
+        mode,
+        autoTranscribe: mode === 'sandwich',
+        hasSRT: false,
+        prompt: prompt.trim() || null,
+        fileCount: files.length,
+      };
+      localStorage.setItem(`${projectId}_settings`, JSON.stringify(settings));
+
+      // 2. حفظ كل الملفات في IndexedDB
+      // الفيديو الأول هو الـ main video للـ engine
+      const mainVideo = videoFiles[0] || null;
+      if (mainVideo) {
+        await fileStore.save(`${projectId}_video`, mainVideo);
+      }
+
+      // حفظ كل الملفات الإضافية بمفاتيح منفصلة
+      const extraFiles = mainVideo ? files.filter(f => f !== mainVideo) : files;
+      for (let i = 0; i < extraFiles.length; i++) {
+        await fileStore.save(`${projectId}_extra_${i}`, extraFiles[i]);
+      }
+      // حفظ عدد الملفات الإضافية
+      localStorage.setItem(`${projectId}_extra_count`, String(extraFiles.length));
+
+      // 3. Refs للـ engine
+      (window as any).__pendingVideoFile = mainVideo;
+      (window as any).__pendingMode = mode;
+      (window as any).__pendingExtraFiles = extraFiles;
+
+      navigate(`/editor/${projectId}`);
+    } catch (err) {
+      console.error('Failed to start project:', err);
+      setError('حدث خطأ أثناء حفظ الملفات، حاول مرة أخرى.');
+      setIsLoading(false);
+    }
   };
 
   return (
-    <AppLayout showTopbar={false}>
-      {saving && <SavingOverlay />}
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2rem 1rem', position: 'relative', zIndex: 1 }}>
-        <div className="startup-card">
+    <>
+      <canvas
+        id="particle-canvas"
+        className="fixed inset-0 z-50 pointer-events-none"
+        style={{ width: '100vw', height: '100vh' }}
+        width={typeof window !== 'undefined' ? window.innerWidth : 1920}
+        height={typeof window !== 'undefined' ? window.innerHeight : 1080}
+      />
 
-          {/* Title */}
-          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <div className="startup-tag">
-              <i className="fa-solid fa-wand-magic-sparkles" style={{ color: '#818cf8', fontSize: '.75rem' }} />
-              <span>مشروع جديد</span>
+      <div className="min-h-screen font-sans" style={{ background: 'radial-gradient(ellipse at 60% 0%, #0f1a2e 0%, #050810 50%, #000000 100%)' }}>
+
+        {/* Background orbs */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <motion.div className="absolute rounded-full blur-3xl"
+            style={{ width: 600, height: 600, background: 'radial-gradient(circle, rgba(34,211,238,0.12) 0%, transparent 70%)', top: '-200px', right: '-100px' }}
+            animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
+            transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }} />
+          <motion.div className="absolute rounded-full blur-3xl"
+            style={{ width: 400, height: 400, background: 'radial-gradient(circle, rgba(217,70,239,0.12) 0%, transparent 70%)', bottom: '10%', left: '5%' }}
+            animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.7, 0.4] }}
+            transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 2 }} />
+        </div>
+
+        {/* Nav */}
+        <nav className="relative z-20 px-6 py-5 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3 group" style={{ textDecoration: 'none' }}>
+            <AnimatedLogo size="sm" />
+            <span className="text-white font-black text-xl tracking-tight group-hover:text-cyan-400 transition-colors">AI4Montage</span>
+          </Link>
+          <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium" style={{ textDecoration: 'none' }}>
+            <ArrowLeft className="w-4 h-4" /> Back to Home
+          </Link>
+        </nav>
+
+        {/* Main layout */}
+        <div className="relative z-10 min-h-[calc(100vh-80px)] flex flex-col lg:flex-row items-stretch gap-0 max-w-7xl mx-auto px-4 pb-10">
+
+          {/* LEFT: Visual */}
+          <motion.div
+            initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full lg:w-1/2 flex flex-col items-center justify-center py-10 lg:py-0 lg:pr-10"
+          >
+            <div className="relative w-full max-w-md">
+              <motion.div className="absolute inset-0 rounded-[2.5rem] blur-3xl"
+                style={{ background: 'conic-gradient(from 0deg, rgba(217,70,239,0.4), rgba(34,211,238,0.4), rgba(99,102,241,0.4), rgba(217,70,239,0.4))' }}
+                animate={{ rotate: 360 }} transition={{ duration: 10, repeat: Infinity, ease: 'linear' }} />
+              <motion.img src="/ai4montage_hero.png" alt="AI4Montage Portal"
+                className="relative z-10 w-full rounded-[2rem] shadow-2xl border border-white/10 object-cover"
+                animate={{ y: [-6, 6, -6] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }} />
+              <motion.div className="absolute -top-4 -right-4 z-20 px-4 py-2 rounded-2xl border border-yellow-500/40 bg-yellow-500/10 backdrop-blur-xl"
+                animate={{ y: [-3, 3, -3] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}>
+                <span className="text-cyan-400 text-sm font-black">✦ AI4Montage</span>
+              </motion.div>
+              <motion.div className="absolute -bottom-4 -left-4 z-20 px-4 py-3 rounded-2xl border border-cyan-500/30 bg-slate-900/80 backdrop-blur-xl"
+                animate={{ y: [3, -3, 3] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 }}>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-slate-300 text-xs font-bold">Edge AI — Running Locally</span>
+                </div>
+              </motion.div>
             </div>
-            <h1 style={{ fontSize: '1.8rem', fontWeight: 900, color: '#fff', margin: '.5rem 0' }}>
-              مرحباً في <span style={{ background: 'linear-gradient(to right, #818cf8, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Project 43 AI</span>
-            </h1>
-            <p style={{ color: 'var(--tx2)', fontSize: '.87rem' }}>ابدأ مشروع المونتاج الخاص بك بتقنيات الذكاء الاصطناعي</p>
-          </div>
 
-          {/* Upload Zone */}
-          <UploadZone file={file} dragOver={dragOver} inputRef={videoRef}
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={onDrop}
-            onClick={() => videoRef.current?.click()}
-            onFileChange={f => { setFile(f); setError(false); }}
-          />
-          <input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setFile(f); setError(false); } }} />
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.6 }} className="text-center mt-10 max-w-md">
+              <h1 className="text-4xl font-black text-white tracking-tight leading-tight mb-3">
+                Start Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500">AI Project</span>
+              </h1>
+              <p className="text-slate-400 text-base leading-relaxed">
+                ارفع مشروعك كاملاً — فيديوهات وصور وصوت. الـ AI بيحللهم كلهم ويمنتجهم تلقائياً.
+              </p>
 
-          {/* API Key */}
-          <div style={{ marginBottom: '1.25rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '.5rem', fontSize: '.78rem', color: 'var(--tx2)', marginBottom: '.5rem' }}>
-              <i className="fa-solid fa-key" style={{ color: '#f59e0b' }} /> مفتاح Gemini API
-              <span style={{ background: 'rgba(255,255,255,.06)', borderRadius: '4px', padding: '.1em .4em', fontSize: '.68rem' }}>اختياري</span>
-            </label>
-            <input type="text" value={apiKey} onChange={e => setApiKey(e.target.value)}
-              placeholder="AIzaSy..."
-              style={{ width: '100%', background: 'rgba(15,23,42,.8)', border: '1px solid rgba(71,85,105,.5)', borderRadius: '10px', padding: '.65rem 1rem', color: '#fff', fontSize: '.85rem', fontFamily: 'Fira Code, monospace', boxSizing: 'border-box' }}
-            />
-          </div>
+              {/* Stats badges */}
+              <div className="flex items-center justify-center gap-3 mt-5 flex-wrap">
+                {[
+                  { icon: '🎬', label: 'فيديو', color: '#22d3ee', accept: 'MP4, MOV, WebM' },
+                  { icon: '🖼️', label: 'صور', color: '#d946ef', accept: 'JPG, PNG, WebP' },
+                  { icon: '🎵', label: 'صوت', color: '#34d399', accept: 'MP3, WAV, AAC' },
+                ].map(b => (
+                  <div key={b.label} className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border"
+                    style={{ borderColor: `${b.color}40`, background: `${b.color}15`, color: b.color }}>
+                    <span>{b.icon}</span>
+                    <div className="text-left">
+                      <div>{b.label}</div>
+                      <div className="opacity-60 font-normal">{b.accept}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
 
-          {/* AI Options */}
-          <AIOptions aiEnabled={aiEnabled} setAiEnabled={setAiEnabled}
-            autoSrt={autoSrt} setAutoSrt={setAutoSrt}
-            hasSrt={!!srtFile}
-            srtRef={srtRef} planRef={planRef}
-            srtFile={srtFile} planFile={planFile}
-            onSrtChange={f => setSrtFile(f)}
-            onPlanChange={f => setPlanFile(f)}
-          />
-          <input ref={srtRef}  type="file" accept=".srt"  className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setSrtFile(f); }} />
-          <input ref={planRef} type="file" accept=".json" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) setPlanFile(f); }} />
+          <div className="hidden lg:block w-px bg-gradient-to-b from-transparent via-white/10 to-transparent my-8" />
 
-          {/* Error Message */}
-          {error && <p style={{ color: '#ef4444', fontSize: '.8rem', fontWeight: 700, textAlign: 'center', marginTop: '.5rem' }}><i className="fa-solid fa-circle-exclamation" /> يرجى رفع فيديو أولاً!</p>}
+          {/* RIGHT: Upload Panel */}
+          <motion.div
+            initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
+            className="w-full lg:w-1/2 flex flex-col justify-center py-10 lg:py-0 lg:pl-10"
+          >
+            <div className="bg-slate-900/60 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 shadow-2xl space-y-5">
 
-          {/* Mode Buttons */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.75rem', marginBottom: '1rem' }}>
-            <ModeButton id="btn-manual" icon="fa-sliders" title="مونتاج يدوي"
-              desc="تراك فيديو واحد + صوت، تحكم كامل"
-              onClick={() => startProject('manual')} variant="default" />
-            <ModeButton id="btn-sandwich" icon="fa-layer-group" title="مونتاج سندوتش"
-              badge="AI" desc="طبقات تلقائية + تأثيرات، مثالي للكونتنت"
-              onClick={() => startProject('sandwich')} variant="ai" />
-          </div>
+              {/* Step 1: Upload */}
+              <div>
+                <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">Step 1</p>
+                <h2 className="text-2xl font-black text-white">Upload Your Project</h2>
+                <p className="text-slate-500 text-sm mt-1">فيديوهات + صور + صوت — كلهم مع بعض</p>
+              </div>
 
-          {error && (
-            <p style={{ color: '#f87171', fontSize: '.8rem', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '.4rem', marginBottom: '1rem' }}>
-              <i className="fa-solid fa-circle-exclamation" /> يرجى رفع ملف فيديو أولاً
-            </p>
-          )}
+              {/* Dropzone */}
+              <div {...getRootProps()} className="relative overflow-hidden rounded-2xl cursor-pointer group">
+                <input {...getInputProps()} />
+                <motion.div
+                  animate={isDragActive ? { scale: 1.02 } : { scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                  className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all duration-300
+                    ${isDragActive ? 'border-cyan-400 bg-cyan-900/20' : files.length > 0 ? 'border-fuchsia-500/50 bg-fuchsia-900/10' : 'border-slate-700 hover:border-fuchsia-500/50 hover:bg-slate-800/30'}`}
+                >
+                  <AnimatePresence>
+                    {isDragActive && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="absolute inset-0 rounded-2xl"
+                        style={{ background: 'radial-gradient(ellipse at center, rgba(34,211,238,0.15) 0%, transparent 70%)' }} />
+                    )}
+                  </AnimatePresence>
 
-          {/* Tools */}
-          <div style={{ borderTop: '1px solid var(--bd)', paddingTop: '1.25rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '.75rem' }}>
-            <Link to="/analysis" className="tool-card-sm">
-              <i className="fa-solid fa-microchip" style={{ color: '#3b82f6' }} />
-              <div><p style={{ color: '#fff', fontSize: '.8rem', fontWeight: 700 }}>تحليل الفيديو</p><p style={{ color: 'var(--tx3)', fontSize: '.7rem' }}>استخراج الستايل</p></div>
-            </Link>
-            <Link to="/style-transfer" className="tool-card-sm">
-              <i className="fa-solid fa-wand-magic-sparkles" style={{ color: '#f43f5e' }} />
-              <div><p style={{ color: '#fff', fontSize: '.8rem', fontWeight: 700 }}>نقل الستايل</p><p style={{ color: 'var(--tx3)', fontSize: '.7rem' }}>تطبيق ستايل مخصص</p></div>
-            </Link>
-          </div>
+                  <div className="flex flex-col items-center gap-3">
+                    <motion.div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center group-hover:bg-slate-700 group-hover:border-fuchsia-500/40 transition-all"
+                      animate={{ y: [0, -4, 0] }} transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}>
+                      <FolderOpen className="w-7 h-7 text-slate-300 group-hover:text-fuchsia-400 transition-colors" />
+                    </motion.div>
+                    <div>
+                      <h4 className="text-white font-bold text-sm mb-0.5">
+                        {isDragActive ? 'اسحب هنا...' : 'اسحب ملفاتك أو اضغط للاختيار'}
+                      </h4>
+                      <p className="text-slate-500 text-xs">فيديو + صور + صوت — حتى 50 ملف</p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
 
+              {/* File list */}
+              <AnimatePresence>
+                {files.length > 0 && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+                    {/* Stats bar */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3 text-xs text-slate-400">
+                        {videoFiles.length > 0 && <span className="text-cyan-400 font-bold">🎬 {videoFiles.length} فيديو</span>}
+                        {imageFiles.length > 0 && <span className="text-fuchsia-400 font-bold">🖼️ {imageFiles.length} صورة</span>}
+                        {audioFiles.length > 0 && <span className="text-green-400 font-bold">🎵 {audioFiles.length} صوت</span>}
+                        <span className="text-slate-500">({formatSize(totalSize)})</span>
+                      </div>
+                      <button onClick={clearAll} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors">
+                        <Trash2 className="w-3 h-3" /> مسح الكل
+                      </button>
+                    </div>
+
+                    {/* File list scrollable */}
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}>
+                      {files.map((f, i) => (
+                        <motion.div key={`${f.name}-${i}`}
+                          initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.03 }}
+                          className={`flex items-center gap-3 px-3 py-2 rounded-xl border ${getFileColor(f)}`}
+                        >
+                          <div className="flex-shrink-0">{getFileIcon(f)}</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-xs font-bold truncate">{f.name}</p>
+                            <p className="text-slate-500 text-[10px]">{formatSize(f.size)}</p>
+                          </div>
+                          <button onClick={() => removeFile(i)}
+                            className="flex-shrink-0 w-5 h-5 rounded-md bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400 hover:bg-red-500/30 transition-colors">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Error */}
+              <AnimatePresence>
+                {error && (
+                  <motion.p initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    className="flex items-center gap-2 text-red-400 text-sm font-medium bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              {/* Step 2: Prompt */}
+              <div>
+                <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-3">Step 2 — وصف رؤيتك (اختياري)</p>
+                <div className="relative">
+                  <Sparkles className="absolute left-4 top-3.5 w-4 h-4 text-fuchsia-400" />
+                  <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
+                    placeholder="احكيلي الستايل اللي عايزه... (سينمائي، طاقة عالية، وثائقي...)"
+                    rows={2}
+                    className="w-full bg-slate-800/60 border border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-fuchsia-500/60 focus:bg-slate-800 transition-all resize-none" />
+                </div>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {CHIPS.map(chip => {
+                    const isActive = activeChips.includes(chip.label);
+                    const color = CHIP_COLORS[chip.category];
+                    return (
+                      <motion.button key={chip.label} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                        onClick={() => toggleChip(chip.label)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border"
+                        style={{ background: isActive ? `${color}20` : 'rgba(30,41,59,0.6)', borderColor: isActive ? `${color}60` : 'rgba(71,85,105,0.5)', color: isActive ? color : '#94a3b8' }}>
+                        {isActive && <Check className="w-3 h-3" />} {chip.label}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Step 3: Mode */}
+              <div>
+                <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-3">Step 3 — اختر الوضع</p>
+                <div className="space-y-3">
+
+                  {/* Sandwich AI Mode */}
+                  <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+                    onClick={(e) => { if (!isLoading) { burst(e); startProject('sandwich'); } }}
+                    disabled={isLoading}
+                    className="w-full relative group overflow-hidden rounded-2xl"
+                  >
+                    <div className="absolute inset-0 rounded-2xl p-[1.5px]">
+                      <motion.div className="absolute inset-0 rounded-2xl"
+                        style={{ background: 'conic-gradient(from 0deg, #22d3ee, #d946ef, #818cf8, #22d3ee)' }}
+                        animate={{ rotate: 360 }} transition={{ duration: 4, repeat: Infinity, ease: 'linear' }} />
+                    </div>
+                    <div className="relative m-[1.5px] bg-slate-900 rounded-[14px] p-5 flex items-center justify-between group-hover:bg-slate-800/80 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-fuchsia-500/30 to-cyan-500/30 border border-fuchsia-500/40 flex items-center justify-center">
+                          {isLoading
+                            ? <svg className="w-6 h-6 text-fuchsia-400 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                            : <Wand2 className="w-6 h-6 text-fuchsia-400" />
+                          }
+                        </div>
+                        <div className="text-left">
+                          <h3 className="text-white font-black text-lg flex items-center gap-2">
+                            {isLoading ? 'جاري الحفظ...' : <>
+                              Sandwich <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-400">AI Mode</span>
+                              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30">Recommended</span>
+                            </>}
+                          </h3>
+                          <p className="text-slate-400 text-sm">
+                            {isLoading ? `حفظ ${files.length} ملف...` : 'AI يحلل ويمنتج كل ملفاتك تلقائياً'}
+                          </p>
+                        </div>
+                      </div>
+                      <motion.div className="text-slate-500 group-hover:text-cyan-400 transition-colors"
+                        animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}>
+                        <Zap className="w-5 h-5" />
+                      </motion.div>
+                    </div>
+                  </motion.button>
+
+                  {/* Manual Mode */}
+                  <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+                    onClick={(e) => { if (!isLoading) { burst(e); startProject('manual'); } }}
+                    disabled={isLoading}
+                    className="w-full flex items-center gap-4 p-5 rounded-2xl border border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/60 hover:border-slate-600 transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 group-hover:text-indigo-400 group-hover:border-indigo-500/40 transition-colors">
+                      <Sliders className="w-6 h-6" />
+                    </div>
+                    <div className="text-left flex-1">
+                      <h3 className="text-slate-300 font-bold group-hover:text-white transition-colors">Manual Mode</h3>
+                      <p className="text-slate-500 text-sm">تحكم كامل في التايم لاين بدون AI</p>
+                    </div>
+                    <Brain className="w-5 h-5 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                  </motion.button>
+                </div>
+              </div>
+
+            </div>
+          </motion.div>
         </div>
       </div>
-      <style>{startupCSS}</style>
-    </AppLayout>
+    </>
   );
 }
-
-/* ── Sub-components ──────────────────────────────────── */
-
-function SavingOverlay() {
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(2,8,23,.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
-      <div className="startup-spinner" />
-      <p style={{ color: '#818cf8', fontWeight: 700 }}>جارٍ تحميل المشروع...</p>
-      <p style={{ color: 'var(--tx3)', fontSize: '.85rem' }}>يتم حفظ الفيديو وتجهيز المحرر</p>
-    </div>
-  );
-}
-
-interface UploadZoneProps {
-  file: File | null; dragOver: boolean;
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  onDragOver: (e: React.DragEvent) => void;
-  onDragLeave: () => void;
-  onDrop: (e: React.DragEvent) => void;
-  onClick: () => void;
-  onFileChange: (f: File) => void;
-}
-
-function UploadZone({ file, dragOver, onDragOver, onDragLeave, onDrop, onClick }: UploadZoneProps) {
-  return (
-    <div
-      className={`upload-zone${dragOver ? ' drag-over' : ''}${file ? ' has-file' : ''}`}
-      onClick={onClick}
-      onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
-      style={{ marginBottom: '1.25rem' }}
-    >
-      {file ? (
-        <>
-          <div className="upload-icon" style={{ background: 'rgba(16,185,129,.1)', border: '1px solid rgba(16,185,129,.2)' }}>
-            <i className="fa-solid fa-circle-check" style={{ color: '#10b981', fontSize: '1.5rem' }} />
-          </div>
-          <p style={{ color: '#10b981', fontWeight: 700, marginBottom: '.25rem' }}>{file.name}</p>
-          <p style={{ color: 'var(--tx3)', fontSize: '.75rem' }}>{(file.size / 1024 / 1024).toFixed(1)} MB · اضغط لتغيير</p>
-        </>
-      ) : (
-        <>
-          <div className="upload-icon"><i className="fa-solid fa-cloud-arrow-up" style={{ color: '#818cf8', fontSize: '1.5rem' }} /></div>
-          <p style={{ color: '#fff', fontWeight: 700, marginBottom: '.25rem' }}>اسحب الفيديو هنا أو اضغط للاختيار</p>
-          <p style={{ color: 'var(--tx3)', fontSize: '.75rem' }}>MP4 · MOV · WebM · AVI · MKV</p>
-        </>
-      )}
-    </div>
-  );
-}
-
-interface AIOptionsProps {
-  aiEnabled: boolean; setAiEnabled: (v: boolean) => void;
-  autoSrt: boolean; setAutoSrt: (v: boolean) => void;
-  hasSrt: boolean;
-  srtRef: React.RefObject<HTMLInputElement | null>;
-  planRef: React.RefObject<HTMLInputElement | null>;
-  srtFile: File | null; planFile: File | null;
-  onSrtChange: (f: File) => void; onPlanChange: (f: File) => void;
-}
-
-function AIOptions({ aiEnabled, setAiEnabled, autoSrt, setAutoSrt, hasSrt, srtRef, planRef, srtFile, planFile }: AIOptionsProps) {
-  return (
-    <div className="ai-options-box" style={{ marginBottom: '1.25rem' }}>
-      <p style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--tx2)', display: 'flex', alignItems: 'center', gap: '.5rem', marginBottom: '.75rem' }}>
-        <i className="fa-solid fa-sliders" style={{ color: 'var(--p2)' }} /> خيارات الذكاء الاصطناعي
-      </p>
-      <label className="ai-toggle-row">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
-          <div style={{ width: '32px', height: '32px', background: 'rgba(139,92,246,.1)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <i className="fa-solid fa-sparkles" style={{ color: '#a78bfa', fontSize: '.8rem' }} />
-          </div>
-          <div><p style={{ color: '#fff', fontSize: '.85rem', fontWeight: 700 }}>مساعد Gemini</p><p style={{ color: 'var(--tx3)', fontSize: '.7rem' }}>Chat + Plan + ترجمة تلقائية</p></div>
-        </div>
-        <input type="checkbox" checked={aiEnabled} onChange={e => setAiEnabled(e.target.checked)} style={{ accentColor: '#6366f1' }} />
-      </label>
-      <label style={{ display: 'flex', alignItems: 'center', gap: '.75rem', padding: '.5rem .75rem', borderRadius: '10px', cursor: 'pointer' }}>
-        <input type="checkbox" checked={autoSrt && !hasSrt} disabled={hasSrt || !aiEnabled}
-          onChange={e => setAutoSrt(e.target.checked)} style={{ accentColor: '#6366f1' }} />
-        <div><p style={{ color: 'var(--tx2)', fontSize: '.8rem', fontWeight: 700 }}>استخراج الترجمة تلقائياً</p><p style={{ color: 'var(--tx3)', fontSize: '.7rem' }}>Gemini + تحميل تلقائي للـ SRT</p></div>
-      </label>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.5rem', marginTop: '.5rem' }}>
-        <button onClick={() => srtRef.current?.click()} className="file-btn">
-          <i className="fa-solid fa-file-arrow-up" style={{ color: '#f59e0b' }} />
-          {srtFile ? `✓ ${srtFile.name}` : 'ملف SRT'}
-        </button>
-        <button onClick={() => planRef.current?.click()} className="file-btn file-btn-purple">
-          <i className="fa-solid fa-map" style={{ color: '#a78bfa' }} />
-          {planFile ? `✓ ${planFile.name}` : 'ملف خطة JSON'}
-        </button>
-        <Link to="/srt" className="file-btn file-btn-teal">
-          <i className="fa-solid fa-scissors" style={{ color: '#14b8a6' }} /> أداة تقسيم SRT
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-interface ModeButtonProps {
-  id: string; icon: string; title: string;
-  desc: string; badge?: string;
-  onClick: () => void; variant: 'default' | 'ai';
-}
-
-function ModeButton({ id, icon, title, desc, badge, onClick, variant }: ModeButtonProps) {
-  const isAi = variant === 'ai';
-  return (
-    <button id={id} onClick={onClick} className={`mode-btn ${isAi ? 'mode-btn-ai' : 'mode-btn-default'}`}>
-      <div className={`mode-icon ${isAi ? 'mode-icon-ai' : ''}`}>
-        <i className={`fa-solid ${icon}`} style={{ color: isAi ? '#fff' : 'var(--tx2)' }} />
-      </div>
-      <h3 style={{ color: '#fff', fontWeight: 700, fontSize: '.88rem', marginBottom: '.25rem' }}>
-        {title} {badge && <span style={{ fontSize: '.6rem', background: '#6366f1', borderRadius: '3px', padding: '.1em .35em', verticalAlign: 'middle' }}>{badge}</span>}
-      </h3>
-      <p style={{ color: isAi ? 'rgba(165,180,252,.7)' : 'var(--tx3)', fontSize: '.72rem', lineHeight: 1.5 }}>{desc}</p>
-    </button>
-  );
-}
-
-const startupCSS = `
-.startup-card { background: rgba(15,23,42,.85); backdrop-filter: blur(20px); border: 1px solid rgba(99,102,241,.2); box-shadow: 0 0 80px rgba(99,102,241,.08),0 25px 50px rgba(0,0,0,.5); border-radius: 24px; padding: 2rem; width: 100%; max-width: 640px; }
-.startup-tag { display: inline-flex; align-items: center; gap: .5rem; background: rgba(99,102,241,.1); border: 1px solid rgba(99,102,241,.2); border-radius: 999px; padding: .3rem .9rem; font-size: .75rem; color: var(--p2); margin-bottom: .75rem; }
-.upload-zone { border: 2px dashed rgba(99,102,241,.3); background: rgba(99,102,241,.03); border-radius: 16px; padding: 2rem; text-align: center; cursor: pointer; transition: all .3s; }
-.upload-zone:hover, .upload-zone.drag-over { border-color: #6366f1; background: rgba(99,102,241,.08); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(99,102,241,.15); }
-.upload-zone.has-file { border-color: #10b981; background: rgba(16,185,129,.05); }
-.upload-icon { width: 56px; height: 56px; background: rgba(99,102,241,.1); border: 1px solid rgba(99,102,241,.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; }
-.ai-options-box { background: rgba(30,41,59,.4); border: 1px solid rgba(71,85,105,.4); border-radius: 16px; padding: 1rem; }
-.ai-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: .75rem; background: rgba(15,23,42,.5); border-radius: 12px; border: 1px solid rgba(71,85,105,.5); margin-bottom: .75rem; cursor: pointer; }
-.file-btn { display: inline-flex; align-items: center; gap: .5rem; background: rgba(71,85,105,.5); border: 1px solid rgba(71,85,105,.5); color: var(--tx2); font-size: .75rem; padding: .45rem .85rem; border-radius: 10px; transition: all .2s; cursor: pointer; font-family: Cairo, sans-serif; }
-.file-btn:hover { background: rgba(71,85,105,.8); color: #fff; }
-.file-btn-purple { background: rgba(139,92,246,.1); border-color: rgba(139,92,246,.2); color: #a78bfa; }
-.file-btn-teal { background: rgba(20,184,166,.1); border-color: rgba(20,184,166,.2); color: #14b8a6; text-decoration: none; }
-.mode-btn { padding: 1rem; border-radius: 16px; text-align: right; cursor: pointer; transition: all .3s; border: none; width: 100%; font-family: Cairo, sans-serif; }
-.mode-btn:hover { transform: translateY(-3px); }
-.mode-btn-default { background: rgba(30,41,59,.6); border: 1px solid rgba(71,85,105,.6); }
-.mode-btn-default:hover { background: rgba(30,41,59,.8); border-color: rgba(71,85,105,1); }
-.mode-btn-ai { background: linear-gradient(135deg,rgba(67,56,202,.8),rgba(109,40,217,.8)); border: 1px solid rgba(99,102,241,.3); }
-.mode-btn-ai:hover { border-color: rgba(99,102,241,.6); }
-.mode-icon { width: 40px; height: 40px; background: rgba(71,85,105,.5); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: .75rem; }
-.mode-icon-ai { background: #6366f1; box-shadow: 0 0 20px rgba(99,102,241,.4); }
-.tool-card-sm { display: flex; align-items: center; gap: .75rem; background: rgba(30,41,59,.5); border: 1px solid rgba(71,85,105,.4); border-radius: 12px; padding: .75rem; text-decoration: none; transition: all .25s; }
-.tool-card-sm:hover { border-color: rgba(99,102,241,.4); transform: translateY(-2px); }
-.startup-spinner { width: 56px; height: 56px; border: 3px solid rgba(99,102,241,.2); border-top-color: #6366f1; border-radius: 50%; animation: spin .8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.hidden { display: none; }
-`;

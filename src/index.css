@@ -24,6 +24,12 @@
   font-family: 'Cairo', sans-serif;
 }
 
+/* Landing page (Home) gets LTR + Inter font */
+body:has(#landing-root) {
+  direction: ltr;
+  font-family: 'Inter', 'Outfit', system-ui, sans-serif;
+}
+
 html, body { width: 100%; min-height: 100vh; background: var(--bg); color: var(--tx); overflow-x: hidden; }
 
 #root { min-height: 100vh; }

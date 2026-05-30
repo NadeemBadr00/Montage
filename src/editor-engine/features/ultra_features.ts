@@ -39,7 +39,7 @@ window.EditorApp.prototype.initAIModel = async function() {
     this.initWebGL();
 
     try {
-        this.aiWorker = new Worker('workers/ai_worker.js');
+        this.aiWorker = new Worker('/workers/ai_worker.js');
 
         this.aiWorker.onmessage = (e) => {
             const { type, mask, timestamp, isPrediction, id } = e.data;

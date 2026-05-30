@@ -64,11 +64,93 @@ export const injectCommandCenterActions = () => {
             case 'SIZE_UPDATE':
                 this.executePropertyCommand(parsed.trackName, parsed.index, 'size', { width: parsed.w, height: parsed.h });
                 break;
+            // ─────────────────────────────────────────────────────────────
+            // Phase 1: Speed / Volume / Fade / Crop
+            // ─────────────────────────────────────────────────────────────
+            case 'SPEED_UPDATE':
+                this.executeSpeedCommand(parsed.trackName, parsed.index, parsed.speed);
+                break;
+            case 'VOLUME_UPDATE':
+                this.executeVolumeCommand(parsed.trackName, parsed.index, parsed.volume);
+                break;
+            case 'FADE_IN':
+                this.executeFadeCommand(parsed.trackName, parsed.index, 'in', parsed.duration);
+                break;
+            case 'FADE_OUT':
+                this.executeFadeCommand(parsed.trackName, parsed.index, 'out', parsed.duration);
+                break;
+            case 'CROP_UPDATE':
+                this.executeCropCommand(parsed.trackName, parsed.index, parsed.x1, parsed.y1, parsed.x2, parsed.y2);
+                break;
+            case 'CROP_RESET':
+                this.executeCropCommand(parsed.trackName, parsed.index, 0, 0, 100, 100);
+                break;
+
+            // ─────────────────────────────────────────────────────────────
+            // Phase 2: Color Grading
+            // ─────────────────────────────────────────────────────────────
+            case 'COLOR_UPDATE':
+                this.executeColorCommand(parsed.trackName, parsed.index, parsed.property, parsed.val);
+                break;
+            case 'TINT_UPDATE':
+                this.executeTintCommand(parsed.trackName, parsed.index, parsed.color, parsed.opacity);
+                break;
+            case 'FILTER_PRESET':
+                this.executeFilterPresetCommand(parsed.trackName, parsed.index, parsed.preset);
+                break;
+            case 'COLOR_RESET':
+                this.executeColorResetCommand(parsed.trackName, parsed.index);
+                break;
+
+            // ─────────────────────────────────────────────────────────────
+            // Phase 3: Shapes + Ken Burns
+            // ─────────────────────────────────────────────────────────────
+            case 'SHAPE_ADD':
+                this.executeShapeAddCommand(parsed);
+                break;
+            case 'KEN_BURNS':
+                this.executeKenBurnsCommand(parsed.trackName, parsed.index, parsed.startX, parsed.startY, parsed.startScale, parsed.endX, parsed.endY, parsed.endScale);
+                break;
+            case 'KEN_BURNS_RESET':
+                this.executeKenBurnsResetCommand(parsed.trackName, parsed.index);
+                break;
+
+            // ─────────────────────────────────────────────────────────────
+            // Phase 4: Track Transitions
+            // ─────────────────────────────────────────────────────────────
+            case 'TRANSITION_ADD':
+                this.executeTransitionAddCommand(parsed.trackName, parsed.cutTime, parsed.transType, parsed.duration);
+                break;
+            case 'TRANSITION_REMOVE':
+                this.executeTransitionRemoveCommand(parsed.trackName, parsed.cutTime);
+                break;
+
+            // ─────────────────────────────────────────────────────────────
+            // Phase 6: Freeze Frame + Markers
+            // ─────────────────────────────────────────────────────────────
+            case 'FREEZE_FRAME':
+                this.executeFreezeFrameCommand(parsed.trackName, parsed.index, parsed.duration);
+                break;
+            case 'MARKER_ADD':
+                this.executeMarkerAddCommand(parsed.label, parsed.time);
+                break;
+            case 'MARKER_REMOVE':
+                this.executeMarkerRemoveCommand(parsed.time);
+                break;
+            case 'MARKER_CLEAR':
+                this.executeMarkerClearCommand();
+                break;
+            case 'GOTO_MARKER':
+                this.executeGotoMarkerCommand(parsed.label);
+                break;
+
             default:
                 this.log("❌ Unknown Command Type");
+
         }
         
         this.clearCommand();
+
     };
 
     // ─────────────────────────────────────────────────────────────
@@ -601,4 +683,365 @@ export const injectCommandCenterActions = () => {
             track.rebuildTree(); // FIX: keep IntervalTree in sync after mutation
         });
     };
+
+    // ─────────────────────────────────────────────────────────────
+    // 🚀 PHASE 1 — Speed / Volume / Fade / Crop Handlers
+    // ─────────────────────────────────────────────────────────────
+
+    // SPEED (sp2c1V1) — sets clip.properties.playbackSpeed
+    // managePlayers() already reads playbackSpeed and applies it to the HTML5 player
+    window.EditorApp.prototype.executeSpeedCommand = function(trackName: string, clipIndex: number, speed: number) {
+        const track = this.tracks.find((t: any) => t.name === trackName);
+        if (!track) { this.log(`❌ Track ${trackName} not found.`); return; }
+        const sorted = [...track.clips].sort((a: any, b: any) => a.start - b.start);
+        if (clipIndex < 1 || clipIndex > sorted.length) { this.log(`⚠️ Invalid clip index ${clipIndex}`); return; }
+        const clip = sorted[clipIndex - 1];
+        this.saveState();
+        if (!clip.properties) clip.properties = {};
+        clip.properties.playbackSpeed = Math.max(0.1, Math.min(16, speed));
+        this.log(`⏩ Speed set to ${clip.properties.playbackSpeed}x on ${clip.name}`);
+        this._cmdFinalize();
+    };
+
+    // VOLUME (vol80c1A1) — sets clip.properties.volume (0–200%)
+    // managePlayers() reads this and sets p.volume
+    window.EditorApp.prototype.executeVolumeCommand = function(trackName: string, clipIndex: number, volume: number) {
+        const track = this.tracks.find((t: any) => t.name === trackName);
+        if (!track) { this.log(`❌ Track ${trackName} not found.`); return; }
+        const sorted = [...track.clips].sort((a: any, b: any) => a.start - b.start);
+        if (clipIndex < 1 || clipIndex > sorted.length) { this.log(`⚠️ Invalid clip index ${clipIndex}`); return; }
+        const clip = sorted[clipIndex - 1];
+        this.saveState();
+        if (!clip.properties) clip.properties = {};
+        clip.properties.volume = volume;
+        const label = volume === 0 ? '🔇 Muted' : `🔊 ${volume}%`;
+        this.log(`${label} volume on ${clip.name}`);
+        this._cmdFinalize();
+    };
+
+    // FADE IN / OUT (fi2c1V1 | fo1.5c1V1)
+    // Uses the existing clip.transitions system already read by the WebGL renderer
+    window.EditorApp.prototype.executeFadeCommand = function(trackName: string, clipIndex: number, direction: string, duration: number) {
+        const track = this.tracks.find((t: any) => t.name === trackName);
+        if (!track) { this.log(`❌ Track ${trackName} not found.`); return; }
+        const sorted = [...track.clips].sort((a: any, b: any) => a.start - b.start);
+        if (clipIndex < 1 || clipIndex > sorted.length) { this.log(`⚠️ Invalid clip index ${clipIndex}`); return; }
+        const clip = sorted[clipIndex - 1];
+        this.saveState();
+        if (!clip.transitions) clip.transitions = { duration: 1, in: 'none', out: 'none' };
+        clip.transitions.duration = duration;
+        if (direction === 'in')  clip.transitions.in  = 'fade';
+        if (direction === 'out') clip.transitions.out = 'fade';
+        this.log(`✨ Fade ${direction} ${duration}s applied to ${clip.name}`);
+        this._cmdFinalize();
+    };
+
+    // CROP (cr10,20,90,80c1V1) — UV-based crop via WebGL uvOffset/uvScale
+    // Values are percentages (0-100). x1,y1 = top-left, x2,y2 = bottom-right.
+    window.EditorApp.prototype.executeCropCommand = function(trackName: string, clipIndex: number, x1: number, y1: number, x2: number, y2: number) {
+        const track = this.tracks.find((t: any) => t.name === trackName);
+        if (!track) { this.log(`❌ Track ${trackName} not found.`); return; }
+        const sorted = [...track.clips].sort((a: any, b: any) => a.start - b.start);
+        if (clipIndex < 1 || clipIndex > sorted.length) { this.log(`⚠️ Invalid clip index ${clipIndex}`); return; }
+        const clip = sorted[clipIndex - 1];
+        this.saveState();
+        if (!clip.properties) clip.properties = {};
+
+        // Normalize 0-100% to 0.0-1.0 UV space
+        const cx1 = Math.max(0, Math.min(100, x1)) / 100;
+        const cy1 = Math.max(0, Math.min(100, y1)) / 100;
+        const cx2 = Math.max(0, Math.min(100, x2)) / 100;
+        const cy2 = Math.max(0, Math.min(100, y2)) / 100;
+
+        clip.properties.uvScaleX  = Math.max(0.01, cx2 - cx1);
+        clip.properties.uvScaleY  = Math.max(0.01, cy2 - cy1);
+        clip.properties.uvOffsetX = cx1;
+        clip.properties.uvOffsetY = cy1;
+        // Store raw values for UI display
+        clip.properties.cropX1 = x1; clip.properties.cropY1 = y1;
+        clip.properties.cropX2 = x2; clip.properties.cropY2 = y2;
+
+        if (x1 === 0 && y1 === 0 && x2 === 100 && y2 === 100) {
+            clip.properties.uvScaleX = 1; clip.properties.uvScaleY = 1;
+            clip.properties.uvOffsetX = 0; clip.properties.uvOffsetY = 0;
+            this.log(`🔄 Crop reset on ${clip.name}`);
+        } else {
+            this.log(`✂️ Crop applied: (${x1},${y1}) → (${x2},${y2}) on ${clip.name}`);
+        }
+        this._cmdFinalize();
+        if (typeof this.updateEffectControls === 'function') this.updateEffectControls();
+    };
+
+    // ─────────────────────────────────────────────────────────────
+    // 🎨 PHASE 2 — Color Grading Handlers
+    // ─────────────────────────────────────────────────────────────
+
+    // Helper: ensure colorGrading object exists on clip
+    const _ensureColor = (clip: any) => {
+        if (!clip.properties) clip.properties = {};
+        if (!clip.properties.colorGrading) {
+            clip.properties.colorGrading = {
+                brightness: 100, contrast: 100, saturation: 100, hue: 0,
+                tintColor: null, tintOpacity: 0, preset: null
+            };
+        }
+        return clip.properties.colorGrading;
+    };
+
+    // Helper: resolve clip by trackName + index (shared by all Phase 2 handlers)
+    const _resolveClip = (app: any, trackName: string, clipIndex: number) => {
+        const track = app.tracks.find((t: any) => t.name === trackName);
+        if (!track) { app.log(`❌ Track ${trackName} not found.`); return null; }
+        const sorted = [...track.clips].sort((a: any, b: any) => a.start - b.start);
+        if (clipIndex < 1 || clipIndex > sorted.length) { app.log(`⚠️ Invalid clip index ${clipIndex}`); return null; }
+        return sorted[clipIndex - 1];
+    };
+
+    // BRIGHTNESS / CONTRAST / SATURATION / HUE
+    // Values stored in clip.properties.colorGrading and applied as CSS filter in _cmdFinalize render
+    window.EditorApp.prototype.executeColorCommand = function(trackName: string, clipIndex: number, property: string, val: number) {
+        const clip = _resolveClip(this, trackName, clipIndex);
+        if (!clip) return;
+        this.saveState();
+        const cg = _ensureColor(clip);
+        if (property === 'brightness')  cg.brightness  = Math.max(0, Math.min(400, val));
+        if (property === 'contrast')    cg.contrast    = Math.max(0, Math.min(400, val));
+        if (property === 'saturation')  cg.saturation  = Math.max(0, Math.min(400, val));
+        if (property === 'hue')         cg.hue         = val % 360;
+        this.log(`🎨 ${property} → ${val} on ${clip.name}`);
+        this._cmdFinalize();
+    };
+
+    // TINT — applies a color overlay at a given opacity
+    window.EditorApp.prototype.executeTintCommand = function(trackName: string, clipIndex: number, color: string, opacity: number) {
+        const clip = _resolveClip(this, trackName, clipIndex);
+        if (!clip) return;
+        this.saveState();
+        const cg = _ensureColor(clip);
+        cg.tintColor   = color;
+        cg.tintOpacity = Math.max(0, Math.min(100, opacity)) / 100;
+        this.log(`🎨 Tint ${color} @ ${opacity}% on ${clip.name}`);
+        this._cmdFinalize();
+    };
+
+    // FILTER PRESETS — maps friendly names to colorGrading values
+    const FILTER_PRESETS: Record<string, any> = {
+        cinematic:  { brightness: 90,  contrast: 115, saturation: 80,  hue: 0,   tintColor: '#0a1628', tintOpacity: 0.15 },
+        bw:         { brightness: 100, contrast: 110, saturation: 0,   hue: 0,   tintColor: null, tintOpacity: 0 },
+        warm:       { brightness: 105, contrast: 100, saturation: 110, hue: 15,  tintColor: '#ff9900', tintOpacity: 0.08 },
+        cool:       { brightness: 100, contrast: 105, saturation: 90,  hue: -15, tintColor: '#0044ff', tintOpacity: 0.08 },
+        vintage:    { brightness: 95,  contrast: 90,  saturation: 70,  hue: 10,  tintColor: '#8b4513', tintOpacity: 0.12 },
+        reset:      { brightness: 100, contrast: 100, saturation: 100, hue: 0,   tintColor: null, tintOpacity: 0 },
+    };
+
+    window.EditorApp.prototype.executeFilterPresetCommand = function(trackName: string, clipIndex: number, preset: string) {
+        const clip = _resolveClip(this, trackName, clipIndex);
+        if (!clip) return;
+        this.saveState();
+        const cg = _ensureColor(clip);
+        const values = FILTER_PRESETS[preset];
+        if (!values) { this.log(`❌ Unknown preset: ${preset}`); return; }
+        Object.assign(cg, values, { preset });
+        this.log(`✨ Filter preset "${preset}" applied to ${clip.name}`);
+        this._cmdFinalize();
+    };
+
+    // COLOR RESET — restores defaults
+    window.EditorApp.prototype.executeColorResetCommand = function(trackName: string, clipIndex: number) {
+        const clip = _resolveClip(this, trackName, clipIndex);
+        if (!clip) return;
+        this.saveState();
+        if (clip.properties) {
+            clip.properties.colorGrading = { brightness: 100, contrast: 100, saturation: 100, hue: 0, tintColor: null, tintOpacity: 0, preset: null };
+        }
+        this.log(`🔄 Color reset on ${clip.name}`);
+        this._cmdFinalize();
+    };
+
+    // ─────────────────────────────────────────────────────────────
+    // 🔷 PHASE 3 — Shapes + Ken Burns
+    // ─────────────────────────────────────────────────────────────
+
+    // SHAPE ADD — creates a new 'shape' clip on the specified track
+    window.EditorApp.prototype.executeShapeAddCommand = function(parsed: any) {
+        const track = this.tracks.find((t: any) => t.name === parsed.trackName);
+        if (!track) { this.log(`❌ Track ${parsed.trackName} not found`); return; }
+        this.saveState();
+        const insertTime = this.currentTime;
+        const clipId = `shape_${Date.now()}`;
+        const newClip: any = {
+            id: clipId,
+            type: 'shape',
+            src: `shape:${parsed.shape}`,
+            name: `Shape (${parsed.shape})`,
+            start: insertTime,
+            duration: parsed.duration,
+            get end() { return this.start + this.duration; },
+            properties: {
+                shapeType:   parsed.shape,
+                shapeColor:  parsed.color,
+                widthPct:    parsed.widthPct,   // % of canvas width
+                heightPct:   parsed.heightPct,  // % of canvas height
+                positionX:   parsed.x,
+                positionY:   parsed.y,
+                opacity:     100,
+                rotation:    0,
+                scale:       100,
+            },
+            trackId: track.id,
+            keyframes: [],
+            getPropertyValue(prop: string) { return this.properties[prop] ?? 0; }
+        };
+        track.clips.push(newClip);
+        if (track.rebuildTree) track.rebuildTree();
+        this.log(`🔷 Shape "${parsed.shape}" added at ${insertTime.toFixed(2)}s`);
+        this._cmdFinalize();
+    };
+
+    // KEN BURNS — stores animated pan+zoom keyframes on a clip
+    window.EditorApp.prototype.executeKenBurnsCommand = function(
+        trackName: string, clipIndex: number,
+        startX: number, startY: number, startScale: number,
+        endX: number, endY: number, endScale: number
+    ) {
+        const clip = _resolveClip(this, trackName, clipIndex);
+        if (!clip) return;
+        this.saveState();
+        clip.properties.kenBurns = { startX, startY, startScale, endX, endY, endScale };
+        this.log(`🎥 Ken Burns: (${startX},${startY},${startScale}x) → (${endX},${endY},${endScale}x) on ${clip.name}`);
+        this._cmdFinalize();
+    };
+
+    window.EditorApp.prototype.executeKenBurnsResetCommand = function(trackName: string, clipIndex: number) {
+        const clip = _resolveClip(this, trackName, clipIndex);
+        if (!clip) return;
+        this.saveState();
+        delete clip.properties.kenBurns;
+        this.log(`🔄 Ken Burns reset on ${clip.name}`);
+        this._cmdFinalize();
+    };
+
+    // ─────────────────────────────────────────────────────────────
+    // 🔷 PHASE 4 — Track-Level Transitions
+    // ─────────────────────────────────────────────────────────────
+
+    window.EditorApp.prototype.executeTransitionAddCommand = function(trackName: string, cutTime: number, transType: string, duration: number) {
+        const track = this.tracks.find((t: any) => t.name === trackName);
+        if (!track) { this.log(`❌ Track ${trackName} not found`); return; }
+        this.saveState();
+        if (!track.transitions) track.transitions = [];
+        // Remove any existing transition near this cutTime
+        track.transitions = track.transitions.filter((tr: any) => Math.abs(tr.cutTime - cutTime) > 0.1);
+        // Map command type to WebGL types
+        const typeMap: Record<string, string> = { dissolve: 'dissolve', fade: 'dissolve', wipe: 'wipe', zoom: 'zoom' };
+        track.transitions.push({
+            id: `tr_${Date.now()}`,
+            cutTime,
+            inOffset:  duration / 2,
+            outOffset: duration / 2,
+            type: typeMap[transType] || 'dissolve',
+            alignment: 'center'
+        });
+        this.log(`🎬 Transition "${transType}" added at ${cutTime}s on ${trackName}`);
+        this._cmdFinalize();
+    };
+
+    window.EditorApp.prototype.executeTransitionRemoveCommand = function(trackName: string, cutTime: number) {
+        const track = this.tracks.find((t: any) => t.name === trackName);
+        if (!track || !track.transitions) { this.log(`❌ No transitions on ${trackName}`); return; }
+        this.saveState();
+        const before = track.transitions.length;
+        track.transitions = track.transitions.filter((tr: any) => Math.abs(tr.cutTime - cutTime) > 0.1);
+        const removed = before - track.transitions.length;
+        this.log(removed > 0 ? `✅ Transition removed at ${cutTime}s` : `⚠️ No transition found near ${cutTime}s`);
+        this._cmdFinalize();
+    };
+
+    // ─────────────────────────────────────────────────────────────
+    // 🔷 PHASE 6 — Freeze Frame + Markers
+    // ─────────────────────────────────────────────────────────────
+
+    // FREEZE FRAME — inserts a duplicate frozen clip after the split point
+    window.EditorApp.prototype.executeFreezeFrameCommand = function(trackName: string, clipIndex: number, duration: number) {
+        const track = this.tracks.find((t: any) => t.name === trackName);
+        if (!track) { this.log(`❌ Track ${trackName} not found`); return; }
+        const sorted = [...track.clips].sort((a: any, b: any) => a.start - b.start);
+        if (clipIndex < 1 || clipIndex > sorted.length) { this.log(`⚠️ Invalid clip index`); return; }
+        const origClip = sorted[clipIndex - 1];
+        this.saveState();
+
+        // Freeze at current playhead position within the clip
+        const freezeAtSource = origClip.sourceIn + (this.currentTime - origClip.start);
+
+        // 1. Shorten original clip to freeze point
+        const origEnd = origClip.start + origClip.duration;
+        origClip.duration = this.currentTime - origClip.start;
+
+        // 2. Create a new 'freeze' clip
+        const freezeClip: any = {
+            id: `freeze_${Date.now()}`,
+            type: origClip.type,
+            src: origClip.src,
+            name: `Freeze (${origClip.name})`,
+            start: this.currentTime,
+            duration: duration,
+            get end() { return this.start + this.duration; },
+            sourceIn: freezeAtSource,  // stays fixed
+            properties: { ...origClip.properties, playbackSpeed: 0.001 }, // near-zero speed = freeze
+            trackId: track.id,
+            keyframes: [],
+            isFrozen: true,
+            getPropertyValue(prop: string) { return this.properties[prop] ?? 0; }
+        };
+        track.clips.push(freezeClip);
+
+        // 3. Push remaining clips forward
+        const afterFreeze = track.clips.filter((c: any) =>
+            c.id !== origClip.id && c.id !== freezeClip.id && c.start >= this.currentTime
+        );
+        afterFreeze.forEach((c: any) => { c.start += duration; });
+        if (track.rebuildTree) track.rebuildTree();
+        this.log(`❄️ Freeze frame ${duration}s inserted at ${this.currentTime.toFixed(2)}s`);
+        this._cmdFinalize();
+    };
+
+    // MARKERS — stored in this.markers array, shown on the timeline ruler
+    window.EditorApp.prototype.executeMarkerAddCommand = function(label: string, time: number) {
+        if (!this.markers) this.markers = [];
+        // Remove any existing marker with the same label
+        this.markers = this.markers.filter((m: any) => m.label !== label);
+        this.markers.push({ id: `marker_${Date.now()}`, label, time, color: '#f59e0b' });
+        this.markers.sort((a: any, b: any) => a.time - b.time);
+        this.log(`📍 Marker "${label}" added at ${time}s`);
+        this._cmdFinalize();
+        // Notify React timeline to re-render markers
+        if (this.commitStateToReact) this.commitStateToReact();
+    };
+
+    window.EditorApp.prototype.executeMarkerRemoveCommand = function(time: number) {
+        if (!this.markers) return;
+        const before = this.markers.length;
+        this.markers = this.markers.filter((m: any) => Math.abs(m.time - time) > 0.1);
+        this.log(before > this.markers.length ? `🗑️ Marker at ${time}s removed` : `⚠️ No marker near ${time}s`);
+        this._cmdFinalize();
+        if (this.commitStateToReact) this.commitStateToReact();
+    };
+
+    window.EditorApp.prototype.executeMarkerClearCommand = function() {
+        this.markers = [];
+        this.log(`🗑️ All markers cleared`);
+        this._cmdFinalize();
+        if (this.commitStateToReact) this.commitStateToReact();
+    };
+
+    window.EditorApp.prototype.executeGotoMarkerCommand = function(label: string) {
+        if (!this.markers || this.markers.length === 0) { this.log(`⚠️ No markers found`); return; }
+        const marker = this.markers.find((m: any) => m.label.toLowerCase() === label.toLowerCase());
+        if (!marker) { this.log(`⚠️ Marker "${label}" not found`); return; }
+        this.currentTime = marker.time;
+        if (this.seek) this.seek(0);
+        this.log(`⏭️ Jumped to marker "${label}" at ${marker.time}s`);
+    };
+
 };
+

@@ -21,7 +21,7 @@ window.EditorApp.prototype.initEngine = function() {
     this.snapThreshold = 15; 
     
     // 🔥 تهيئة نظام الصوت الذكي
-    this.audioWorker = new Worker('workers/audio_worker.js');
+    this.audioWorker = new Worker('/workers/audio_worker.js');
     this.audioBitmapCache = new Map(); 
     this.sharedAudioBuffers = new Map(); 
     this.pendingAudioRequests = new Map(); 

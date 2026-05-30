@@ -7,15 +7,8 @@
  */
 
 import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+import { BrainInstance, AI4MONTAGE_MODELS } from "./ai4montage_brain";
 
-const GEMINI_KEYS_POOL = [
-    "AIzaSyDn6aa1RS2gHDwi0tPZZsi4AsJVd3vEW-Y",
-    "AIzaSyBtjJO4hWnA-YCmQdaUuqiqLkt18YAL7_I",
-    "AIzaSyA6W2S0e5uJI3Uw5rHQoWjr2i_Qy6YQVzg",
-    "AIzaSyDl51ZgJjb5K1kzorMkzDu3PLjWMTMR_co",
-    "AIzaSyDinruhBeVGIy_giyRtfyNnZ8fPxdRqpcE",
-    "AIzaSyC1YC5FFYe16W0QpfAA1PCDmwSlULPYwQw"
-];
 
 // إعدادات التقطيع (بالثواني)
 const CHUNK_DURATION = 60; // طول المقطع الصافي
@@ -51,10 +44,7 @@ class AIManager {
      * الحصول على جميع المفاتيح المتاحة (بما في ذلك مفتاح المستخدم)
      */
     getAvailableKeys() {
-        const userKey = document.getElementById('gemini-api-key')?.value?.trim();
-        let keys = [...GEMINI_KEYS_POOL];
-        if (userKey) keys.push(userKey); 
-        return keys;
+        return BrainInstance.getShuffledKeys();
     }
 
     /**
@@ -132,7 +122,7 @@ class AIManager {
                 chunkIndex++;
             }
 
-            window.app.log(`🚀 جاري معالجة ${promises.length} مقطع بالتوازي باستخدام Gemini...`);
+            window.app.log(`🚀 جاري معالجة ${promises.length} مقطع بالتوازي باستخدام AI4Montage...`);
 
             // 3. انتظار جميع العمال (Workers)
             const results = await Promise.all(promises);
@@ -301,9 +291,16 @@ class AIManager {
 
     async callGeminiTranscription(key, audioBase64) {
         const genAI = new GoogleGenerativeAI(key);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        
-                    const prompt = `            
+        const MODELS = [
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-3.5-flash", 
+            "gemini-3-flash-preview", 
+            "gemini-3.1-flash-lite"
+        ];
+        let lastErr;
+
+        const prompt = `            
             Task: Transcribe audio to TikTok-style subtitles.
             
             **RULES:**
@@ -373,11 +370,56 @@ class AIManager {
             
                     `;
 
-        const result = await model.generateContent([
-            prompt,
-            { inlineData: { mimeType: "audio/wav", data: audioBase64 } }
-        ]);
-        return result.response.text();
+        for (const modelName of MODELS) {
+            try {
+                const model = genAI.getGenerativeModel({
+                    model: modelName,
+                    safetySettings: [
+                        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
+                        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
+                        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_ONLY_HIGH' },
+                        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+                    ],
+                });
+
+                let result;
+                try {
+                    result = await model.generateContent([
+                        prompt,
+                        { inlineData: { mimeType: "audio/wav", data: audioBase64 } }
+                    ]);
+                } catch (sdkErr) {
+                    const sdkMsg = String(sdkErr?.message || sdkErr);
+                    if (sdkMsg.includes('model output') || sdkMsg.includes('empty')) {
+                        throw new Error('BLOCKED:SDK_EMPTY_RESPONSE');
+                    }
+                    throw sdkErr;
+                }
+
+                const candidate = result.response?.candidates?.[0];
+                const finishReason = candidate?.finishReason;
+
+                if (!candidate || finishReason === 'SAFETY' || finishReason === 'RECITATION') {
+                    throw new Error(`BLOCKED:${finishReason || 'SAFETY'}`);
+                }
+
+                if (!candidate.content?.parts?.length) {
+                    throw new Error('BLOCKED:EMPTY_PARTS');
+                }
+
+                if (window.app?.log) window.app.log(`✅ [ترجمة SRT] نجح | مفتاح: ...${key.slice(-4)} | موديل: ${modelName}`);
+                return result.response.text();
+            } catch (err) {
+                const msg = String(err?.message || err);
+                if (msg.startsWith('BLOCKED:')) {
+                    if (window.app?.log) window.app.log(`🚫 [ترجمة SRT] تم حجب النص أمنياً (Safety Filter)`);
+                    throw err;
+                }
+                if (window.app?.log) window.app.log(`⚠️ [ترجمة SRT] فشل | مفتاح: ...${key.slice(-4)} | موديل: ${modelName} | السبب: ${msg.slice(0, 40)}`);
+                lastErr = err;
+            }
+        }
+        throw lastErr || new Error('All models failed');
     }
 
     // --- دوال مساعدة للوقت والتنسيق ---
