@@ -152,6 +152,19 @@ export default function Startup() {
       };
       localStorage.setItem(`${projectId}_settings`, JSON.stringify(settings));
 
+      // 1.5. حفظ في سجل المشاريع
+      const projectsStr = localStorage.getItem('ai4montage_projects');
+      const projects = projectsStr ? JSON.parse(projectsStr) : [];
+      projects.push({
+        id: projectId,
+        name: `Project ${projects.length + 1}`,
+        date: new Date().toISOString(),
+        mode,
+        fileCount: files.length
+      });
+      localStorage.setItem('ai4montage_projects', JSON.stringify(projects));
+
+
       // 2. حفظ كل الملفات في IndexedDB
       // الفيديو الأول هو الـ main video للـ engine
       const mainVideo = videoFiles[0] || null;
@@ -190,7 +203,7 @@ export default function Startup() {
         height={typeof window !== 'undefined' ? window.innerHeight : 1080}
       />
 
-      <div className="min-h-screen font-sans" style={{ background: 'radial-gradient(ellipse at 60% 0%, #0f1a2e 0%, #050810 50%, #000000 100%)' }}>
+      <div className="min-h-screen font-sans" dir="ltr" style={{ background: 'radial-gradient(ellipse at 60% 0%, #0f1a2e 0%, #050810 50%, #000000 100%)' }}>
 
         {/* Background orbs */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -210,9 +223,14 @@ export default function Startup() {
             <AnimatedLogo size="sm" />
             <span className="text-white font-black text-xl tracking-tight group-hover:text-cyan-400 transition-colors">AI4Montage</span>
           </Link>
-          <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium" style={{ textDecoration: 'none' }}>
-            <ArrowLeft className="w-4 h-4" /> Back to Home
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link to="/projects" className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-white rounded-xl transition-colors border border-slate-700/50 text-sm font-medium" style={{ textDecoration: 'none' }}>
+              <FolderOpen className="w-4 h-4 text-cyan-400" /> <span dir="rtl">مشاريعي</span>
+            </Link>
+            <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium" style={{ textDecoration: 'none' }}>
+              <ArrowLeft className="w-4 h-4" /> Back to Home
+            </Link>
+          </div>
         </nav>
 
         {/* Main layout */}
@@ -228,7 +246,7 @@ export default function Startup() {
               <motion.div className="absolute inset-0 rounded-[2.5rem] blur-3xl"
                 style={{ background: 'conic-gradient(from 0deg, rgba(217,70,239,0.4), rgba(34,211,238,0.4), rgba(99,102,241,0.4), rgba(217,70,239,0.4))' }}
                 animate={{ rotate: 360 }} transition={{ duration: 10, repeat: Infinity, ease: 'linear' }} />
-              <motion.img src="/ai4montage_hero.png" alt="AI4Montage Portal"
+              <motion.video src="/vidMotion1.mp4" autoPlay loop muted playsInline
                 className="relative z-10 w-full rounded-[2rem] shadow-2xl border border-white/10 object-cover"
                 animate={{ y: [-6, 6, -6] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }} />
               <motion.div className="absolute -top-4 -right-4 z-20 px-4 py-2 rounded-2xl border border-yellow-500/40 bg-yellow-500/10 backdrop-blur-xl"
@@ -249,7 +267,7 @@ export default function Startup() {
               <h1 className="text-4xl font-black text-white tracking-tight leading-tight mb-3">
                 Start Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500">AI Project</span>
               </h1>
-              <p className="text-slate-400 text-base leading-relaxed">
+              <p className="text-slate-400 text-base leading-relaxed" dir="rtl">
                 ارفع مشروعك كاملاً — فيديوهات وصور وصوت. الـ AI بيحللهم كلهم ويمنتجهم تلقائياً.
               </p>
 
@@ -284,9 +302,9 @@ export default function Startup() {
             <div className="bg-slate-900/60 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 shadow-2xl space-y-5">
 
               {/* Step 1: Upload */}
-              <div>
+              <div dir="rtl" className="text-right">
                 <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">Step 1</p>
-                <h2 className="text-2xl font-black text-white">Upload Your Project</h2>
+                <h2 className="text-2xl font-black text-white" dir="ltr" style={{ textAlign: 'right' }}>Upload Your Project</h2>
                 <p className="text-slate-500 text-sm mt-1">فيديوهات + صور + صوت — كلهم مع بعض</p>
               </div>
 
@@ -374,14 +392,14 @@ export default function Startup() {
               </AnimatePresence>
 
               {/* Step 2: Prompt */}
-              <div>
+              <div dir="rtl" className="text-right">
                 <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-3">Step 2 — وصف رؤيتك (اختياري)</p>
                 <div className="relative">
-                  <Sparkles className="absolute left-4 top-3.5 w-4 h-4 text-fuchsia-400" />
+                  <Sparkles className="absolute right-4 top-3.5 w-4 h-4 text-fuchsia-400" />
                   <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
                     placeholder="احكيلي الستايل اللي عايزه... (سينمائي، طاقة عالية، وثائقي...)"
                     rows={2}
-                    className="w-full bg-slate-800/60 border border-slate-700 rounded-2xl pl-10 pr-4 py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-fuchsia-500/60 focus:bg-slate-800 transition-all resize-none" />
+                    className="w-full bg-slate-800/60 border border-slate-700 rounded-2xl pr-10 pl-4 py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-fuchsia-500/60 focus:bg-slate-800 transition-all resize-none" />
                 </div>
                 <div className="flex flex-wrap gap-2 mt-3">
                   {CHIPS.map(chip => {
@@ -400,7 +418,7 @@ export default function Startup() {
               </div>
 
               {/* Step 3: Mode */}
-              <div>
+              <div dir="rtl" className="text-right">
                 <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-3">Step 3 — اختر الوضع</p>
                 <div className="space-y-3">
 
@@ -423,10 +441,10 @@ export default function Startup() {
                             : <Wand2 className="w-6 h-6 text-fuchsia-400" />
                           }
                         </div>
-                        <div className="text-left">
-                          <h3 className="text-white font-black text-lg flex items-center gap-2">
+                        <div className="text-right flex-1">
+                          <h3 className="text-white font-black text-lg flex items-center gap-2 justify-start flex-row-reverse">
                             {isLoading ? 'جاري الحفظ...' : <>
-                              Sandwich <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-400">AI Mode</span>
+                              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-400">AI Mode</span> Sandwich
                               <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30">Recommended</span>
                             </>}
                           </h3>
@@ -448,14 +466,14 @@ export default function Startup() {
                     disabled={isLoading}
                     className="w-full flex items-center gap-4 p-5 rounded-2xl border border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/60 hover:border-slate-600 transition-all group"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 group-hover:text-indigo-400 group-hover:border-indigo-500/40 transition-colors">
-                      <Sliders className="w-6 h-6" />
-                    </div>
-                    <div className="text-left flex-1">
+                    <Brain className="w-5 h-5 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                    <div className="text-right flex-1">
                       <h3 className="text-slate-300 font-bold group-hover:text-white transition-colors">Manual Mode</h3>
                       <p className="text-slate-500 text-sm">تحكم كامل في التايم لاين بدون AI</p>
                     </div>
-                    <Brain className="w-5 h-5 text-slate-600 group-hover:text-slate-400 transition-colors" />
+                    <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 group-hover:text-indigo-400 group-hover:border-indigo-500/40 transition-colors">
+                      <Sliders className="w-6 h-6" />
+                    </div>
                   </motion.button>
                 </div>
               </div>

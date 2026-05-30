@@ -480,64 +480,100 @@ class AIManager {
         return window.btoa(binary);
     }
 
-    // 🔥 FIX: الإصلاح الجوهري هنا
-    // هذه الدالة كانت فارغة سابقاً، الآن هي تستخدم parseSRTToClips من assets.js
-    applySubtitlesToTimeline(srtContent) {
-        if (!window.app) return;
-
-        window.app.log("📜 معالجة ملف الترجمة وإضافته للتايم لاين...");
-
-        // 1. البحث عن تراك الترجمة (Subtitle Track)
-        let textTrack = window.app.tracks.find(t => t.type === 'subtitle');
-
-        // إذا لم يوجد، نقوم بإنشائه في الأعلى (Index 0)
-        if (!textTrack) {
-            window.app.addNewTrack('subtitle', 0);
-            textTrack = window.app.tracks.find(t => t.type === 'subtitle');
+    // 🔥 FIX: الإصلاح الجوهري للترجمة الآلية (SRT) مع React / Zustand
+    async applySubtitlesToTimeline(srtContent) {
+        if (window.app && window.app.log) {
+            window.app.log("📜 معالجة ملف الترجمة وإضافته للتايم لاين الحديث...");
+        } else {
+            console.log("📜 معالجة ملف الترجمة وإضافته للتايم لاين الحديث...");
         }
 
-        if (!textTrack) {
-            window.app.log("❌ تعذر إنشاء تراك الترجمة.");
+        let useEditorStore;
+        try {
+            const module = await import('../../store/useEditorStore');
+            useEditorStore = module.useEditorStore;
+        } catch (e) {
+            console.error("❌ تعذر العثور على useEditorStore:", e);
             return;
         }
+        const state = useEditorStore.getState();
 
-        // 2. استخدام دالة التحليل الموجودة في assets.js
-        if (typeof window.parseSRTToClips === 'function') {
-            const clips = window.parseSRTToClips(srtContent);
+        const parseSRTTime = (timeString) => {
+            if (!timeString) return 0;
+            const parts = timeString.trim().split(':');
+            if (parts.length < 3) return 0;
+            const secondsParts = parts[2].split(',');
+            return (parseInt(parts[0], 10) * 3600) + (parseInt(parts[1], 10) * 60) + parseInt(secondsParts[0], 10) + ((parseInt(secondsParts[1], 10) || 0) / 1000);
+        };
 
-            if (clips.length > 0) {
-                // ضبط معرف التراك لكل كليب
-                clips.forEach(clip => {
-                    clip.trackId = textTrack.id;
-                    // تأكد من أن الستايل الافتراضي للنص موجود
-                    if (!clip.textStyle) {
-                        clip.textStyle = {
+        const clips = [];
+        const blocks = srtContent.replace(/\r\n/g, '\n').split('\n\n'); 
+        blocks.forEach((block, index) => {
+            const lines = block.split('\n').filter(line => line.trim() !== '');
+            if (lines.length >= 3) {
+                const timeLineIndex = lines.findIndex(l => l.includes('-->'));
+                if (timeLineIndex !== -1) {
+                    const times = lines[timeLineIndex].split(' --> ');
+                    const start = parseSRTTime(times[0]);
+                    const end = parseSRTTime(times[1]);
+                    const text = lines.slice(timeLineIndex + 1).join(' ');
+                    clips.push({
+                        id: `sub_${Date.now()}_${index}`,
+                        name: text,
+                        start,
+                        duration: Math.max(0.1, end - start),
+                        type: 'text',
+                        src: text,
+                        textStyle: {
                             fontFamily: 'Cairo', fontWeight: 'bold',
                             color: '#ffffff', strokeColor: '#000000', strokeWidth: 4,
                             shadowBlur: 0, backgroundColor: '#000000', backgroundOpacity: 0,
                             padding: 10
-                        };
-                    }
-                });
-
-                // إضافة الكليبات للتراك
-                textTrack.clips = clips;
-                textTrack.rebuildTree(); // مهم جداً للمحرك لتحديث الشجرة
-
-                // تحديث الواجهة
-                window.app.refreshProjectTopology();
-                window.app.renderTracks();
-                window.app.requestRedraw();
-                
-                window.app.log(`✅ تمت إضافة ${clips.length} تتر للتايم لاين.`);
-            } else {
-                window.app.log("⚠️ ملف SRT يبدو فارغاً أو بتنسيق غير صحيح.");
+                        }
+                    });
+                }
             }
-        } else {
-            // Fallback: تحليل بسيط إذا لم تكن الدالة موجودة
-            window.app.log("⚠️ دالة parseSRTToClips غير موجودة، جاري استخدام محلل الطوارئ.");
-            // ... (يمكن إضافة منطق بسيط هنا لكن assets.js يجب أن يكون محملاً)
+        });
+
+        if (clips.length === 0) {
+            const msg = "⚠️ ملف SRT يبدو فارغاً أو بتنسيق غير صحيح.";
+            if (window.app?.log) window.app.log(msg); else console.warn(msg);
+            return;
         }
+
+        // حفظ كأصل (Asset)
+        const blob = new Blob([srtContent], { type: 'text/srt' });
+        const assetUrl = URL.createObjectURL(blob);
+        state.addAsset({
+            id: `srt_${Date.now()}`,
+            name: `Transcript_${new Date().toLocaleTimeString().replace(/:/g, '-')}.srt`,
+            type: 'text',
+            src: assetUrl
+        });
+
+        // إيجاد مسار الترجمة أو إنشائه
+        let textTrack = state.tracks.find(t => t.type === 'subtitle');
+        let textTrackId = textTrack?.id;
+        
+        if (!textTrack) {
+            textTrackId = Date.now();
+            state.addTrack({
+                id: textTrackId,
+                name: "T1: Transcript",
+                type: "subtitle",
+                color: "bg-yellow-600",
+                clips: []
+            });
+        }
+
+        // إضافة الكليبات
+        clips.forEach(clip => {
+            clip.trackId = textTrackId;
+            state.addClipToTrack(textTrackId, clip);
+        });
+
+        const successMsg = `✅ تمت إضافة ${clips.length} تتر للتايم لاين الحديث على المسار T1.`;
+        if (window.app?.log) window.app.log(successMsg); else console.log(successMsg);
     }
 }
 

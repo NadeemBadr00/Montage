@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import Login         from './pages/Login';
 import Home          from './pages/Home';
 import Startup       from './pages/Startup';
+import Projects      from './pages/Projects';
 import EditorV2      from './pages/editor-v2/EditorV2';
 import Analysis      from './pages/analysis/Analysis';
 import StyleTransfer from './pages/analysis/StyleTransfer';
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/login"          element={<Login />} />
         <Route path="/"               element={<Home />} />
         <Route path="/startup"        element={<Startup />} />
+        <Route path="/projects"       element={<Projects />} />
         <Route path="/pricing"        element={<Pricing />} />
         <Route path="/billing"        element={<Billing />} />
         <Route path="/about"          element={<About />} />
