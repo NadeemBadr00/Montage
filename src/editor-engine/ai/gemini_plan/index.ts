@@ -3,6 +3,7 @@ import { PlanItem, PreviewRange } from './types';
 import { generatePlanForChunk } from './api';
 import { getSRTDuration, extractSRTChunkRange, stitchPlanResults } from './parser';
 import { getPlanOptionsModalHTML, getPlanApprovalModalHTML, getPreviewUIHTML } from './ui';
+import { bindPreviewMethods } from './plan-preview';
 
 const PLAN_CHUNK_DURATION = 60;
 const PLAN_OVERLAP = 5;
@@ -317,83 +318,6 @@ export class GeminiPlan {
         window.geminiChat.pushMessage('ai', 'تم بدء تنفيذ الخطة بالكامل.');
     }
 
-    injectPreviewUI() {
-        document.body.insertAdjacentHTML('beforeend', getPreviewUIHTML());
-    }
-
-    startPreviewMode(index: number) {
-        const item = this.plannerData[index];
-        this.hidePlanModal();
-        document.getElementById('ai-preview-overlay')!.classList.remove('hidden');
-        document.getElementById('ai-preview-overlay')!.classList.add('flex');
-        this.activePreviewRange = { start: item.start, end: item.end || item.start + 5 };
-        this.playRange(this.activePreviewRange.start, this.activePreviewRange.end);
-    }
-
-    replayCurrentPreview() {
-        if (this.activePreviewRange) {
-            this.playRange(this.activePreviewRange.start, this.activePreviewRange.end);
-        }
-    }
-
-    exitPreviewMode() {
-        if (window.app) window.app.pausePlayback(); 
-        if (this.previewLoopId) cancelAnimationFrame(this.previewLoopId);
-        
-        const overlay = document.getElementById('ai-preview-overlay');
-        if (overlay) {
-            overlay.classList.add('hidden');
-            overlay.classList.remove('flex');
-        }
-        this.showLastPlan(); 
-    }
-
-    async previewSelectedScenes() {
-        if (this.selectedScenes.size === 0) return;
-        const indices = Array.from(this.selectedScenes).sort((a, b) => a - b);
-        this.hidePlanModal();
-        document.getElementById('ai-preview-overlay')!.classList.remove('hidden');
-        document.getElementById('ai-preview-overlay')!.classList.add('flex');
-        
-        const playNext = (i: number) => {
-            if (i >= indices.length || document.getElementById('ai-preview-overlay')!.classList.contains('hidden')) {
-                if (!document.getElementById('ai-preview-overlay')!.classList.contains('hidden')) {
-                    this.exitPreviewMode();
-                }
-                return;
-            }
-            const idx = indices[i];
-            const item = this.plannerData[idx];
-            this.activePreviewRange = { start: item.start, end: item.end || item.start + 5 };
-            this.playRange(item.start, item.end || item.start + 5, () => {
-                setTimeout(() => playNext(i + 1), 500);
-            });
-        };
-        playNext(0);
-    }
-
-    playRange(start: number, end: number, onComplete?: () => void) {
-        if (!window.app) return;
-        if (this.previewLoopId) cancelAnimationFrame(this.previewLoopId);
-        
-        window.app.currentTime = start;
-        window.app.seek(0);
-        setTimeout(() => window.app.startPlayback(), 50);
-        
-        const checkTime = () => {
-            const overlay = document.getElementById('ai-preview-overlay');
-            if (!overlay || overlay.classList.contains('hidden')) return;
-
-            if (window.app.isPlaying && window.app.currentTime >= end) {
-                window.app.pausePlayback();
-                if (onComplete) onComplete();
-            } else {
-                this.previewLoopId = requestAnimationFrame(checkTime);
-            }
-        };
-        this.previewLoopId = requestAnimationFrame(checkTime);
-    }
-
     downloadPlanFile(plan: PlanItem[]) {
         const blob = new Blob([JSON.stringify(plan, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -424,6 +348,8 @@ export class GeminiPlan {
         input.value = ''; 
     }
 }
+
+bindPreviewMethods(GeminiPlan);
 
 // Inject instance globally
 if (typeof window !== 'undefined') {
