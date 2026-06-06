@@ -205,13 +205,45 @@ export function drawAdvancedText(ctx: CanvasRenderingContext2D, clip: any, w: nu
         ctx.restore();
     }
 
-    if (style.shadowBlur > 0) {
-        ctx.shadowColor = "rgba(0,0,0,0.8)";
+    // Phase 27A: Glow/Neon (double-render: first as blur shadow, then sharp)
+    if (style.glowBlur && style.glowBlur > 0) {
+        ctx.shadowBlur = style.glowBlur;
+        ctx.shadowColor = style.glowColor || '#e879f9';
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+    } else if (style.shadowBlur > 0) {
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
         ctx.shadowBlur = style.shadowBlur;
-        ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
-    } else { ctx.shadowColor = "transparent"; }
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+    } else {
+        ctx.shadowColor = 'transparent';
+    }
 
-    ctx.fillStyle = forceHex(style.color);
+    // Phase 27B: Gradient Text or solid color
+    let fillStyle: string | CanvasGradient = forceHex(style.color);
+    if (style.gradientEnabled && style.gradientFrom && style.gradientTo) {
+        const dir = style.gradientDir || '→';
+        let grad: CanvasGradient;
+        if (dir === '↓') {
+            // vertical
+            const halfH = (lines.length * lineHeight) / 2;
+            grad = ctx.createLinearGradient(0, -halfH, 0, halfH);
+        } else if (dir === '↗') {
+            // diagonal
+            const halfW = boxW / 2;
+            const halfH = (lines.length * lineHeight) / 2;
+            grad = ctx.createLinearGradient(-halfW, halfH, halfW, -halfH);
+        } else {
+            // horizontal →
+            grad = ctx.createLinearGradient(-boxW / 2, 0, boxW / 2, 0);
+        }
+        grad.addColorStop(0, style.gradientFrom);
+        grad.addColorStop(1, style.gradientTo);
+        fillStyle = grad;
+    }
+
+    ctx.fillStyle = fillStyle;
     ctx.strokeStyle = forceHex(style.strokeColor);
     ctx.lineWidth = style.strokeWidth || 0;
 
@@ -223,22 +255,59 @@ export function drawAdvancedText(ctx: CanvasRenderingContext2D, clip: any, w: nu
     lines.forEach((l: string, i: number) => {
         const currentY = startY + (i * lineHeight);
         const trimmed = l.trim();
+
+        // Neon: draw glow pass first
+        if (style.glowBlur && style.glowBlur > 0) {
+            ctx.save();
+            ctx.globalAlpha *= (style.glowOpacity !== undefined ? style.glowOpacity / 100 : 0.8);
+            ctx.fillStyle = style.glowColor || '#e879f9';
+            ctx.shadowBlur = style.glowBlur * 2;
+            ctx.shadowColor = style.glowColor || '#e879f9';
+            ctx.fillText(trimmed, textX, currentY);
+            ctx.restore();
+            // Reset shadow for the sharp pass
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'transparent';
+            ctx.fillStyle = fillStyle; // restore gradient/solid
+        }
+
         if (style.strokeWidth > 0) ctx.strokeText(trimmed, textX, currentY);
         ctx.fillText(trimmed, textX, currentY);
-        
+
+        // Karaoke highlight word
+        if (style.isKaraoke && style.activeWordIndex !== undefined) {
+            const words = trimmed.split(' ');
+            let wordX = textX;
+            if (align === 'center') {
+                const totalW = ctx.measureText(trimmed).width;
+                wordX = -totalW / 2;
+            }
+            words.forEach((word, wi) => {
+                const wm = ctx.measureText(word + ' ');
+                if (wi === style.activeWordIndex) {
+                    ctx.save();
+                    ctx.fillStyle = '#fbbf24'; // highlight color
+                    ctx.fillText(word, wordX, currentY);
+                    ctx.restore();
+                    ctx.fillStyle = fillStyle;
+                }
+                wordX += wm.width;
+            });
+        }
+
         // Render Underline
         if (style.textDecoration === 'underline') {
             const m = ctx.measureText(trimmed);
-            const w = m.width;
+            const uw = m.width;
             let lineX = textX;
-            if (align === 'center') lineX -= w / 2;
-            else if (align === 'right') lineX -= w;
-            
+            if (align === 'center') lineX -= uw / 2;
+            else if (align === 'right') lineX -= uw;
+
             ctx.save();
             ctx.beginPath();
             const yOffset = currentY + (fontSize * 0.4);
             ctx.moveTo(lineX, yOffset);
-            ctx.lineTo(lineX + w, yOffset);
+            ctx.lineTo(lineX + uw, yOffset);
             ctx.lineWidth = Math.max(1, fontSize * 0.08);
             ctx.strokeStyle = forceHex(style.color);
             ctx.stroke();

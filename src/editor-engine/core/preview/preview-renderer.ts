@@ -150,6 +150,164 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
                     ctx.globalAlpha = 1;
                     ctx.restore();
                 }
+
+                // ═══════════════════════════════════════════════════════
+                // Phase 22 — 🎬 VIDEO: Motion Blur + Radial Blur
+                // ═══════════════════════════════════════════════════════
+                if (!clip || (clip.type !== 'video' && clip.type !== 'image')) continue;
+                const motionBlurAmt = clip.properties?.motionBlur || 0;
+                const radialBlurAmt = clip.properties?.radialBlur   || 0;
+                if (motionBlurAmt > 0 || radialBlurAmt > 0) {
+                    const timeInClip2 = this.currentTime - clip.start;
+                    const { posX: mbPosX, posY: mbPosY, scale: mbScale } = this.getClipTransform(clip, timeInClip2);
+                    const { drawW: mbW, drawH: mbH } = this.getClipDrawRect(clip, w, h);
+                    const mbFW = mbW * (mbScale || 1);
+                    const mbFH = mbH * (mbScale || 1);
+                    const mbX  = (w / 2 + mbPosX) - mbFW / 2;
+                    const mbY  = (h / 2 + mbPosY) - mbFH / 2;
+
+                    if (motionBlurAmt > 0) {
+                        // Motion blur: draw 4 ghost copies with decreasing opacity + horizontal offset
+                        const blurPx = motionBlurAmt * 0.12;
+                        ctx.save();
+                        for (let g = 1; g <= 4; g++) {
+                            ctx.globalAlpha = 0.08 * (5 - g);
+                            ctx.drawImage(glCanvas, mbX - blurPx * g, mbY, mbFW, mbFH, mbX, mbY, mbFW, mbFH);
+                        }
+                        ctx.restore();
+                    }
+                    if (radialBlurAmt > 0) {
+                        // Radial blur: draw scaled-out ghosts
+                        const rFactor = 1 + radialBlurAmt * 0.002;
+                        ctx.save();
+                        for (let g = 1; g <= 3; g++) {
+                            const sf = 1 + (rFactor - 1) * g * 0.4;
+                            const gW = mbFW * sf;
+                            const gH = mbFH * sf;
+                            ctx.globalAlpha = 0.07 * (4 - g);
+                            ctx.drawImage(glCanvas,
+                                mbX, mbY, mbFW, mbFH,
+                                mbX - (gW - mbFW) / 2, mbY - (gH - mbFH) / 2, gW, gH
+                            );
+                        }
+                        ctx.restore();
+                    }
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // Phase 23 — 🎬 VIDEO: Vignette + Chromatic Aberration
+                // ═══════════════════════════════════════════════════════
+                const vigStrength  = clip.properties?.vignetteStrength    || 0;
+                const chromaAmt    = clip.properties?.chromaticAberration || 0;
+
+                if (vigStrength > 0) {
+                    ctx.save();
+                    const vt3 = this.currentTime - clip.start;
+                    const { posX: vPX, posY: vPY, scale: vSc } = this.getClipTransform(clip, vt3);
+                    const { drawW: vW, drawH: vH } = this.getClipDrawRect(clip, w, h);
+                    const vFW = vW * (vSc || 1); const vFH = vH * (vSc || 1);
+                    const vX  = w / 2 + vPX;     const vY  = h / 2 + vPY;
+                    const vAlpha = Math.min(0.9, vigStrength / 100);
+                    const radGrad = ctx.createRadialGradient(vX, vY, Math.min(vFW, vFH) * 0.2, vX, vY, Math.max(vFW, vFH) * 0.8);
+                    radGrad.addColorStop(0, 'rgba(0,0,0,0)');
+                    radGrad.addColorStop(1, `rgba(0,0,0,${vAlpha})`);
+                    ctx.fillStyle = radGrad;
+                    ctx.fillRect(vX - vFW/2, vY - vFH/2, vFW, vFH);
+                    ctx.restore();
+                }
+
+                if (chromaAmt > 0) {
+                    // Chromatic aberration: R channel shifted right, B channel left
+                    ctx.save();
+                    const offset = chromaAmt * 1.2;
+                    // Red channel
+                    ctx.globalCompositeOperation = 'screen';
+                    ctx.globalAlpha = 0.4;
+                    ctx.filter = 'url("data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\'><filter id=\'r\'><feColorMatrix type=\'matrix\' values=\'1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0\'/></filter></svg>#r")';
+                    ctx.drawImage(glCanvas, offset, 0);
+                    // Blue channel
+                    ctx.filter = 'url("data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\'><filter id=\'b\'><feColorMatrix type=\'matrix\' values=\'0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0\'/></filter></svg>#b")';
+                    ctx.drawImage(glCanvas, -offset, 0);
+                    ctx.filter = 'none';
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.globalAlpha = 1;
+                    ctx.restore();
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // Phase 24, 25, 26 — 🖼️ IMAGE/VIDEO: Filters & Duotone
+                // ═══════════════════════════════════════════════════════
+                const denoiseAmt = clip.properties?.denoise || 0;
+                const sharpenAmt = clip.properties?.sharpness || 0; // >100 is sharpen
+                const duotoneEn  = clip.properties?.duotoneEnabled;
+
+                if (denoiseAmt > 0 || sharpenAmt > 100 || duotoneEn) {
+                    const vtF = this.currentTime - clip.start;
+                    const { posX: fPX, posY: fPY, scale: fSc } = this.getClipTransform(clip, vtF);
+                    const { drawW: fW, drawH: fH } = this.getClipDrawRect(clip, w, h);
+                    const fFW = fW * (fSc||1); const fFH = fH * (fSc||1);
+                    const fX  = (w/2 + fPX) - fFW/2;
+                    const fY  = (h/2 + fPY) - fFH/2;
+
+                    ctx.save();
+                    let fStr = '';
+                    if (denoiseAmt > 0) fStr += `blur(${denoiseAmt*0.02}px) contrast(1.05) `;
+                    if (sharpenAmt > 100) fStr += `contrast(${(sharpenAmt/100)*1.1}) `;
+                    if (duotoneEn) {
+                        // Fake duotone with sepia/hue/saturate combo
+                        fStr += `sepia(1) saturate(3) hue-rotate(-50deg) contrast(1.2) `;
+                    }
+
+                    if (fStr) {
+                        ctx.filter = fStr.trim();
+                        ctx.globalCompositeOperation = 'source-atop';
+                        ctx.drawImage(glCanvas, fX, fY, fFW, fFH, fX, fY, fFW, fFH);
+                        if (duotoneEn) {
+                            // Overlay color 1 (Shadows) and Color 2 (Highlights) roughly using multiply/screen
+                            ctx.filter = 'none';
+                            ctx.globalCompositeOperation = 'multiply';
+                            ctx.fillStyle = clip.properties.duotoneColor1 || '#1e3a8a';
+                            ctx.fillRect(fX, fY, fFW, fFH);
+                            ctx.globalCompositeOperation = 'screen';
+                            ctx.globalAlpha = 0.6;
+                            ctx.fillStyle = clip.properties.duotoneColor2 || '#f43f5e';
+                            ctx.fillRect(fX, fY, fFW, fFH);
+                        }
+                    }
+                    ctx.restore();
+                }
+
+                // ═══════════════════════════════════════════════════════
+                // Phase 30 — 🌐 LUT Color Grade Simulation (CSS filter)
+                // ═══════════════════════════════════════════════════════
+                if (clip.properties?.lutEnabled) {
+                    const lutName = clip.properties.lutName || 'Rec709';
+                    const lutStr  = clip.properties.lutStrength !== undefined ? clip.properties.lutStrength / 100 : 1;
+                    const vt30 = this.currentTime - clip.start;
+                    const { posX: lPX, posY: lPY, scale: lSc } = this.getClipTransform(clip, vt30);
+                    const { drawW: lW, drawH: lH } = this.getClipDrawRect(clip, w, h);
+                    const lFW = lW * (lSc||1); const lFH = lH * (lSc||1);
+                    const lX  = (w/2 + lPX) - lFW/2;
+                    const lY  = (h/2 + lPY) - lFH/2;
+
+                    // Build CSS filter chain per LUT
+                    let filterStr = '';
+                    if (lutName === 'Rec709')  filterStr = `contrast(${1+0.12*lutStr}) saturate(${1-0.08*lutStr}) brightness(${1+0.05*lutStr})`;
+                    else if (lutName === 'Log') filterStr = `contrast(${1-0.25*lutStr}) brightness(${1+0.15*lutStr}) saturate(${1-0.1*lutStr})`;
+                    else if (lutName === 'ACES') filterStr = `contrast(${1+0.18*lutStr}) saturate(${1+0.05*lutStr}) brightness(${1-0.03*lutStr})`;
+                    else if (lutName === 'Flat') filterStr = `contrast(${1-0.35*lutStr}) brightness(${1+0.2*lutStr}) saturate(${1-0.2*lutStr})`;
+
+                    if (filterStr) {
+                        ctx.save();
+                        ctx.globalAlpha = lutStr * 0.6; // blend on top
+                        ctx.filter = filterStr;
+                        ctx.globalCompositeOperation = 'source-atop';
+                        ctx.drawImage(glCanvas, lX, lY, lFW, lFH, lX, lY, lFW, lFH);
+                        ctx.filter = 'none';
+                        ctx.globalCompositeOperation = 'source-over';
+                        ctx.restore();
+                    }
+                }
             }
         }
     }
@@ -203,16 +361,14 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
                 }
                 else if (animType === 'zoomOut') {
                     const scaleFactor = animMode === 'in' ? (2 - animProgress) : (1 + animProgress);
-                    ctx.globalAlpha *= animProgress; // Also fade so it disappears smoothly
+                    ctx.globalAlpha *= animProgress;
                     ctx.translate(w / 2, h / 2);
                     ctx.scale(Math.max(0.01, scaleFactor), Math.max(0.01, scaleFactor));
                     ctx.translate(-w / 2, -h / 2);
                 }
                 else if (animType === 'pop') {
-                    // Pop creates a bouncy effect (overshoots then settles)
                     let scaleFactor = 1;
                     if (animMode === 'in') {
-                        // ease out back formula
                         const t = animProgress - 1;
                         scaleFactor = 1 + t * t * (2.70158 * t + 1.70158);
                     } else {
@@ -224,7 +380,6 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
                     ctx.translate(-w / 2, -h / 2);
                 }
                 else if (animType === 'typewriter') {
-                    // Wipe from left to right (clip bounding box)
                     const clipDir = animMode === 'in' ? animProgress : (1 - animProgress);
                     ctx.beginPath();
                     ctx.rect(0, 0, w * clipDir, h);
@@ -239,26 +394,132 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
                 }
             }
 
+            // ═══════════════════════════════════════════════════════
+            // Phase 28 — 🔤 TEXT: Entry/Exit Animations from textStyle.entryAnim
+            // ═══════════════════════════════════════════════════════
+            if (clip.textStyle?.entryAnim || clip.textStyle?.exitAnim) {
+                const tsAnimDur = clip.textStyle.animDuration || 1.0;
+                const tsTimeIn  = this.currentTime - clip.start;
+                const tsTimeOut = clip.end - this.currentTime;
+                let tsP = 1;
+                let tsType = 'none';
+
+                if (tsTimeIn < tsAnimDur && clip.textStyle.entryAnim && clip.textStyle.entryAnim !== 'None') {
+                    tsP = Math.max(0, Math.min(1, tsTimeIn / tsAnimDur));
+                    tsType = clip.textStyle.entryAnim;
+                } else if (tsTimeOut < tsAnimDur && clip.textStyle.exitAnim && clip.textStyle.exitAnim !== 'None') {
+                    tsP = Math.max(0, Math.min(1, tsTimeOut / tsAnimDur));
+                    tsType = clip.textStyle.exitAnim;
+                }
+
+                // Ease in/out cubic
+                const easeP = tsP < 0.5 ? 4*tsP*tsP*tsP : 1 - Math.pow(-2*tsP+2,3)/2;
+
+                if (tsType === 'Fade' || tsType === 'Fade Out') {
+                    ctx.globalAlpha *= easeP;
+                } else if (tsType === 'Slide Up') {
+                    ctx.translate(0, (1 - easeP) * h * 0.25);
+                } else if (tsType === 'Slide Down') {
+                    ctx.translate(0, -(1 - easeP) * h * 0.25);
+                } else if (tsType === 'Slide Out') {
+                    ctx.translate(0, (1 - easeP) * h * 0.25);
+                    ctx.globalAlpha *= easeP;
+                } else if (tsType === 'Typewriter') {
+                    ctx.beginPath();
+                    ctx.rect(0, 0, w * easeP, h);
+                    ctx.clip();
+                } else if (tsType === 'Bounce') {
+                    // Ease out bounce
+                    let bScale = 1;
+                    if (tsP < 1) {
+                        const t = 1 - tsP;
+                        const bounceFn = (x) => {
+                            const n1 = 7.5625, d1 = 2.75;
+                            if (x < 1/d1) return n1*x*x;
+                            else if (x < 2/d1) { x -= 1.5/d1; return n1*x*x+0.75; }
+                            else if (x < 2.5/d1) { x -= 2.25/d1; return n1*x*x+0.9375; }
+                            else { x -= 2.625/d1; return n1*x*x+0.984375; }
+                        };
+                        bScale = bounceFn(tsP);
+                    }
+                    ctx.translate(w/2, h/2);
+                    ctx.scale(Math.max(0.01, bScale), Math.max(0.01, bScale));
+                    ctx.translate(-w/2, -h/2);
+                } else if (tsType === 'Glitch') {
+                    // Glitch: random horizontal jitter + color channel shift
+                    const glitchAmt = (1 - easeP) * 30;
+                    ctx.translate((Math.random() - 0.5) * glitchAmt, (Math.random() - 0.5) * glitchAmt * 0.3);
+                    ctx.globalAlpha *= (0.7 + Math.random() * 0.3);
+                } else if (tsType === 'Scale Up') {
+                    ctx.translate(w/2, h/2);
+                    ctx.scale(Math.max(0.01, easeP), Math.max(0.01, easeP));
+                    ctx.translate(-w/2, -h/2);
+                } else if (tsType === 'Shrink') {
+                    ctx.translate(w/2, h/2);
+                    ctx.scale(Math.max(0.01, easeP), Math.max(0.01, easeP));
+                    ctx.translate(-w/2, -h/2);
+                } else if (tsType === 'Blur Out') {
+                    ctx.filter = `blur(${(1 - easeP) * 12}px)`;
+                    ctx.globalAlpha *= easeP;
+                }
+            }
+
             if (clip.textStyle?.isCountdown) {
                 const timeLeft = Math.max(0, Math.ceil(clip.duration - (this.currentTime - clip.start)));
                 clip.text = timeLeft.toString();
             }
-            
-            // Karaoke effect (simple word highlight based on progress)
+
+            // Karaoke effect
             if (clip.textStyle?.isKaraoke && clip.text) {
                 const words = clip.text.split(' ');
                 const progress = (this.currentTime - clip.start) / clip.duration;
                 const currentWordIndex = Math.floor(progress * words.length);
-                
-                // We'll modify the fill color of the specific word in the drawAdvancedText function
-                // But since drawAdvancedText is generic, we can just do a hacky fillStyle swap if needed.
-                // For a quick implementation, we will append a special property that drawAdvancedText can use.
                 clip.textStyle.activeWordIndex = currentWordIndex;
             }
-            
+
             drawAdvancedText(ctx, clip, w, h);
             ctx.restore();
         }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Phase 21 — 🎵 AUDIO: Waveform HUD Overlay
+    // ═══════════════════════════════════════════════════════
+    // Draw animated waveform when an audio clip is active with EQ properties set
+    for (let i = 0; i < allNonMutedTracks.length; i++) {
+        const track = allNonMutedTracks[i];
+        const clips = track.getClipsAtTime(this.currentTime);
+        if (clips.length === 0) continue;
+        const clip = clips[0];
+        if (clip.type !== 'audio') continue;
+        if (!clip.properties?.waveformVisible && !(clip.properties?.eqSub || clip.properties?.eqBass || clip.properties?.eqMid)) continue;
+
+        const eqBass = (clip.properties?.eqBass || 0) / 12;  // -1 to +1
+        const eqMid  = (clip.properties?.eqMid  || 0) / 12;
+        const eqHigh = (clip.properties?.eqHigh || 0) / 12;
+        const reverbWet = (clip.properties?.reverbWet || 0) / 100;
+        const barCount = 48;
+        const barW = w * 0.6 / barCount;
+        const startXw = w * 0.2;
+        const centerYw = h * 0.88;
+        const t = this.currentTime * 8;
+
+        ctx.save();
+        ctx.globalAlpha = 0.75 - reverbWet * 0.3;
+        for (let bi = 0; bi < barCount; bi++) {
+            const freq = bi / barCount; // 0 = bass, 1 = high
+            // Weighted amplitude by EQ band
+            const bassW  = Math.max(0, 1 - freq * 3);
+            const midW   = Math.max(0, 1 - Math.abs(freq - 0.4) * 3);
+            const highW  = Math.max(0, (freq - 0.6) * 2.5);
+            const eqAmp  = 1 + bassW * eqBass * 0.6 + midW * eqMid * 0.5 + highW * eqHigh * 0.4;
+            const rawH   = Math.abs(Math.sin(t + bi * 0.38) * Math.cos(t * 0.4 - bi * 0.15)) * 40 + 4;
+            const barH   = rawH * Math.max(0.2, eqAmp);
+            const hue    = 180 + freq * 120; // cyan → magenta
+            ctx.fillStyle = `hsl(${hue}, 85%, 65%)`;
+            ctx.fillRect(startXw + bi * (barW + 1.5), centerYw - barH, barW, barH);
+        }
+        ctx.restore();
     }
 
     // 3.3 Render Shape Clips
@@ -470,6 +731,38 @@ window.EditorApp.prototype.drawUIOverlays = function(ctx, w, h) {
             const clip = clips[0];
             if (this.selectedClipIds.has(clip.id)) {
                 this.drawBoundingBox(ctx, clip, track, w, h, '#3b82f6', false);
+                
+                // ═══════════════════════════════════════════════════════
+                // Phase 29 — 🌐 UNIVERSAL: Clip Type Badge HUD
+                // ═══════════════════════════════════════════════════════
+                ctx.save();
+                const timeInClip = this.currentTime - clip.start;
+                const { posX, posY } = this.getClipTransform(clip, timeInClip);
+                const { drawW, drawH } = this.getClipDrawRect(clip, w, h);
+                const badgeX = (w / 2 + posX) - drawW / 2;
+                const badgeY = (h / 2 + posY) - drawH / 2 - 24; // Above the bounding box
+
+                let badgeColor = '#64748b'; // default slate
+                let badgeIcon = '📄';
+                let badgeText = clip.type.toUpperCase();
+
+                if (clip.type === 'audio') { badgeColor = '#06b6d4'; badgeIcon = '🎵'; }
+                else if (clip.type === 'video') { badgeColor = '#6366f1'; badgeIcon = '🎬'; }
+                else if (clip.type === 'image') { badgeColor = '#10b981'; badgeIcon = '🖼️'; }
+                else if (clip.type === 'text') { badgeColor = '#d946ef'; badgeIcon = '🔤'; }
+                else if (clip.type === 'shape') { badgeColor = '#f59e0b'; badgeIcon = '🔺'; }
+
+                ctx.fillStyle = badgeColor;
+                ctx.beginPath();
+                ctx.roundRect(badgeX, badgeY, 80, 20, 4);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 10px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${badgeIcon} ${badgeText}`, badgeX + 6, badgeY + 10);
+                ctx.restore();
                 
                 // Draw Motion Path
                 if (clip.keyframes && (clip.keyframes.positionX || clip.keyframes.positionY)) {
