@@ -59,16 +59,18 @@ function applyTextStyle(propKey: string, value: any) {
    PropSlider — live-synced range input
 ───────────────────────────────────────────────────────────── */
 function PropSlider({ label, propKey, min, max, step = 1, unit = '', color = '#6366f1', clip, isText = false }: any) {
-  const getDefault = () => {
+  const getLiveVal = () => {
     if (isText) return clip?.textStyle?.[propKey] ?? 0;
     if (propKey === 'opacity' || propKey === 'scale') return clip?.properties?.[propKey] ?? 100;
     return clip?.properties?.[propKey] ?? 0;
   };
-  const [val, setVal] = useState(getDefault());
+  const [val, setVal] = useState(getLiveVal());
 
+  // Sync whenever the clip changes OR the underlying property changes (e.g. after Reset)
+  const liveVal = getLiveVal();
   useEffect(() => {
-    setVal(getDefault());
-  }, [clip?.id, propKey]);
+    setVal(liveVal);
+  }, [clip?.id, propKey, liveVal]);
 
   const handle = (v: number) => {
     setVal(v);

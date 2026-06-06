@@ -115,10 +115,10 @@ const FIX_PRESETS = [
 
 /* ─── Export Formats ──────────────────────────────────────────── */
 const PLATFORMS = [
-  { id: 'youtube', label: 'YouTube', icon: 'fa-youtube', color: '#ef4444', cmd: 'social youtube' },
-  { id: 'tiktok',  label: 'TikTok',  icon: 'fa-tiktok',  color: '#f1f5f9', cmd: 'social tiktok' },
-  { id: 'insta',   label: 'Instagram', icon: 'fa-instagram', color: '#e879f9', cmd: 'social instagram' },
-  { id: 'shorts',  label: 'Shorts',  icon: 'fa-play',    color: '#f87171', cmd: 'social shorts' },
+  { id: 'youtube', label: 'YouTube',   icon: 'fa-youtube',   brand: true,  color: '#ef4444', cmd: 'social youtube' },
+  { id: 'tiktok',  label: 'TikTok',    icon: 'fa-tiktok',    brand: true,  color: '#f1f5f9', cmd: 'social tiktok' },
+  { id: 'insta',   label: 'Instagram', icon: 'fa-instagram', brand: true,  color: '#e879f9', cmd: 'social instagram' },
+  { id: 'shorts',  label: 'Shorts',    icon: 'fa-play',      brand: false, color: '#f87171', cmd: 'social shorts' },
 ];
 
 /* ─── Main Component ──────────────────────────────────────────── */
@@ -174,7 +174,7 @@ export function QuickFxPanel() {
   const favItems = ALL_FX.filter(fx => favorites.includes(fx.id));
 
   const TABS = [
-    { id: 'fx',    label: 'Effects',  icon: 'fa-magic-wand-sparkles' },
+    { id: 'fx',    label: 'Effects',  icon: 'fa-wand-magic-sparkles' },
     { id: 'fix',   label: 'Presets',  icon: 'fa-bolt' },
     { id: 'export',label: 'Export',   icon: 'fa-file-export' },
   ];
@@ -394,7 +394,7 @@ export function QuickFxPanel() {
                   onClick={() => runCmd(p.cmd)}
                   className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-[#0a0f1d] hover:bg-[#0f172a] border border-gray-800 hover:border-gray-600 transition-all"
                 >
-                  <i className={`fa-brands ${p.icon} text-[11px]`} style={{ color: p.color }} />
+                  <i className={`${p.brand ? 'fa-brands' : 'fa-solid'} ${p.icon} text-[11px]`} style={{ color: p.color }} />
                   <span className="text-[8px] text-gray-300">{p.label}</span>
                 </button>
               ))}
