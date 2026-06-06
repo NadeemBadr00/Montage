@@ -98,15 +98,23 @@ window.EditorApp.prototype.handleJKL = function(key) {
 };
 
 window.EditorApp.prototype.bindKeyboardShortcuts = function() {
-    document.addEventListener('keydown', (e) => {
+    // ✅ FIX: Remove any stale keyboard listener from a previous engine instance
+    if (window.__editorKeydownHandler) {
+        document.removeEventListener('keydown', window.__editorKeydownHandler);
+    }
+
+    const handler = (e) => {
         // Ignore if typing in input fields
         if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-        // FIX #2: Block ALL playback shortcuts when CMD center is focused
+        // Block ALL playback shortcuts when CMD center is focused
         if (window.app && window.app.isCmdFocused) return;
 
-        // FIX #2 (secondary): Also block when there's text in the buffer
+        // Block when there's text in the buffer
         if (window.app && window.app.commandBuffer && window.app.commandBuffer.length > 0) return;
+
+        // ✅ Only respond if this is the ACTIVE engine
+        if (window.app !== this) return;
 
         if (e.code === 'KeyJ') this.handleJKL('j');
         if (e.code === 'KeyK') this.handleJKL('k');
@@ -125,10 +133,25 @@ window.EditorApp.prototype.bindKeyboardShortcuts = function() {
                 this.redo();
             }
         }
-    });
+    };
+
+    // Store bound handler for cleanup
+    window.__editorKeydownHandler = handler.bind(this);
+    document.addEventListener('keydown', window.__editorKeydownHandler);
 };
 
 window.EditorApp.prototype.playbackLoop = function(now) {
+    // ✅ CRITICAL FIX: If this engine instance is no longer the active one
+    // (e.g. after Vite HMR / React remount), kill this RAF loop immediately.
+    // Without this, stale instances keep running and moving the playhead forever.
+    if (window.app !== this || this._stale) {
+        if (!this._staleMsgShown) {
+            console.log('[Engine] Stale playbackLoop detected — terminating ghost instance.');
+            this._staleMsgShown = true;
+        }
+        return; // Do NOT call requestAnimationFrame — loop dies here
+    }
+
     if (this.isExporting) {
         requestAnimationFrame(this.playbackLoop);
         return;
@@ -143,17 +166,13 @@ window.EditorApp.prototype.playbackLoop = function(now) {
         this.lastTimePerf = now;
 
         if (this.currentTime >= this.duration) { this.currentTime = this.duration; this.pausePlayback(); } 
-        else if (this.currentTime <= 0) { this.currentTime = 0; this.pausePlayback(); }
+        else if (this.currentTime <= 0 && this.playbackRate < 0) { this.currentTime = 0; this.pausePlayback(); }
         
-        // Mark for redraw only when time changes
         this.needsRedraw = true;
     } else {
         this.lastTimePerf = now;
     }
 
-    // OPTIMIZATION: Dirty Check Logic
-    // If NOT playing and NOT marked for redraw, SKIP rendering entirely.
-    // This saves GPU/CPU cycles when idle.
     if (this.needsRedraw) {
         this.managePlayers(); 
         this.renderFrameToCanvas(); 

@@ -29,9 +29,19 @@ export function useEngineInit(id: string) {
   useEffect(() => {
     const initEngine = async () => {
       // 1. Init Editor App
-      if ((window as any).EditorApp && !(window as any).app) {
-        try { (window as any).app = new (window as any).EditorApp(); }
-        catch (e) { console.error(e); }
+      // ✅ FIX: On Vite HMR, window.app may already exist from a previous module load.
+      // Always replace it with a fresh instance to prevent stale playback loops.
+      if ((window as any).EditorApp) {
+        if ((window as any).app) {
+          // Kill old instance gracefully: mark it as stale so its RAF loop exits
+          (window as any).app._stale = true;
+          // Pause any ongoing playback
+          try { (window as any).app.pausePlayback?.(); } catch {}
+        }
+        try { 
+          const newApp = new (window as any).EditorApp();
+          (window as any).app = newApp; // ← atomic swap: old RAF sees window.app !== this → exits
+        } catch (e) { console.error(e); }
       }
 
       // 2. Read settings from localStorage
@@ -205,6 +215,15 @@ export function useEngineInit(id: string) {
             // Feed back to the engine
             // Temporarily replace tracks with the saved snapshot
             app.restoreState(JSON.stringify(parsed));
+
+            // ✅ FIX: Always force-stop playback after restore.
+            // The saved state might have isPlaying=true if editor was playing when saved.
+            app.isPlaying = false;
+            app.playbackRate = 0;
+            app.isScrubbing = false;
+            if (window.useEditorStore) window.useEditorStore.setState({ isPlaying: false });
+            app.updatePlayStateUI?.();
+
             app.log('♻️ تم استعادة التعديلات السابقة تلقائياً');
             console.log(`[AutoRestore] ✅ Restored ${parsed.length} tracks for project ${id}`);
           } catch (e) {
