@@ -1,421 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useEditorStore } from '../../../store/useEditorStore';
-import { TTS_VOICES } from '../../../editor-engine/ai/tts_engine';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface ChatMessage { id: number; role: 'user' | 'ai' | 'cmd' | 'error'; text: string; }
-interface SuggestionItem { cmd: string; desc: string; color: string; category: string; icon: string; }
+// ─── Sub-components (extracted for maintainability) ───────────────────────────
+import { ChatMessage, SuggestionItem, EXAMPLES } from '../panels/right-panel-types';
+import { TTSModal }            from '../panels/right-panel-tts-modal';
+import { CMD_REFERENCE,
+         ALL_COMMANDS,
+         executeCmdString }    from '../panels/right-panel-cmd-reference';
+import { Bubble,
+         TypingIndicator,
+         AutocompleteDropdown} from '../panels/right-panel-chat-bubble';
+import { AutoMontageBar }      from '../panels/right-panel-automontage';
 
-// ─── TTS Modal ──────────────────────────────────────────────────────────────────────────────
-function TTSModal({ onClose }: { onClose: () => void }) {
-  const [text, setText] = useState('');
-  const [voice, setVoice] = useState('Kore');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [error, setError] = useState('');
-
-  const generate = async () => {
-    if (!text.trim()) { setError('اكتب النص المراد تحويله لصوت'); return; }
-    setError('');
-    setIsGenerating(true);
-    try {
-      const engine = (window as any).ttsEngine;
-      if (!engine) throw new Error('محرك TTS غير محمل');
-      const url = await engine.generate(text.trim(), voice);
-      setAudioUrl(url);
-    } catch (e: any) {
-      setError(e?.message || 'حدث خطأ أثناء توليد الصوت');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const addToTimeline = () => {
-    if (!audioUrl) return;
-    const engine = (window as any).ttsEngine;
-    const store = (window as any).useEditorStore?.getState?.();
-    if (!store) return;
-    const { tracks, addClipToTrack } = store;
-    const audioTrack = tracks?.find((t: any) => t.id === 'A2' || (t.type === 'audio' && t.id !== 'A1'));
-    if (audioTrack) {
-      const clip = {
-        id: `tts_${Date.now()}`,
-        name: `Voiceover_${voice}`,
-        src: audioUrl,
-        type: 'audio',
-        start: 0,
-        duration: 30,
-        volume: 1,
-      };
-      addClipToTrack(audioTrack.id, clip);
-      window.app?.log?.(`🎵 تم إضافة الـ voiceover للتراك: ${audioTrack.id}`);
-      onClose();
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-[#0d1628] border border-purple-500/30 rounded-2xl w-full max-w-md mx-4 p-6 shadow-2xl">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-black text-lg flex items-center gap-2">
-            <span className="text-2xl">🔊</span> AI Voiceover
-          </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">✕</button>
-        </div>
-
-        {/* Text input */}
-        <div className="mb-4">
-          <label className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 block">النص</label>
-          <textarea
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="اكتب هنا النص اللي تحب يتحول لصوت..."
-            rows={4}
-            className="w-full bg-[#0a0f1d] border border-gray-700 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-purple-500/60 resize-none"
-          />
-          <p className="text-gray-600 text-[10px] mt-1">{text.length} حرف</p>
-        </div>
-
-        {/* Voice selector */}
-        <div className="mb-5">
-          <label className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 block">الصوت</label>
-          <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-1">
-            {TTS_VOICES.map(v => (
-              <button key={v.id} onClick={() => setVoice(v.id)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all text-xs ${
-                  voice === v.id ? 'border-purple-500/60 bg-purple-500/15 text-purple-300' : 'border-gray-800 bg-[#0f172a] text-gray-400 hover:border-gray-600'
-                }`}>
-                <span className="text-base">{v.gender === '♀' ? '👩' : '👨'}</span>
-                <div>
-                  <div className="font-bold text-white">{v.name}</div>
-                  <div className="text-[10px] opacity-60">{v.lang}</div>
-                </div>
-                {voice === v.id && <span className="ml-auto text-purple-400">✓</span>}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Error */}
-        {error && <p className="text-red-400 text-xs mb-3 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
-
-        {/* Audio preview */}
-        {audioUrl && (
-          <div className="mb-4">
-            <label className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-2 block">معاينة الصوت</label>
-            <audio controls src={audioUrl} className="w-full h-9" />
-          </div>
-        )}
-
-        {/* Buttons */}
-        <div className="flex gap-3">
-          <button onClick={generate} disabled={isGenerating || !text.trim()}
-            className="flex-1 py-2.5 rounded-xl font-bold text-sm transition-all bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-            {isGenerating ? (
-              <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> جاري...</>
-            ) : (<> 🔊 توليد</>)}
-          </button>
-          {audioUrl && (
-            <button onClick={addToTimeline}
-              className="flex-1 py-2.5 rounded-xl font-bold text-sm bg-cyan-600 hover:bg-cyan-500 text-white transition-colors flex items-center justify-center gap-2">
-              ➕ إضافة للتايم لاين
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── CMD Reference ────────────────────────────────────────────────────────────
-const CMD_REFERENCE = [
-  { category: 'Cut', color: 'text-yellow-400', icon: 'fa-scissors', commands: [
-    { cmd: 'c20sv1', desc: 'Cut at 20s on V1' },
-    { cmd: 'c1m30sv1', desc: 'Cut at 1:30 on V1' },
-  ]},
-  { category: 'Delete', color: 'text-red-400', icon: 'fa-trash', commands: [
-    { cmd: 'd10s:20sv1', desc: 'Delete 10s→20s on V1' },
-    { cmd: 'd2v1', desc: 'Delete clip #2 on V1' },
-    { cmd: 'dv1', desc: 'Clear all clips on V1' },
-  ]},
-  { category: 'Upload', color: 'text-blue-400', icon: 'fa-upload', commands: [
-    { cmd: 'u10sv1', desc: 'Upload at 10s on V1' },
-    { cmd: 'u10s:20sv1', desc: 'Upload 10s→20s' },
-  ]},
-  { category: 'Move / Position', color: 'text-cyan-400', icon: 'fa-arrows-up-down-left-right', commands: [
-    { cmd: 'mv100x200y1v1', desc: 'Move clip 1 → X=100, Y=200' },
-    { cmd: 'mvlx1v1', desc: 'Move clip 1 to Left' },
-  ]},
-  { category: 'Properties', color: 'text-purple-400', icon: 'fa-sliders', commands: [
-    { cmd: 'sc150c1v1', desc: 'Scale clip 1 → 150%' },
-    { cmd: 'op50c1v1', desc: 'Opacity clip 1 → 50%' },
-    { cmd: 'ro45c1v1', desc: 'Rotation clip 1 → 45°' },
-    { cmd: 'sx150c1v1', desc: 'ScaleX → 150%' },
-    { cmd: 'sy80c1v1', desc: 'ScaleY → 80%' },
-    { cmd: 'sz1920x1080c1v1', desc: 'Resize → 1920×1080' },
-  ]},
-  { category: 'Remove Silence', color: 'text-orange-400', icon: 'fa-waveform-lines', commands: [
-    { cmd: 'rmsa1ev1', desc: 'Remove silence from A1, keep V1' },
-  ]},
-  { category: 'Selection Actions', color: 'text-rose-400', icon: 'fa-hand-pointer', commands: [
-    { cmd: 'del', desc: 'Delete selected clip(s)' },
-    { cmd: 'rdel', desc: 'Ripple-delete selected' },
-    { cmd: 'dup', desc: 'Duplicate selected clip' },
-  ]},
-  { category: 'Timeline Structure', color: 'text-teal-400', icon: 'fa-layer-group', commands: [
-    { cmd: 'txt', desc: 'Add text clip at playhead' },
-    { cmd: 'atv', desc: 'Add new video track' },
-    { cmd: 'ata', desc: 'Add new audio track' },
-  ]},
-  { category: 'Undo / Redo', color: 'text-green-300', icon: 'fa-rotate-left', commands: [
-    { cmd: 'undo', desc: 'Undo last action' },
-    { cmd: 'redo', desc: 'Redo last action' },
-  ]},
-  { category: 'Keyboard Shortcuts', color: 'text-pink-400', icon: 'fa-keyboard', commands: [
-    { cmd: 'C', desc: 'Razor / Cut Tool' },
-    { cmd: 'V', desc: 'Select Tool' },
-    { cmd: 'Del / ⌫', desc: 'Delete selected clip' },
-    { cmd: 'Shift+Del', desc: 'Ripple Delete selected' },
-    { cmd: 'Ctrl+Z', desc: 'Undo' },
-    { cmd: 'Ctrl+Y', desc: 'Redo' },
-    { cmd: 'Space', desc: 'Play / Pause' },
-  ]},
-];
-
-// Flat list for autocomplete
-const ALL_COMMANDS: SuggestionItem[] = CMD_REFERENCE.flatMap(s =>
-  s.commands.map(c => ({ cmd: c.cmd, desc: c.desc, color: s.color, icon: s.icon, category: s.category }))
-);
-
-const EXAMPLES = [
-  'اقطع الفيديو عند الثانية 30 على V1',
-  'كبّر الكليب الأول 150%',
-  'احذف الكليب المحدد',
-  'أضف تراك صوت جديد',
-  'ارجع للخطوة السابقة',
-];
-
-// ─── Engine CMD Executor ───────────────────────────────────────────────────────
-function executeCmdString(cmdStr: string): boolean {
-  const app = (window as any).app;
-  if (!app) return false;
-  app.commandBuffer = cmdStr;
-  app.isCmdFocused = true;
-  if (app.cmdBufferEl) app.cmdBufferEl.innerText = cmdStr;
-  app.updateConsoleVisuals?.();
-  // Dispatch synthetic Enter so engine executes the commandBuffer
-  document.dispatchEvent(new KeyboardEvent('keydown', {
-    key: 'Enter', code: 'Enter', bubbles: true, cancelable: true,
-  }));
-  return true;
-}
-
-// ─── Message Bubble ───────────────────────────────────────────────────────────
-function Bubble({ msg }: { msg: ChatMessage }) {
-  if (msg.role === 'user') return (
-    <div className="flex justify-end mb-2">
-      <div className="max-w-[85%] bg-gradient-to-br from-purple-600 to-indigo-600 text-white text-[11px] px-3 py-2 rounded-2xl rounded-tr-sm shadow-lg leading-relaxed">
-        {msg.text}
-      </div>
-    </div>
-  );
-
-  if (msg.role === 'cmd') return (
-    <div className="flex justify-center mb-1.5">
-      <div className="bg-black/60 border border-green-500/50 text-green-400 font-mono text-[10px] px-3 py-1.5 rounded-full flex items-center gap-2 shadow-[0_0_8px_rgba(16,185,129,0.2)]">
-        <i className="fa-solid fa-check-circle text-green-500 text-[9px]" />
-        {msg.text}
-      </div>
-    </div>
-  );
-
-  if (msg.role === 'error') return (
-    <div className="flex gap-2 mb-2">
-      <div className="w-6 h-6 rounded-full bg-red-900 border border-red-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-        <i className="fa-solid fa-triangle-exclamation text-red-400 text-[9px]" />
-      </div>
-      <div className="max-w-[85%] bg-red-900/40 border border-red-500/30 text-red-300 text-[11px] px-3 py-2 rounded-2xl rounded-tl-sm leading-relaxed">
-        {msg.text}
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="flex gap-2 mb-2">
-      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center flex-shrink-0 mt-0.5 shadow">
-        <i className="fa-solid fa-wand-magic-sparkles text-white text-[8px]" />
-      </div>
-      <div className="max-w-[85%] bg-[#131929] border border-purple-500/20 text-gray-200 text-[11px] px-3 py-2 rounded-2xl rounded-tl-sm shadow leading-relaxed">
-        {msg.text}
-      </div>
-    </div>
-  );
-}
-
-function TypingIndicator() {
-  return (
-    <div className="flex gap-2 mb-2">
-      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center flex-shrink-0">
-        <i className="fa-solid fa-wand-magic-sparkles text-white text-[8px]" />
-      </div>
-      <div className="bg-[#131929] border border-purple-500/20 px-3 py-2.5 rounded-2xl rounded-tl-sm flex items-center gap-1">
-        {[0, 1, 2].map(i => (
-          <span key={i} className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce"
-            style={{ animationDelay: `${i * 150}ms` }} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Autocomplete Dropdown ─────────────────────────────────────────────────────
-function AutocompleteDropdown({
-  suggestions, selectedIdx, onSelect,
-}: { suggestions: SuggestionItem[]; selectedIdx: number; onSelect: (s: SuggestionItem) => void; }) {
-  if (!suggestions.length) return null;
-  return (
-    <div className="absolute bottom-full left-0 right-0 mb-1 bg-[#0a0f1d] border border-green-500/30 rounded-xl overflow-hidden shadow-[0_-4px_20px_rgba(0,0,0,0.6)] z-50">
-      <div className="px-2.5 py-1 bg-green-900/20 border-b border-green-500/20 flex items-center gap-1.5">
-        <i className="fa-solid fa-terminal text-green-500 text-[8px]" />
-        <span className="text-[8px] text-green-500/70 font-mono">CMD suggestions</span>
-        <span className="ml-auto text-[7px] text-gray-600">Tab/↑↓ to navigate</span>
-      </div>
-      {suggestions.map((s, idx) => (
-        <div
-          key={s.cmd}
-          onMouseDown={(e) => { e.preventDefault(); onSelect(s); }}
-          className={`flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer transition-colors ${
-            idx === selectedIdx ? 'bg-green-900/30 border-l-2 border-green-400' : 'hover:bg-gray-800/60'
-          }`}
-        >
-          <code className="text-green-300 font-mono text-[9px] bg-black/40 px-1.5 py-0.5 rounded whitespace-nowrap">{s.cmd}</code>
-          <span className={`text-[8px] ${s.color} opacity-70`}>{s.category}</span>
-          <span className="text-gray-500 text-[8px] ml-auto truncate">{s.desc}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── AutoMontage Bar ──────────────────────────────────────────────────────────
-const MONTAGE_STYLES = [
-  { id: 'cinematic', label: 'سينمائي', icon: 'fa-film', color: 'text-amber-400' },
-  { id: 'energetic', label: 'نشيط', icon: 'fa-bolt', color: 'text-yellow-400' },
-  { id: 'documentary', label: 'وثائقي', icon: 'fa-video', color: 'text-blue-400' },
-  { id: 'social', label: 'سوشيال', icon: 'fa-hashtag', color: 'text-pink-400' },
-];
-
-function AutoMontageBar() {
-  const [style, setStyle] = useState('cinematic');
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [statusMsg, setStatusMsg] = useState('');
-  const [showStyles, setShowStyles] = useState(false);
-  const currentStyle = MONTAGE_STYLES.find(s => s.id === style) || MONTAGE_STYLES[0];
-
-  const handleRun = async () => {
-    const engine = (window as any).autoMontage;
-    if (!engine) {
-      (window as any).geminiChat?.pushMessage?.('ai', '⚠️ AutoMontage engine not loaded.');
-      return;
-    }
-    setRunning(true);
-    setProgress(0);
-    setStatusMsg('جاري التهيئة...');
-
-    try {
-      await engine.run(style, (msg: string, pct: number) => {
-        setProgress(pct);
-        setStatusMsg(msg);
-      });
-    } catch(e) {
-      console.error(e);
-    } finally {
-      setRunning(false);
-      setProgress(100);
-      setTimeout(() => { setProgress(0); setStatusMsg(''); }, 3000);
-    }
-  };
-
-  return (
-    <div className="flex-shrink-0 border-b border-gray-800/60 bg-gradient-to-r from-[#0a0f1d] to-[#0d1225] px-2.5 py-2">
-      {/* Header row */}
-      <div className="flex items-center gap-2 mb-1.5">
-        <div className="flex items-center gap-1.5 flex-1">
-          <div className="w-5 h-5 rounded-md bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0">
-            <i className="fa-solid fa-wand-sparkles text-white text-[8px]" />
-          </div>
-          <span className="text-[10px] font-bold text-amber-400">AutoMontage</span>
-          <span className="text-[8px] text-gray-600">— مونتاج تلقائي بالذكاء الاصطناعي</span>
-        </div>
-        {/* Style selector */}
-        <div className="relative">
-          <button
-            onClick={() => setShowStyles(v => !v)}
-            disabled={running}
-            className={`flex items-center gap-1 bg-[#0f172a] border border-gray-700 hover:border-amber-500/50 rounded-lg px-2 py-1 text-[9px] ${currentStyle.color} transition-all`}
-          >
-            <i className={`fa-solid ${currentStyle.icon} text-[8px]`} />
-            {currentStyle.label}
-            <i className="fa-solid fa-chevron-down text-[6px] text-gray-600" />
-          </button>
-          {showStyles && (
-            <div className="absolute bottom-full right-0 mb-1 bg-[#0a0f1d] border border-gray-700 rounded-lg overflow-hidden shadow-xl z-50 min-w-[110px]">
-              {MONTAGE_STYLES.map(s => (
-                <button key={s.id}
-                  onClick={() => { setStyle(s.id); setShowStyles(false); }}
-                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-[9px] hover:bg-gray-800 transition-colors ${s.color} ${s.id === style ? 'bg-gray-800/60' : ''}`}
-                >
-                  <i className={`fa-solid ${s.icon} text-[8px]`} />
-                  {s.label}
-                  {s.id === style && <i className="fa-solid fa-check text-[7px] ml-auto" />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      {(running || progress > 0) && (
-        <div className="mb-1.5">
-          <div className="flex items-center justify-between mb-0.5">
-            <span id="auto-montage-progress-text" className="text-[8px] text-gray-400 truncate flex-1">{statusMsg}</span>
-            <span className="text-[8px] text-amber-400 font-mono flex-shrink-0 ml-1">{progress}%</span>
-          </div>
-          <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
-            <div
-              id="auto-montage-progress-bar"
-              className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Run button */}
-      <button
-        id="auto-montage-run-btn"
-        onClick={handleRun}
-        disabled={running}
-        className={`w-full py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-2 ${
-          running
-            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-            : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-md shadow-amber-900/30 hover:shadow-amber-900/50 hover:scale-[1.02] active:scale-[0.98]'
-        }`}
-      >
-        {running ? (
-          <><i className="fa-solid fa-spinner fa-spin text-[9px]" />جاري التحليل والمونتاج...</>
-        ) : (
-          <><i className="fa-solid fa-magic text-[9px]" />✨ منتج الفيديو التلقائي</>
-        )}
-      </button>
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-
+// ─── Main RightPanel Component ────────────────────────────────────────────────
 export default function RightPanel() {
   const [activeTab, setActiveTab] = useState<'ai' | 'cmd'>('ai');
   const [showTTSModal, setShowTTSModal] = useState(false);
@@ -483,12 +80,10 @@ export default function RightPanel() {
     historyIdx.current = -1;
     if (val.startsWith('/') && val.length > 1) {
       const query = val.slice(1).toLowerCase();
-      
       const isContextActive = useEditorStore.getState().selectedClipIds.size > 0;
       let matches = ALL_COMMANDS.filter(c =>
         c.cmd.toLowerCase().startsWith(query) || c.desc.toLowerCase().includes(query)
       );
-
       if (isContextActive) {
         const contextCmds = ['del', 'rdel', 'dup'];
         matches = matches.sort((a, b) => {
@@ -496,8 +91,6 @@ export default function RightPanel() {
           const bContext = contextCmds.includes(b.cmd) ? 1 : 0;
           return bContext - aContext;
         });
-        
-        // Add [Context] label to the context commands
         matches = matches.map(m => {
             if (contextCmds.includes(m.cmd) && !m.category.includes('[Context]')) {
                 return { ...m, category: '[Context] ' + m.category, color: 'text-yellow-300' };
@@ -505,7 +98,6 @@ export default function RightPanel() {
             return m;
         });
       }
-
       setSuggestions(matches.slice(0, 7));
     } else {
       setSuggestions([]);
@@ -517,8 +109,6 @@ export default function RightPanel() {
   const doExecuteCmd = useCallback((cmdStr: string) => {
     cmdHistory.current = [cmdStr, ...cmdHistory.current.filter(h => h !== cmdStr).slice(0, 48)];
     historyIdx.current = -1;
-
-    // 1. Alias Creation
     if (cmdStr.startsWith('alias ')) {
        const match = cmdStr.match(/^alias\s+([a-zA-Z0-9_-]+)\s*=\s*(.+)$/);
        if (match) {
@@ -527,12 +117,9 @@ export default function RightPanel() {
            return;
        }
     }
-
-    // 2. Expand aliases & split by ';'
     const aliases = useEditorStore.getState().cmdAliases;
     const finalCmdStr = aliases[cmdStr.trim()] || cmdStr;
     const commands = finalCmdStr.split(';').map(c => c.trim()).filter(Boolean);
-
     let delay = 0;
     commands.forEach(cmd => {
         setTimeout(() => executeCmdString(cmd), delay);
@@ -547,9 +134,7 @@ export default function RightPanel() {
     setInput('');
     setSuggestions([]);
     setSelectedSuggIdx(-1);
-
     if (text.startsWith('/')) {
-      // ── CMD mode ──────────────────────────────────────────────────────────
       const cmdStr = text.slice(1).trim();
       if (!cmdStr) return;
       setMessages(prev => [...prev, { id: Date.now(), role: 'user', text }]);
@@ -558,7 +143,6 @@ export default function RightPanel() {
         setMessages(prev => [...prev, { id: Date.now(), role: 'cmd', text: `⚡ ${cmdStr}` }]);
       }, 80);
     } else {
-      // ── AI mode ───────────────────────────────────────────────────────────
       const chat = (window as any).geminiChat;
       if (chat) await chat.handleUserMessage(text);
     }
@@ -567,12 +151,10 @@ export default function RightPanel() {
   // ── Keyboard handler (AI input) ───────────────────────────────────────────
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     const hasSugg = suggestions.length > 0;
-
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      if (hasSugg) {
-        setSelectedSuggIdx(prev => Math.max(0, prev - 1));
-      } else if (cmdHistory.current.length > 0) {
+      if (hasSugg) { setSelectedSuggIdx(prev => Math.max(0, prev - 1)); }
+      else if (cmdHistory.current.length > 0) {
         const newIdx = Math.min(historyIdx.current + 1, cmdHistory.current.length - 1);
         historyIdx.current = newIdx;
         setInput('/' + cmdHistory.current[newIdx]);
@@ -582,9 +164,8 @@ export default function RightPanel() {
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      if (hasSugg) {
-        setSelectedSuggIdx(prev => Math.min(suggestions.length - 1, prev + 1));
-      } else if (historyIdx.current >= 0) {
+      if (hasSugg) { setSelectedSuggIdx(prev => Math.min(suggestions.length - 1, prev + 1)); }
+      else if (historyIdx.current >= 0) {
         const newIdx = historyIdx.current - 1;
         historyIdx.current = newIdx;
         setInput(newIdx < 0 ? '' : '/' + cmdHistory.current[newIdx]);
@@ -599,24 +180,18 @@ export default function RightPanel() {
       setSelectedSuggIdx(-1);
       return;
     }
-    if (e.key === 'Escape') {
-      setSuggestions([]);
-      setSelectedSuggIdx(-1);
-      return;
-    }
+    if (e.key === 'Escape') { setSuggestions([]); setSelectedSuggIdx(-1); return; }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (hasSugg && selectedSuggIdx >= 0) {
         setInput('/' + suggestions[selectedSuggIdx].cmd);
         setSuggestions([]);
         setSelectedSuggIdx(-1);
-      } else {
-        sendMessage();
-      }
+      } else { sendMessage(); }
     }
   };
 
-  // ── CMD Tab: real input field logic ───────────────────────────────────────
+  // ── CMD Tab logic ──────────────────────────────────────────────────────────
   const syncCmdTabBuffer = (val: string) => {
     const app = (window as any).app;
     if (!app) return;
@@ -628,21 +203,14 @@ export default function RightPanel() {
     setIsFocused(true);
   };
 
-  const handleCmdTabChange = (val: string) => {
-    setCmdTabInput(val);
-    syncCmdTabBuffer(val);
-    historyIdx.current = -1;
-  };
+  const handleCmdTabChange = (val: string) => { setCmdTabInput(val); syncCmdTabBuffer(val); historyIdx.current = -1; };
 
   const handleCmdTabKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const cmd = cmdTabInput.trim();
       if (!cmd) return;
-      doExecuteCmd(cmd);
-      setCmdTabInput('');
-      syncCmdTabBuffer('');
-      return;
+      doExecuteCmd(cmd); setCmdTabInput(''); syncCmdTabBuffer(''); return;
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault();
@@ -650,8 +218,7 @@ export default function RightPanel() {
         const newIdx = Math.min(historyIdx.current + 1, cmdHistory.current.length - 1);
         historyIdx.current = newIdx;
         const cmd = cmdHistory.current[newIdx];
-        setCmdTabInput(cmd);
-        syncCmdTabBuffer(cmd);
+        setCmdTabInput(cmd); syncCmdTabBuffer(cmd);
       }
       return;
     }
@@ -660,28 +227,17 @@ export default function RightPanel() {
       const newIdx = historyIdx.current - 1;
       historyIdx.current = newIdx;
       const cmd = newIdx < 0 ? '' : cmdHistory.current[newIdx];
-      setCmdTabInput(cmd);
-      syncCmdTabBuffer(cmd);
-      return;
+      setCmdTabInput(cmd); syncCmdTabBuffer(cmd); return;
     }
-    if (e.key === 'Escape') {
-      setCmdTabInput('');
-      syncCmdTabBuffer('');
-    }
+    if (e.key === 'Escape') { setCmdTabInput(''); syncCmdTabBuffer(''); }
   };
 
-  // ── Execute from reference list ────────────────────────────────────────────
   const runFromReference = (cmd: string) => {
     doExecuteCmd(cmd);
     setExecutedBadge(cmd);
-    // Also prefill CMD tab for visibility
     setCmdTabInput(cmd);
     syncCmdTabBuffer(cmd);
-    setTimeout(() => {
-      setExecutedBadge(null);
-      setCmdTabInput('');
-      syncCmdTabBuffer('');
-    }, 1500);
+    setTimeout(() => { setExecutedBadge(null); setCmdTabInput(''); syncCmdTabBuffer(''); }, 1500);
   };
 
   // CMD polling (backward compat)
@@ -689,10 +245,7 @@ export default function RightPanel() {
     if (activeTab !== 'cmd') return;
     const interval = setInterval(() => {
       const app = (window as any).app;
-      if (app && !cmdTabInput) {
-        setCmdBuffer(app.commandBuffer || '');
-        setIsFocused(!!app.isCmdFocused);
-      }
+      if (app && !cmdTabInput) { setCmdBuffer(app.commandBuffer || ''); setIsFocused(!!app.isCmdFocused); }
     }, 50);
     return () => clearInterval(interval);
   }, [activeTab, cmdTabInput]);
@@ -709,7 +262,6 @@ export default function RightPanel() {
     app.updateConsoleVisuals?.();
   }, [activeTab]);
 
-  // ── Is CMD mode ───────────────────────────────────────────────────────────
   const isCmdMode = input.startsWith('/');
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -720,22 +272,10 @@ export default function RightPanel() {
 
         {/* Tabs */}
         <div className="flex border-b border-gray-800 bg-[#0a0f1d] text-[11px] font-bold flex-shrink-0">
-          <button
-            id="tab-ai"
-            className={`flex-1 py-2 text-center transition-all ${activeTab === 'ai'
-              ? 'text-purple-400 bg-[#0f172a] border-b-2 border-purple-500'
-              : 'text-gray-500 hover:text-gray-300'}`}
-            onClick={() => setActiveTab('ai')}
-          >
+          <button id="tab-ai" className={`flex-1 py-2 text-center transition-all ${activeTab === 'ai' ? 'text-purple-400 bg-[#0f172a] border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300'}`} onClick={() => setActiveTab('ai')}>
             <i className="fa-solid fa-wand-magic-sparkles mr-1" />AI4Montage Assistant
           </button>
-          <button
-            id="tab-cmd"
-            className={`flex-1 py-2 text-center transition-all ${activeTab === 'cmd'
-              ? 'text-green-400 bg-[#0f172a] border-b-2 border-green-500'
-              : 'text-gray-500 hover:text-gray-300'}`}
-            onClick={() => setActiveTab('cmd')}
-          >
+          <button id="tab-cmd" className={`flex-1 py-2 text-center transition-all ${activeTab === 'cmd' ? 'text-green-400 bg-[#0f172a] border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'}`} onClick={() => setActiveTab('cmd')}>
             <i className="fa-solid fa-terminal mr-1" />CMD Center
           </button>
         </div>
@@ -748,87 +288,39 @@ export default function RightPanel() {
 
               {/* Quick Actions */}
               <div className="flex-shrink-0 flex gap-1.5 px-2.5 py-2 border-b border-gray-800/60 bg-[#0a0f1d]">
-                <button
-                  id="ai-srt-btn"
-                  onClick={() => (document.getElementById('ai-srt-file-input') as HTMLInputElement)?.click()}
-                  title="استخراج ترجمة من ملف SRT أو فيديو"
-                  className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-yellow-500/40 text-yellow-500 hover:text-yellow-400 transition-all group"
-                >
+                <button id="ai-srt-btn" onClick={() => (document.getElementById('ai-srt-file-input') as HTMLInputElement)?.click()} title="استخراج ترجمة من ملف SRT أو فيديو" className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-yellow-500/40 text-yellow-500 hover:text-yellow-400 transition-all group">
                   <i className="fa-solid fa-closed-captioning text-sm group-hover:scale-110 transition-transform" />
                   <span className="text-[8px] text-gray-500 group-hover:text-gray-400">ترجمة SRT</span>
                 </button>
-                 <input type="file" id="ai-srt-file-input" accept=".srt,video/*" className="hidden"
-                  onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const am = (window as any).aiManager;
-                    if (!am) return;
-                    if (file.name.endsWith('.srt')) am.processExternalSRT(file);
-                    else am.generateSubtitles(file);
-                    (e.target as HTMLInputElement).value = '';
-                  }}
-                />
+                <input type="file" id="ai-srt-file-input" accept=".srt,video/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (!file) return; const am = (window as any).aiManager; if (!am) return; if (file.name.endsWith('.srt')) am.processExternalSRT(file); else am.generateSubtitles(file); (e.target as HTMLInputElement).value = ''; }} />
 
-                {/* 🔊 TTS Voiceover Button */}
-                <button
-                  id="ai-tts-btn"
-                  onClick={() => setShowTTSModal(true)}
-                  title="توليد صوت AI Voiceover"
-                  className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 transition-all group"
-                >
+                <button id="ai-tts-btn" onClick={() => setShowTTSModal(true)} title="توليد صوت AI Voiceover" className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 transition-all group">
                   <i className="fa-solid fa-microphone text-sm group-hover:scale-110 transition-transform" />
                   <span className="text-[8px] text-gray-500 group-hover:text-gray-400">Voiceover</span>
                 </button>
 
-                <button
-                  id="ai-plan-btn"
-                  onClick={() => (window as any).geminiPlan?.showLastPlan?.()}
-                  title="خطة المونتاج الذكية"
-                  className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 transition-all group"
-                >
+                <button id="ai-plan-btn" onClick={() => (window as any).geminiPlan?.showLastPlan?.()} title="خطة المونتاج الذكية" className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 transition-all group">
                   <i className="fa-solid fa-clipboard-list text-sm group-hover:scale-110 transition-transform" />
                   <span className="text-[8px] text-gray-500 group-hover:text-gray-400">خطة AI</span>
                 </button>
 
-                {/* 🔤 Add Text Button */}
-                <button
-                  id="ai-add-text-btn"
-                  onClick={() => {
-                    const app = (window as any).app;
-                    if (app?.addTextAtCanvasPosition) app.addTextAtCanvasPosition(0, 0);
-                    else if (app?.addTextClip) app.addTextClip();
-                  }}
-                  title="أضف نص على الكانفاز"
-                  className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-cyan-500/40 text-cyan-400 hover:text-cyan-300 transition-all group"
-                >
+                <button id="ai-add-text-btn" onClick={() => { const app = (window as any).app; if (app?.addTextAtCanvasPosition) app.addTextAtCanvasPosition(0, 0); else if (app?.addTextClip) app.addTextClip(); }} title="أضف نص على الكانفاز" className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-cyan-500/40 text-cyan-400 hover:text-cyan-300 transition-all group">
                   <i className="fa-solid fa-t text-sm group-hover:scale-110 transition-transform" />
                   <span className="text-[8px] text-gray-500 group-hover:text-gray-400">Add Text</span>
                 </button>
 
-
-                <button
-                  id="ai-upload-plan-btn"
-                  onClick={() => (document.getElementById('ai-panel-plan-upload') as HTMLInputElement)?.click()}
-                  title="رفع خطة JSON جاهزة"
-                  className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 transition-all group"
-                >
+                <button id="ai-upload-plan-btn" onClick={() => (document.getElementById('ai-panel-plan-upload') as HTMLInputElement)?.click()} title="رفع خطة JSON جاهزة" className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 transition-all group">
                   <i className="fa-solid fa-file-arrow-up text-sm group-hover:scale-110 transition-transform" />
                   <span className="text-[8px] text-gray-500 group-hover:text-gray-400">رفع خطة</span>
                 </button>
 
-                <input type="file" id="ai-panel-plan-upload" accept=".json" className="hidden"
-                  onChange={e => { const plan = (window as any).geminiPlan; if (plan && e.target) plan.handlePlanUpload(e.target as HTMLInputElement); }}
-                />
-                <input type="file" id="header-plan-upload" accept=".json" className="hidden"
-                  onChange={e => { const plan = (window as any).geminiPlan; if (plan && e.target) plan.handlePlanUpload(e.target as HTMLInputElement); }}
-                />
+                <input type="file" id="ai-panel-plan-upload" accept=".json" className="hidden" onChange={e => { const plan = (window as any).geminiPlan; if (plan && e.target) plan.handlePlanUpload(e.target as HTMLInputElement); }} />
+                <input type="file" id="header-plan-upload" accept=".json" className="hidden" onChange={e => { const plan = (window as any).geminiPlan; if (plan && e.target) plan.handlePlanUpload(e.target as HTMLInputElement); }} />
               </div>
 
-              {/* ✨ AutoMontage Button */}
               <AutoMontageBar />
 
-
-              {/* CMD hint bar (shown only when in cmd mode) */}
+              {/* CMD hint bar */}
               {isCmdMode && (
                 <div className="flex-shrink-0 flex items-center gap-2 px-3 py-1 bg-green-900/20 border-b border-green-500/20">
                   <i className="fa-solid fa-terminal text-green-500 text-[9px]" />
@@ -849,24 +341,16 @@ export default function RightPanel() {
                       <p className="text-gray-200 text-[12px] font-bold mb-1">AI + CMD Center</p>
                       <p className="text-gray-500 text-[10px] leading-relaxed">تكلم المحرر بالعربية • أو اكتب <code className="text-green-400 bg-black/40 px-1 rounded">/cmd</code> للتنفيذ المباشر</p>
                     </div>
-                    {/* CMD hint */}
                     <div className="w-full bg-green-900/10 border border-green-500/20 rounded-xl p-2 space-y-1">
-                      <p className="text-[9px] text-green-500/70 font-bold flex items-center gap-1 mb-1.5">
-                        <i className="fa-solid fa-terminal" /> أمثلة سريعة بـ /
-                      </p>
+                      <p className="text-[9px] text-green-500/70 font-bold flex items-center gap-1 mb-1.5"><i className="fa-solid fa-terminal" /> أمثلة سريعة بـ /</p>
                       {['/c20sv1', '/sc150c1v1', '/undo', '/atv'].map(ex => (
-                        <button key={ex} onClick={() => { setInput(ex); inputRef.current?.focus(); }}
-                          className="w-full text-left font-mono text-[9px] text-green-300 hover:text-green-200 bg-black/30 hover:bg-black/50 rounded px-2 py-1 transition-colors">
-                          {ex}
-                        </button>
+                        <button key={ex} onClick={() => { setInput(ex); inputRef.current?.focus(); }} className="w-full text-left font-mono text-[9px] text-green-300 hover:text-green-200 bg-black/30 hover:bg-black/50 rounded px-2 py-1 transition-colors">{ex}</button>
                       ))}
                     </div>
                     <div className="w-full space-y-1.5">
                       {EXAMPLES.map(ex => (
-                        <button key={ex} onClick={() => { setInput(ex); inputRef.current?.focus(); }}
-                          className="w-full text-right text-[10px] text-gray-400 hover:text-purple-300 bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-purple-500/40 rounded-xl px-3 py-2 transition-all leading-relaxed">
-                          <i className="fa-solid fa-arrow-right text-purple-500/60 ml-1.5 text-[8px]" />
-                          {ex}
+                        <button key={ex} onClick={() => { setInput(ex); inputRef.current?.focus(); }} className="w-full text-right text-[10px] text-gray-400 hover:text-purple-300 bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-purple-500/40 rounded-xl px-3 py-2 transition-all leading-relaxed">
+                          <i className="fa-solid fa-arrow-right text-purple-500/60 ml-1.5 text-[8px]" />{ex}
                         </button>
                       ))}
                     </div>
@@ -879,158 +363,49 @@ export default function RightPanel() {
 
               {/* Input */}
               <div className="flex-shrink-0 p-2.5 border-t border-gray-800/80 bg-[#0a0f1d]">
-                {/* History hint */}
                 {cmdHistory.current.length > 0 && (
                   <div className="flex items-center gap-1 mb-1.5 px-1">
                     <i className="fa-solid fa-clock-rotate-left text-[7px] text-gray-600" />
                     <span className="text-[7px] text-gray-600">↑↓ للتنقل في السجل ({cmdHistory.current.length} أمر)</span>
                   </div>
                 )}
-
-                {/* Autocomplete dropdown (positioned relative to input wrapper) */}
                 <div className="relative">
-                  <AutocompleteDropdown
-                    suggestions={suggestions}
-                    selectedIdx={selectedSuggIdx}
-                    onSelect={(s) => {
-                      setInput('/' + s.cmd);
-                      setSuggestions([]);
-                      setSelectedSuggIdx(-1);
-                      inputRef.current?.focus();
-                    }}
-                  />
-                  <div className={`flex items-center gap-2 bg-[#0f172a] border rounded-2xl px-3 py-1.5 transition-all ${
-                    isThinking
-                      ? 'border-purple-500/20 opacity-70'
-                      : isCmdMode
-                        ? 'border-green-500/50 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
-                        : 'border-gray-700 focus-within:border-purple-500/60 focus-within:shadow-[0_0_12px_rgba(139,92,246,0.15)]'
-                  }`}>
-                    {/* Mode indicator */}
-                    {isCmdMode ? (
-                      <span className="text-green-500 text-[9px] font-mono flex-shrink-0">$</span>
-                    ) : (
-                      <i className="fa-solid fa-wand-magic-sparkles text-purple-500/60 text-[9px] flex-shrink-0" />
-                    )}
-                    <input
-                      id="ai-chat-input"
-                      ref={inputRef}
-                      value={input}
-                      onChange={e => handleInputChange(e.target.value)}
-                      onKeyDown={onKeyDown}
-                      disabled={isThinking}
-                      placeholder={isThinking ? 'جاري التفكير...' : 'اكتب طلبك... أو /cmd للتنفيذ'}
-                      className="flex-1 bg-transparent text-[11px] text-gray-200 placeholder-gray-600 focus:outline-none disabled:opacity-40 py-1 font-mono"
-                      dir="auto"
-                    />
-                    <button
-                      id="ai-send-btn"
-                      onClick={sendMessage}
-                      disabled={isThinking || !input.trim()}
-                      className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
-                        isThinking || !input.trim()
-                          ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                          : isCmdMode
-                            ? 'bg-gradient-to-br from-green-600 to-emerald-600 text-white hover:scale-105 shadow-md shadow-green-900/40'
-                            : 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white hover:scale-105 shadow-md shadow-purple-900/40'
-                      }`}
-                    >
-                      {isThinking
-                        ? <i className="fa-solid fa-spinner fa-spin text-[9px]" />
-                        : isCmdMode
-                          ? <i className="fa-solid fa-play text-[9px]" />
-                          : <i className="fa-solid fa-paper-plane text-[9px]" />
-                      }
+                  <AutocompleteDropdown suggestions={suggestions} selectedIdx={selectedSuggIdx} onSelect={(s) => { setInput('/' + s.cmd); setSuggestions([]); setSelectedSuggIdx(-1); inputRef.current?.focus(); }} />
+                  <div className={`flex items-center gap-2 bg-[#0f172a] border rounded-2xl px-3 py-1.5 transition-all ${isThinking ? 'border-purple-500/20 opacity-70' : isCmdMode ? 'border-green-500/50 shadow-[0_0_12px_rgba(16,185,129,0.15)]' : 'border-gray-700 focus-within:border-purple-500/60 focus-within:shadow-[0_0_12px_rgba(139,92,246,0.15)]'}`}>
+                    {isCmdMode ? <span className="text-green-500 text-[9px] font-mono flex-shrink-0">$</span> : <i className="fa-solid fa-wand-magic-sparkles text-purple-500/60 text-[9px] flex-shrink-0" />}
+                    <input id="ai-chat-input" ref={inputRef} value={input} onChange={e => handleInputChange(e.target.value)} onKeyDown={onKeyDown} disabled={isThinking} placeholder={isThinking ? 'جاري التفكير...' : 'اكتب طلبك... أو /cmd للتنفيذ'} className="flex-1 bg-transparent text-[11px] text-gray-200 placeholder-gray-600 focus:outline-none disabled:opacity-40 py-1 font-mono" dir="auto" />
+                    <button id="ai-send-btn" onClick={sendMessage} disabled={isThinking || !input.trim()} className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${isThinking || !input.trim() ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : isCmdMode ? 'bg-gradient-to-br from-green-600 to-emerald-600 text-white hover:scale-105 shadow-md shadow-green-900/40' : 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white hover:scale-105 shadow-md shadow-purple-900/40'}`}>
+                      {isThinking ? <i className="fa-solid fa-spinner fa-spin text-[9px]" /> : isCmdMode ? <i className="fa-solid fa-play text-[9px]" /> : <i className="fa-solid fa-paper-plane text-[9px]" />}
                     </button>
                   </div>
                 </div>
-                {messages.length > 0 && (
-                  <button onClick={() => setMessages([])}
-                    className="mt-1.5 w-full text-center text-[9px] text-gray-600 hover:text-gray-400 transition-colors">
-                    <i className="fa-solid fa-rotate-left mr-1" />مسح المحادثة
-                  </button>
-                )}
+                {messages.length > 0 && (<button onClick={() => setMessages([])} className="mt-1.5 w-full text-center text-[9px] text-gray-600 hover:text-gray-400 transition-colors"><i className="fa-solid fa-rotate-left mr-1" />مسح المحادثة</button>)}
 
-                {/* 🔑 Personal API Key */}
+                {/* Personal API Key */}
                 <div className="mt-2 border border-gray-800/60 rounded-xl overflow-hidden">
-                  <button
-                    onClick={() => setShowApiKey(prev => !prev)}
-                    className="w-full flex items-center justify-between px-3 py-1.5 text-[9px] text-gray-500 hover:text-gray-300 bg-[#0a0f1d] hover:bg-[#0f172a] transition-colors"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <i className="fa-solid fa-key text-yellow-500/70" />
-                      🔑 Personal API Key
-                    </span>
+                  <button onClick={() => setShowApiKey(prev => !prev)} className="w-full flex items-center justify-between px-3 py-1.5 text-[9px] text-gray-500 hover:text-gray-300 bg-[#0a0f1d] hover:bg-[#0f172a] transition-colors">
+                    <span className="flex items-center gap-1.5"><i className="fa-solid fa-key text-yellow-500/70" /> 🔑 Personal API Key</span>
                     <i className={`fa-solid fa-chevron-${showApiKey ? 'up' : 'down'} text-[8px]`} />
                   </button>
                   {showApiKey && (
                     <div className="px-3 pb-2 pt-1 bg-[#080d1a]">
-                      <input
-                        id="ai4montage-api-key"
-                        type="password"
-                        placeholder="AIzaSy... (مفتاح Gemini الشخصي)"
-                        className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-yellow-500/60 font-mono"
-                        dir="ltr"
-                      />
-                      <p className="text-[8px] text-gray-600 mt-1 leading-relaxed">
-                        احصل على مفتاح مجاني من{' '}
-                        <a
-                          href="https://aistudio.google.com/apikey"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-yellow-500/80 hover:text-yellow-400 underline"
-                        >
-                          Google AI Studio
-                        </a>
-                        {' '}— يبقى في المتصفح فقط.
-                      </p>
+                      <input id="ai4montage-api-key" type="password" placeholder="AIzaSy... (مفتاح Gemini الشخصي)" className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-yellow-500/60 font-mono" dir="ltr" />
+                      <p className="text-[8px] text-gray-600 mt-1 leading-relaxed">احصل على مفتاح مجاني من{' '}<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-yellow-500/80 hover:text-yellow-400 underline">Google AI Studio</a>{' '}— يبقى في المتصفح فقط.</p>
                     </div>
                   )}
                 </div>
-
               </div>
             </div>
 
           ) : (
             /* ════ CMD TAB ════ */
-            <div
-              id="cmd-console"
-              ref={cmdContainerRef}
-              className={`p-3 bg-[#050811] flex-grow flex flex-col overflow-hidden border border-transparent transition-all rounded-b-lg ${
-                isFocused ? 'border-green-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-green-500/30'
-              }`}
-              dir="ltr"
-            >
-              {/* CMD Input (real input field) */}
-              <div className={`flex items-center gap-2 bg-black/50 border rounded-xl px-3 py-2 mb-2 flex-shrink-0 transition-all ${
-                isFocused ? 'border-green-500/60 shadow-[0_0_8px_rgba(16,185,129,0.2)]' : 'border-green-900/50'
-              }`}>
+            <div id="cmd-console" ref={cmdContainerRef} className={`p-3 bg-[#050811] flex-grow flex flex-col overflow-hidden border border-transparent transition-all rounded-b-lg ${isFocused ? 'border-green-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'border-green-500/30'}`} dir="ltr">
+              {/* CMD Input */}
+              <div className={`flex items-center gap-2 bg-black/50 border rounded-xl px-3 py-2 mb-2 flex-shrink-0 transition-all ${isFocused ? 'border-green-500/60 shadow-[0_0_8px_rgba(16,185,129,0.2)]' : 'border-green-900/50'}`}>
                 <span className="text-green-500 text-[11px] font-mono flex-shrink-0">$</span>
-                <input
-                  ref={cmdTabInputRef}
-                  value={cmdTabInput}
-                  onChange={e => handleCmdTabChange(e.target.value)}
-                  onKeyDown={handleCmdTabKeyDown}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
-                  placeholder="type command... ↑↓ history · Enter to run"
-                  className="flex-1 bg-transparent text-sm font-bold tracking-wider text-green-400 font-mono focus:outline-none placeholder-green-900 text-[11px]"
-                />
-                {/* Hidden buffer span for engine compat */}
+                <input ref={cmdTabInputRef} value={cmdTabInput} onChange={e => handleCmdTabChange(e.target.value)} onKeyDown={handleCmdTabKeyDown} onFocus={() => setIsFocused(true)} onBlur={() => setIsFocused(false)} placeholder="type command... ↑↓ history · Enter to run" className="flex-1 bg-transparent text-sm font-bold tracking-wider text-green-400 font-mono focus:outline-none placeholder-green-900 text-[11px]" />
                 <span id="cmd-buffer" className="hidden">{cmdBuffer}</span>
-                <button
-                  onClick={() => {
-                    const cmd = cmdTabInput.trim();
-                    if (cmd) { doExecuteCmd(cmd); setCmdTabInput(''); syncCmdTabBuffer(''); }
-                  }}
-                  disabled={!cmdTabInput.trim()}
-                  className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
-                    cmdTabInput.trim()
-                      ? 'bg-green-600 hover:bg-green-500 text-white shadow-md shadow-green-900/40 hover:scale-105'
-                      : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                  }`}
-                  title="Execute (Enter)"
-                >
+                <button onClick={() => { const cmd = cmdTabInput.trim(); if (cmd) { doExecuteCmd(cmd); setCmdTabInput(''); syncCmdTabBuffer(''); } }} disabled={!cmdTabInput.trim()} className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all ${cmdTabInput.trim() ? 'bg-green-600 hover:bg-green-500 text-white shadow-md shadow-green-900/40 hover:scale-105' : 'bg-gray-800 text-gray-600 cursor-not-allowed'}`} title="Execute (Enter)">
                   <i className="fa-solid fa-play text-[8px]" />
                 </button>
               </div>
@@ -1042,9 +417,7 @@ export default function RightPanel() {
                   <span className="text-[7px] text-green-900/80">↑↓ history · {cmdHistory.current.length} commands</span>
                   <div className="ml-auto flex gap-1 overflow-x-auto">
                     {cmdHistory.current.slice(0, 3).map((h, i) => (
-                      <button key={i}
-                        onClick={() => { setCmdTabInput(h); syncCmdTabBuffer(h); cmdTabInputRef.current?.focus(); }}
-                        className="text-[7px] font-mono text-green-800 hover:text-green-400 bg-green-900/20 hover:bg-green-900/40 px-1.5 py-0.5 rounded whitespace-nowrap transition-colors">
+                      <button key={i} onClick={() => { setCmdTabInput(h); syncCmdTabBuffer(h); cmdTabInputRef.current?.focus(); }} className="text-[7px] font-mono text-green-800 hover:text-green-400 bg-green-900/20 hover:bg-green-900/40 px-1.5 py-0.5 rounded whitespace-nowrap transition-colors">
                         {h.length > 10 ? h.slice(0, 10) + '…' : h}
                       </button>
                     ))}
@@ -1057,8 +430,7 @@ export default function RightPanel() {
                 {CMD_REFERENCE.map(section => (
                   <div key={section.category}>
                     <p className={`font-bold text-[10px] ${section.color} border-b border-current/20 pb-0.5 mb-1.5 flex items-center gap-1.5`}>
-                      <i className={`fa-solid ${section.icon} text-[9px]`} />
-                      {section.category}
+                      <i className={`fa-solid ${section.icon} text-[9px]`} />{section.category}
                     </p>
                     <div className="space-y-1">
                       {section.commands.map(c => {
@@ -1066,24 +438,11 @@ export default function RightPanel() {
                         const isExecutable = c.cmd.length > 1 && !c.cmd.includes(' ') && !c.cmd.includes('/') && !c.cmd.includes('+');
                         return (
                           <div key={c.cmd} className="flex gap-2 items-center group">
-                            <code className="bg-gray-800 text-green-300 px-1.5 py-0.5 rounded font-mono text-[9px] whitespace-nowrap flex-shrink-0">
-                              {c.cmd}
-                            </code>
+                            <code className="bg-gray-800 text-green-300 px-1.5 py-0.5 rounded font-mono text-[9px] whitespace-nowrap flex-shrink-0">{c.cmd}</code>
                             <span className="text-gray-500 text-[9px] leading-tight flex-1">{c.desc}</span>
                             {isExecutable && (
-                              <button
-                                onClick={() => runFromReference(c.cmd)}
-                                className={`flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold transition-all ${
-                                  isExecuted
-                                    ? 'bg-green-600/30 text-green-400 border border-green-500/50 scale-105'
-                                    : 'bg-gray-800/60 text-gray-500 border border-gray-700 hover:bg-green-900/30 hover:text-green-400 hover:border-green-500/40 opacity-0 group-hover:opacity-100'
-                                }`}
-                                title="Execute now"
-                              >
-                                {isExecuted
-                                  ? <><i className="fa-solid fa-check" />Run</>
-                                  : <><i className="fa-solid fa-play" />Run</>
-                                }
+                              <button onClick={() => runFromReference(c.cmd)} className={`flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold transition-all ${isExecuted ? 'bg-green-600/30 text-green-400 border border-green-500/50 scale-105' : 'bg-gray-800/60 text-gray-500 border border-gray-700 hover:bg-green-900/30 hover:text-green-400 hover:border-green-500/40 opacity-0 group-hover:opacity-100'}`} title="Execute now">
+                                {isExecuted ? <><i className="fa-solid fa-check" />Run</> : <><i className="fa-solid fa-play" />Run</>}
                               </button>
                             )}
                           </div>
