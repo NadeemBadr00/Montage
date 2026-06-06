@@ -9,13 +9,44 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
     ctx.fillStyle = "#000000"; 
     ctx.fillRect(0, 0, w, h);
 
+    // ✅ P1-OPT1: Compute anySolo ONCE per frame (was computed 3× before)
     const anySolo = this.tracks.some(t => t.isSolo);
-    const videoTracks = this.tracks.filter(t => (t.type === 'video' || t.type === 'main' || t.type === 'overlay') && !t.isMuted && (!anySolo || t.isSolo));
-    
+
+    // ✅ P1-OPT2: Single filter pass — reused for text, shapes, and UI overlays
+    const allNonMutedTracks = [];
+    for (let i = 0; i < this.tracks.length; i++) {
+        const t = this.tracks[i];
+        if (!t.isMuted && (!anySolo || t.isSolo)) allNonMutedTracks.push(t);
+    }
+    const videoTracks = [];
+    for (let i = 0; i < allNonMutedTracks.length; i++) {
+        const t = allNonMutedTracks[i];
+        if (t.type === 'video' || t.type === 'main' || t.type === 'overlay') videoTracks.push(t);
+    }
+
+    // ✅ P1-OPT3: Pre-apply Ken Burns BEFORE WebGL (was after — caused 1-frame lag)
+    // Mutation kept intentionally; clip._kbApplied guards double-apply
+    for (let ti = 0; ti < this.tracks.length; ti++) {
+        const clips = this.tracks[ti].clips;
+        for (let ci = 0; ci < clips.length; ci++) {
+            const clip = clips[ci];
+            if ((clip.type === 'video' || clip.type === 'image') && clip.properties?.kenBurns) {
+                const kb = clip.properties.kenBurns;
+                const timeInClip = Math.max(0, this.currentTime - clip.start);
+                const tNorm = clip.duration > 0 ? Math.min(1, timeInClip / clip.duration) : 0;
+                const ease  = tNorm * tNorm * (3 - 2 * tNorm);
+                clip.properties.positionX = kb.startX + (kb.endX - kb.startX) * ease;
+                clip.properties.positionY = kb.startY + (kb.endY - kb.startY) * ease;
+                clip.properties.scale = ((kb.startScale || 1) * 100) + (((kb.endScale || 1) * 100) - ((kb.startScale || 1) * 100)) * ease;
+            }
+        }
+    }
+
     // 1. Collect Visible Video Clips for WebGL
     const renderJobs = [];
-    // Tracks are usually Top to Bottom in UI (Array), so for painting back-to-front we reverse
-    [...videoTracks].reverse().forEach(track => {
+    // ✅ P1-OPT4: Reverse for-loop — zero array allocation (was [...arr].reverse().forEach)
+    for (let i = videoTracks.length - 1; i >= 0; i--) {
+        const track = videoTracks[i];
         let activeTransition = null;
         if (track.transitions) {
             activeTransition = track.transitions.find(tr => {
@@ -55,7 +86,7 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
             const clipA = track.clips.find((c: any) => Math.abs((c.start + c.duration) - activeTransition.cutTime) < 0.15) || null;
             const clipB = track.clips.find((c: any) => Math.abs(c.start - activeTransition.cutTime) < 0.15) || null;
 
-            if (!clipA && !clipB) return;
+            if (!clipA && !clipB) continue;
 
             if (clipA && clipB && clipA !== clipB) {
                 // ✅ True cut between two clips → Cross Dissolve / Wipe / Zoom
@@ -87,75 +118,38 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
             const clips = track.getClipsAtTime(this.currentTime);
             if (clips.length > 0) renderJobs.push({ type: 'single', clip: clips[0] });
         }
-
-    });
+    }
 
 
     // 2. Render All Video Layers in WebGL (Compositing)
     if (this.renderWebGLComposition && renderJobs.length > 0) {
         const glCanvas = this.renderWebGLComposition(renderJobs, w, h);
         if (glCanvas) {
-            // ── Phase 2: Per-clip Color Grading ────────────────────────────
-            // Check if ANY clip in this frame has colorGrading applied.
-            // If so, we need to composite per-clip with CSS filters.
-            const hasColorGrading = renderJobs.some(job => {
+            // ✅ P2-OPT: Color grading now handled per-clip in GLSL shader (zero GPU readbacks)
+            // Single drawImage — shader applies brightness/contrast/saturation/hue per layer
+            ctx.drawImage(glCanvas, 0, 0);
+
+            // Tint overlay (2D canvas pass — kept for tint since it needs clip bounds)
+            for (const job of renderJobs) {
                 const clip = job.clip || job.clipA;
-                return clip && clip.properties && clip.properties.colorGrading &&
-                    (clip.properties.colorGrading.brightness !== 100 ||
-                     clip.properties.colorGrading.contrast    !== 100 ||
-                     clip.properties.colorGrading.saturation  !== 100 ||
-                     clip.properties.colorGrading.hue         !== 0   ||
-                     clip.properties.colorGrading.tintColor);
-            });
-
-            if (hasColorGrading) {
-                // Render each clip individually with its own filter
-                for (const job of renderJobs) {
-                    const clip = job.clip || job.clipA;
-                    if (!clip) continue;
-                    const cg = clip.properties?.colorGrading;
-
-                    // Build isolated clip canvas via WebGL (single job)
-                    const singleGl = this.renderWebGLComposition([{ ...job }], w, h);
-                    if (!singleGl) continue;
-
-                    if (cg && (cg.brightness !== 100 || cg.contrast !== 100 || cg.saturation !== 100 || cg.hue !== 0)) {
-                        const filterStr = [
-                            `brightness(${cg.brightness / 100})`,
-                            `contrast(${cg.contrast / 100})`,
-                            `saturate(${cg.saturation / 100})`,
-                            `hue-rotate(${cg.hue}deg)`
-                        ].join(' ');
-                        ctx.save();
-                        ctx.filter = filterStr;
-                        ctx.drawImage(singleGl, 0, 0);
-                        ctx.filter = 'none';
-                        ctx.restore();
-                    } else {
-                        ctx.drawImage(singleGl, 0, 0);
-                    }
-
-                    // Tint overlay
-                    if (cg && cg.tintColor && cg.tintOpacity > 0) {
-                        const timeInClip = this.currentTime - clip.start;
-                        const { posX, posY, scale } = this.getClipTransform(clip, timeInClip);
-                        const { drawW, drawH } = this.getClipDrawRect(clip, w, h);
-                        const finalScale = (scale || 1);
-                        const drawFW = drawW * finalScale;
-                        const drawFH = drawH * finalScale;
-                        const drawX = (w / 2 + posX) - drawFW / 2;
-                        const drawY = (h / 2 + posY) - drawFH / 2;
-                        ctx.save();
-                        ctx.globalAlpha = cg.tintOpacity;
-                        ctx.fillStyle = cg.tintColor;
-                        ctx.fillRect(drawX, drawY, drawFW, drawFH);
-                        ctx.globalAlpha = 1;
-                        ctx.restore();
-                    }
+                if (!clip) continue;
+                const cg = clip.properties?.colorGrading;
+                if (cg && cg.tintColor && cg.tintOpacity > 0) {
+                    const timeInClip = this.currentTime - clip.start;
+                    const { posX, posY, scale } = this.getClipTransform(clip, timeInClip);
+                    const { drawW, drawH } = this.getClipDrawRect(clip, w, h);
+                    const finalScale = (scale || 1);
+                    const drawFW = drawW * finalScale;
+                    const drawFH = drawH * finalScale;
+                    const drawX = (w / 2 + posX) - drawFW / 2;
+                    const drawY = (h / 2 + posY) - drawFH / 2;
+                    ctx.save();
+                    ctx.globalAlpha = cg.tintOpacity;
+                    ctx.fillStyle = cg.tintColor;
+                    ctx.fillRect(drawX, drawY, drawFW, drawFH);
+                    ctx.globalAlpha = 1;
+                    ctx.restore();
                 }
-            } else {
-                // Fast path: no color grading, draw entire WebGL output at once
-                ctx.drawImage(glCanvas, 0, 0);
             }
         }
     }
@@ -170,8 +164,9 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
     // ✅ FIX: Filter by CLIP type (text), not TRACK type (subtitle).
     // addTextClip() places text clips on 'overlay' tracks, not 'subtitle' tracks.
     // Checking only subtitle tracks caused text clips to be invisible on canvas.
-    const allTracksForText = this.tracks.filter(t => !t.isMuted && (!anySolo || t.isSolo));
-    [...allTracksForText].reverse().forEach(track => {
+    // ✅ P1-OPT2 reuse: allNonMutedTracks already computed at top of frame
+    for (let i = allNonMutedTracks.length - 1; i >= 0; i--) {
+        const track = allNonMutedTracks[i];
         const clips = track.getClipsAtTime(this.currentTime);
         if (clips.length > 0 && clips[0].type === 'text') {
             const clip = clips[0];
@@ -244,41 +239,45 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
                 }
             }
 
+            if (clip.textStyle?.isCountdown) {
+                const timeLeft = Math.max(0, Math.ceil(clip.duration - (this.currentTime - clip.start)));
+                clip.text = timeLeft.toString();
+            }
+            
+            // Karaoke effect (simple word highlight based on progress)
+            if (clip.textStyle?.isKaraoke && clip.text) {
+                const words = clip.text.split(' ');
+                const progress = (this.currentTime - clip.start) / clip.duration;
+                const currentWordIndex = Math.floor(progress * words.length);
+                
+                // We'll modify the fill color of the specific word in the drawAdvancedText function
+                // But since drawAdvancedText is generic, we can just do a hacky fillStyle swap if needed.
+                // For a quick implementation, we will append a special property that drawAdvancedText can use.
+                clip.textStyle.activeWordIndex = currentWordIndex;
+            }
+            
             drawAdvancedText(ctx, clip, w, h);
             ctx.restore();
         }
-    });
+    }
 
-    // 3.3 Render Shape Clips + Apply Ken Burns on video/image clips
+    // 3.3 Render Shape Clips
     // ─────────────────────────────────────────────────────────────
-    const allTracksForShapes = this.tracks.filter(t => !t.isMuted && (!anySolo || t.isSolo));
-    [...allTracksForShapes].reverse().forEach(track => {
+    // ✅ P1-OPT3: Ken Burns now pre-applied BEFORE WebGL (see top of function)
+    // ✅ P1-OPT2 reuse: allNonMutedTracks already computed at top of frame
+    for (let i = allNonMutedTracks.length - 1; i >= 0; i--) {
+        const track = allNonMutedTracks[i];
         const clips = track.getClipsAtTime(this.currentTime);
-        if (clips.length === 0) return;
+        if (clips.length === 0) continue;
         const clip = clips[0];
 
-        // ── Ken Burns: animate positionX/Y + scale live during render ──
-        if ((clip.type === 'video' || clip.type === 'image') && clip.properties?.kenBurns) {
-            const kb = clip.properties.kenBurns;
-            const timeInClip = Math.max(0, this.currentTime - clip.start);
-            const t = clip.duration > 0 ? Math.min(1, timeInClip / clip.duration) : 0;
-            // Ease-in-out (smoothstep)
-            const ease = t * t * (3 - 2 * t);
-            clip.properties.positionX = kb.startX + (kb.endX - kb.startX) * ease;
-            clip.properties.positionY = kb.startY + (kb.endY - kb.startY) * ease;
-            // Scale is stored as % (100=normal), kenBurns scale is a multiplier
-            const startScalePct = (kb.startScale || 1) * 100;
-            const endScalePct   = (kb.endScale   || 1) * 100;
-            clip.properties.scale = startScalePct + (endScalePct - startScalePct) * ease;
-        }
-
         // ── Shape clips: render directly on 2D canvas ──
-        if (clip.type !== 'shape') return;
+        if (clip.type !== 'shape') continue;
         const props = clip.properties || {};
         const shapeW = ((props.widthPct  || 50) / 100) * w;
         const shapeH = ((props.heightPct || 30) / 100) * h;
-        const cx = (w / 2) + (props.positionX || 0);
-        const cy = (h / 2) + (props.positionY || 0);
+        const cx = (w / 2) + ((props.x || props.positionX || 0) / 100) * w;
+        const cy = (h / 2) + ((props.y || props.positionY || 0) / 100) * h;
         const rot = (props.rotation || 0) * Math.PI / 180;
         const alpha = (props.opacity !== undefined ? props.opacity : 100) / 100;
 
@@ -317,9 +316,37 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
             ctx.moveTo(-shapeW / 2, 0);
             ctx.lineTo(shapeW / 2, 0);
             ctx.stroke();
+        } else if (shapeType === 'progress_bar') {
+            // Background bar
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.fillRect(-shapeW / 2, -shapeH / 2, shapeW, shapeH);
+            
+            // Foreground bar based on progress
+            const progress = Math.max(0, Math.min(1, (this.currentTime - clip.start) / clip.duration));
+            ctx.fillStyle = colorStr;
+            ctx.fillRect(-shapeW / 2, -shapeH / 2, shapeW * progress, shapeH);
+        } else if (shapeType === 'waveform') {
+            // Fake audio waveform that changes every frame based on currentTime
+            const barCount = 40;
+            const barWidth = (w * 0.6) / barCount;
+            const startX = -(w * 0.3);
+            const yPos = (h * 0.3); // Lower half
+            
+            ctx.fillStyle = props.shapeColor || '#00FFFF';
+            for (let i = 0; i < barCount; i++) {
+                // Generate pseudo-random height based on time and index
+                const t = this.currentTime * 10;
+                let hgt = Math.sin(t + i) * Math.cos(t * 0.5 - i * 0.2) * 50;
+                hgt = Math.abs(hgt) + 5; // min height
+                
+                // Add a visual 'beat' every second
+                if (Math.floor(t) % 10 === 0) hgt *= 1.5;
+                
+                ctx.fillRect(startX + (i * barWidth * 1.5), yPos - hgt/2, barWidth, hgt);
+            }
         }
         ctx.restore();
-    });
+    }
 
     // 3.5 Render Hovered Template (Preview from Assets Panel)
 

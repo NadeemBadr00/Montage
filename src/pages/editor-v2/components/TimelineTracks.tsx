@@ -10,9 +10,31 @@ import { useTimelineDrop } from '../panels/useTimelineDrop';
 export default function TimelineTracks() {
   const tracks = useEditorStore(state => state.tracks);
   const headerWidth = useEditorStore(state => state.headerWidth);
+  const pixelsPerSecond = useEditorStore(state => state.pixelsPerSecond); // ✅ P5
   const collapsedTracks = useEditorStore(state => state.collapsedTracks);
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // ✅ P5: Virtual Timeline — track scroll position to filter visible clips only
+  const [scrollLeft, setScrollLeft] = React.useState(0);
+  const [viewportWidth, setViewportWidth] = React.useState(1400);
+
+  React.useEffect(() => {
+    const scrollArea = document.getElementById('timeline-scroll-area');
+    if (!scrollArea) return;
+    const onScroll = () => {
+      setScrollLeft(scrollArea.scrollLeft);
+      setViewportWidth(scrollArea.clientWidth);
+    };
+    scrollArea.addEventListener('scroll', onScroll, { passive: true });
+    onScroll(); // initial sync
+    return () => scrollArea.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Visible time window with a 1-second buffer on each side
+  const pps = pixelsPerSecond || 20;
+  const visibleStartTime = Math.max(0, (scrollLeft - headerWidth) / pps - 1);
+  const visibleEndTime = visibleStartTime + viewportWidth / pps + 2;
 
   // Lasso Selection State
   const [lassoRect, setLassoRect] = React.useState<{ x: number, y: number, w: number, h: number } | null>(null);
@@ -196,7 +218,12 @@ export default function TimelineTracks() {
                 />
               ))}
 
-              {track.clips.map((clip: Clip) => (
+              {track.clips
+                .filter((clip: Clip) =>
+                  // ✅ P5: Virtual windowing — only render clips inside visible time window
+                  clip.start < visibleEndTime && (clip.start + clip.duration) > visibleStartTime
+                )
+                .map((clip: Clip) => (
                 <ClipItem 
                   key={clip.id} 
                   clip={clip} 

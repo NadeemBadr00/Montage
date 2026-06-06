@@ -55,6 +55,14 @@ export default function EditorV2() {
         {/* CONTROLS & USER AREA */}
         <div className="flex items-center gap-3">
           <button 
+            className="flex items-center gap-1 bg-purple-600 hover:bg-purple-500 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg"
+            onClick={() => document.getElementById('templates-modal')?.classList.remove('hidden')}
+            title="Magic Templates"
+          >
+            <i className="fa-solid fa-wand-magic-sparkles"></i> Templates
+          </button>
+
+          <button 
             className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg"
             onClick={async () => {
               const app = (window as any).app;
@@ -106,7 +114,23 @@ export default function EditorV2() {
             className="flex items-center gap-1 bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg"
             onClick={() => (window as any).app?.downloadXML()}
           >
-            <i className="fa-solid fa-file-code"></i> XML Export
+            <i className="fa-solid fa-file-code"></i> XML
+          </button>
+
+          <button 
+            className="flex items-center gap-1 bg-yellow-600 hover:bg-yellow-500 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg"
+            onClick={() => (window as any).app?.exportAudioOnly?.()}
+            title="Export Audio (WAV)"
+          >
+            <i className="fa-solid fa-music"></i> Audio
+          </button>
+          
+          <button 
+            className="flex items-center gap-1 bg-pink-600 hover:bg-pink-500 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg"
+            onClick={() => (window as any).app?.exportGIF?.()}
+            title="Export GIF (5s)"
+          >
+            <i className="fa-solid fa-file-image"></i> GIF
           </button>
 
           {/* AutoSave indicator */}

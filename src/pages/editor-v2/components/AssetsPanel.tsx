@@ -105,14 +105,34 @@ export default function AssetsPanel() {
     let currentTargetTrackId: number | null = null;
     let currentDropTime = 0;
 
+    // ✅ P6: Cache track row bounding rects ONCE at drag start (avoids DOM scan on every move)
+    const trackRowCache = Array.from(document.querySelectorAll<HTMLElement>('.track-row')).map(el => ({
+        el,
+        top: el.getBoundingClientRect().top,
+        bottom: el.getBoundingClientRect().bottom,
+        left: el.getBoundingClientRect().left,
+        right: el.getBoundingClientRect().right,
+        trackId: parseInt(el.getAttribute('data-track-id') || '0'),
+        trackType: el.getAttribute('data-track-type') || ''
+    }));
+
+    // ✅ P6: RAF throttle state — limits mousemove processing to 60fps
+    let _dragRafId: number | null = null;
+
     const moveHandler = (moveEvent: MouseEvent) => {
-      const elementsBelow = document.elementsFromPoint(moveEvent.clientX, moveEvent.clientY);
-      const trackRowEl = elementsBelow.find(el => el.classList.contains('track-row'));
+      // RAF throttle: skip if a frame is already queued
+      if (_dragRafId !== null) return;
+      _dragRafId = requestAnimationFrame(() => {
+        _dragRafId = null;
+
+        // ✅ P6: Math-based track hit test using cached bounds (O(n_tracks) vs O(DOM))
+        const trackRowMatch = trackRowCache.find(b =>
+            moveEvent.clientY >= b.top && moveEvent.clientY <= b.bottom
+        );
+        const hoveredTrackId = trackRowMatch?.trackId ?? null;
+        const hoveredTrackType = trackRowMatch?.trackType ?? null;
       
-      if (trackRowEl) {
-        const hoveredTrackId = parseInt(trackRowEl.getAttribute('data-track-id') || '0');
-        const hoveredTrackType = trackRowEl.getAttribute('data-track-type');
-        
+      if (trackRowMatch) {
         let isValidTarget = false;
         if (asset.type === 'audio' && hoveredTrackType === 'audio') isValidTarget = true;
         if ((asset.type === 'video' || asset.type === 'image' || asset.type === 'text') && 
@@ -142,14 +162,16 @@ export default function AssetsPanel() {
             }
         } else {
             currentTargetTrackId = null;
+          }
+        } else {
+            currentTargetTrackId = null;
         }
-      } else {
-          currentTargetTrackId = null;
-      }
-      updateGhostPos(moveEvent.clientX, moveEvent.clientY);
+        updateGhostPos(moveEvent.clientX, moveEvent.clientY);
+      }); // end RAF
     };
 
     const upHandler = (upEvent: MouseEvent) => {
+      if (_dragRafId !== null) { cancelAnimationFrame(_dragRafId); _dragRafId = null; }
       document.removeEventListener('mousemove', moveHandler);
       document.removeEventListener('mouseup', upHandler);
       if (ghost.parentNode) ghost.parentNode.removeChild(ghost);

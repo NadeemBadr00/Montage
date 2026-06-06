@@ -129,19 +129,65 @@ export function VideoExportModal() {
   const [resolution, setResolution] = React.useState("1080");
   const [compression, setCompression] = React.useState("0.6");
   const [codec, setCodec] = React.useState("avc");
+  
+  // YouTube Upload State
+  const [exportMode, setExportMode] = React.useState<"local" | "youtube">("local");
+  const [ytTitle, setYtTitle] = React.useState("My AI4Montage Video");
+  const [ytPrivacy, setYtPrivacy] = React.useState("private");
+  const [ytProgress, setYtProgress] = React.useState(0);
+  const [isUploading, setIsUploading] = React.useState(false);
 
   if (!exportVideoModal) return null;
 
-  const handleStartExport = () => {
+  const handleStartExport = async () => {
       const app = (window as any).app;
       if (app && app.exportVideoClientSide) {
-          app.exportVideoClientSide({
-              resolution: parseInt(resolution),
-              compressionMult: parseFloat(compression),
-              codec
-          });
+          if (exportMode === "local") {
+              app.exportVideoClientSide({
+                  resolution: parseInt(resolution),
+                  compressionMult: parseFloat(compression),
+                  codec
+              });
+              setExportVideoModal(false);
+          } else {
+              // YouTube Flow
+              setIsUploading(true);
+              setYtProgress(0);
+              try {
+                  const { authenticateGoogle, uploadToYouTube } = await import('../../../editor-engine/features/youtube-upload');
+                  
+                  if (app.log) app.log("🔑 جاري طلب المصادقة من جوجل...");
+                  const token = await authenticateGoogle();
+                  
+                  if (app.log) app.log("⚙️ جاري تجهيز الفيديو للرفع...");
+                  // Generate Blob
+                  const blob = await app.exportVideoClientSide({
+                      resolution: parseInt(resolution),
+                      compressionMult: parseFloat(compression),
+                      codec,
+                      returnBlob: true
+                  });
+                  
+                  if (!blob) throw new Error("Video export failed");
+                  
+                  // Upload to YT
+                  const videoUrl = await uploadToYouTube(blob, token, {
+                      title: ytTitle,
+                      description: "Created with AI4Montage - The Browser-based AI Video Editor",
+                      privacyStatus: ytPrivacy
+                  }, (percent) => setYtProgress(percent));
+                  
+                  alert(`✅ تم الرفع بنجاح! رابط الفيديو: \n${videoUrl}`);
+                  if (app.log) app.log(`✅ نجاح: ${videoUrl}`);
+                  setExportVideoModal(false);
+              } catch (err: any) {
+                  alert(`❌ فشل الرفع: ${err.message}`);
+                  setIsUploading(false);
+              }
+          }
+      } else {
+          setExportVideoModal(false);
       }
-      setExportVideoModal(false);
   };
 
   return (
@@ -201,12 +247,66 @@ export function VideoExportModal() {
                     </select>
                 </div>
 
+                <div className="h-[1px] bg-gray-700 w-full my-2"></div>
+
+                <div className="flex flex-col gap-3">
+                    <label className="text-xs text-gray-400 uppercase font-bold tracking-wide">الوجهة (Destination)</label>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => setExportMode("local")}
+                            className={`flex-1 py-2 rounded border flex justify-center items-center gap-2 transition ${exportMode === 'local' ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700'}`}
+                        >
+                            <i className="fa-solid fa-hard-drive"></i> حفظ للجهاز
+                        </button>
+                        <button 
+                            onClick={() => setExportMode("youtube")}
+                            className={`flex-1 py-2 rounded border flex justify-center items-center gap-2 transition ${exportMode === 'youtube' ? 'bg-red-600/20 border-red-500 text-red-400' : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700'}`}
+                        >
+                            <i className="fa-brands fa-youtube"></i> رفع ليوتيوب
+                        </button>
+                    </div>
+                </div>
+                
+                {exportMode === "youtube" && (
+                    <div className="flex flex-col gap-3 p-3 bg-red-900/10 border border-red-500/30 rounded-lg mt-2">
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] text-gray-400">عنوان الفيديو</label>
+                            <input 
+                                type="text" 
+                                value={ytTitle} 
+                                onChange={e => setYtTitle(e.target.value)} 
+                                className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm outline-none focus:border-red-500"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[10px] text-gray-400">الخصوصية</label>
+                            <select 
+                                value={ytPrivacy} 
+                                onChange={e => setYtPrivacy(e.target.value)}
+                                className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm outline-none focus:border-red-500"
+                            >
+                                <option value="private">خاص (Private)</option>
+                                <option value="unlisted">غير مدرج (Unlisted)</option>
+                                <option value="public">عام (Public)</option>
+                            </select>
+                        </div>
+                        {isUploading && (
+                            <div className="mt-2 text-center text-xs text-red-400 font-bold">
+                                جاري الرفع... {ytProgress}%
+                                <div className="w-full bg-gray-800 h-1.5 rounded mt-1 overflow-hidden">
+                                    <div className="bg-red-500 h-full transition-all" style={{width: `${ytProgress}%`}}></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
             </div>
 
             <div className="p-4 border-t border-gray-700 bg-[#0a0f1d] flex gap-3 justify-end font-cairo" dir="rtl">
-                <button onClick={() => setExportVideoModal(false)} className="px-4 py-2 rounded text-gray-400 hover:text-white hover:bg-gray-800 transition">إلغاء</button>
-                <button onClick={handleStartExport} className="px-6 py-2 rounded bg-green-600 hover:bg-green-500 text-white font-bold transition shadow-lg flex items-center gap-2">
-                    <i className="fa-solid fa-rocket"></i> بدء الرندرة
+                <button disabled={isUploading} onClick={() => setExportVideoModal(false)} className="px-4 py-2 rounded text-gray-400 hover:text-white hover:bg-gray-800 transition disabled:opacity-50">إلغاء</button>
+                <button disabled={isUploading} onClick={handleStartExport} className={`px-6 py-2 rounded text-white font-bold transition shadow-lg flex items-center gap-2 ${exportMode === 'youtube' ? 'bg-red-600 hover:bg-red-500' : 'bg-green-600 hover:bg-green-500'} disabled:opacity-50`}>
+                    <i className={exportMode === 'youtube' ? "fa-brands fa-youtube" : "fa-solid fa-rocket"}></i> {isUploading ? 'جاري التنفيذ...' : (exportMode === 'youtube' ? 'بدء الرفع' : 'بدء الرندرة')}
                 </button>
             </div>
         </div>

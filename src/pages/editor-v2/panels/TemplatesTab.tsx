@@ -3,13 +3,20 @@ import { textTemplates } from '../../../assets/textTemplates';
 import { sfxTemplates } from '../../../assets/sfxTemplates';
 import { imageTemplates } from '../../../assets/imageTemplates';
 import { framesTemplates } from '../../../assets/framesTemplates';
+import { smartTemplates } from '../../../assets/smartTemplates';
 
 export function TemplatesTab({ handleAssetDrag, gridCols }: { handleAssetDrag: any, gridCols: 2|3|4 }) {
-  const [templateMode, setTemplateMode] = useState<'text' | 'sfx' | 'image' | 'frame'>('text');
+  const [templateMode, setTemplateMode] = useState<'smart' | 'text' | 'sfx' | 'image' | 'frame'>('smart');
 
   return (
     <>
         <div className="flex gap-2 mb-3 mt-1 px-1 flex-wrap">
+            <button 
+                onClick={() => setTemplateMode('smart')} 
+                className={`flex-1 min-w-[70px] py-1.5 text-[11px] font-bold rounded border ${templateMode === 'smart' ? 'bg-yellow-600/20 text-yellow-500 border-yellow-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
+            >
+                <i className="fa-solid fa-wand-magic-sparkles mr-1"></i> Smart
+            </button>
             <button 
                 onClick={() => setTemplateMode('text')} 
                 className={`flex-1 min-w-[70px] py-1.5 text-[11px] font-bold rounded border ${templateMode === 'text' ? 'bg-red-600/20 text-red-500 border-red-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
@@ -36,7 +43,7 @@ export function TemplatesTab({ handleAssetDrag, gridCols }: { handleAssetDrag: a
             </button>
         </div>
         <div className={`grid gap-2 ${gridCols === 2 ? 'grid-cols-2' : gridCols === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
-            {(templateMode === 'text' ? textTemplates : templateMode === 'image' ? imageTemplates : templateMode === 'frame' ? framesTemplates : sfxTemplates).flatMap((tpl, idx, arr) => {
+            {(templateMode === 'smart' ? smartTemplates : templateMode === 'text' ? textTemplates : templateMode === 'image' ? imageTemplates : templateMode === 'frame' ? framesTemplates : sfxTemplates).flatMap((tpl, idx, arr) => {
                 const card = (
             <div 
                 key={tpl.id}
@@ -84,32 +91,49 @@ export function TemplatesTab({ handleAssetDrag, gridCols }: { handleAssetDrag: a
                     } 
                 }}
                 onDoubleClick={() => {
-                    if ((window as any).app && (window as any).app.tracks) {
-                        const targetType = tpl.type === 'audio' ? 'audio' : (tpl.type === 'image' ? 'main' : 'subtitle');
-                        const targetTrack = (window as any).app.tracks.find((t: any) => t.type === targetType);
-                        if (targetTrack) {
-                            const newClip = new (window as any).Clip(`c_${Date.now()}`, tpl.name, (window as any).app.currentTime || 0, tpl.duration || 5, tpl.type, tpl.src);
-                            if (tpl.templateData) {
-                                if (tpl.templateData.textStyle) newClip.textStyle = JSON.parse(JSON.stringify(tpl.templateData.textStyle));
-                                if (tpl.templateData.properties) newClip.properties = JSON.parse(JSON.stringify(tpl.templateData.properties));
-                                if (tpl.templateData.transitions) newClip.transitions = JSON.parse(JSON.stringify(tpl.templateData.transitions));
-                                if (tpl.templateData.effects) newClip.effects = JSON.parse(JSON.stringify(tpl.templateData.effects));
+                    if ((window as any).app) {
+                        if (tpl.type === 'smart') {
+                            // Find the first selected main clip or just the first clip in the main track
+                            const mainTrack = (window as any).app.tracks.find((t: any) => t.type === 'main');
+                            if (!mainTrack || mainTrack.clips.length === 0) {
+                                alert("Please add a video clip to the main track first!");
+                                return;
                             }
-                            targetTrack.addClip(newClip);
-                            if ((window as any).app.resolveCollisions) (window as any).app.resolveCollisions(targetTrack.id, newClip);
-                            if ((window as any).app.saveState) (window as any).app.saveState();
-                            (window as any).app.requestRedraw();
-                            (window as any).app.commitStateToReact();
-                        } else {
-                            if (tpl.type === 'audio') {
-                                (window as any).app.addNewTrack('audio');
-                                const newTarget = (window as any).app.tracks.find((t: any) => t.type === 'audio');
-                                if (newTarget) {
-                                    const newClip = new (window as any).Clip(`c_${Date.now()}`, tpl.name, (window as any).app.currentTime || 0, tpl.duration || 5, 'audio', tpl.src);
-                                    newTarget.addClip(newClip);
-                                    if ((window as any).app.saveState) (window as any).app.saveState();
-                                    (window as any).app.requestRedraw();
-                                    (window as any).app.commitStateToReact();
+                            const mainClipId = mainTrack.clips[0].id;
+                            
+                            if ((window as any).app.applySmartTemplate) {
+                                (window as any).app.applySmartTemplate(tpl.templateData.action, mainClipId);
+                            }
+                            return;
+                        }
+
+                        if ((window as any).app.tracks) {
+                            const targetType = tpl.type === 'audio' ? 'audio' : (tpl.type === 'image' ? 'main' : 'subtitle');
+                            const targetTrack = (window as any).app.tracks.find((t: any) => t.type === targetType);
+                            if (targetTrack) {
+                                const newClip = new (window as any).Clip(`c_${Date.now()}`, tpl.name, (window as any).app.currentTime || 0, tpl.duration || 5, tpl.type, tpl.src);
+                                if (tpl.templateData) {
+                                    if (tpl.templateData.textStyle) newClip.textStyle = JSON.parse(JSON.stringify(tpl.templateData.textStyle));
+                                    if (tpl.templateData.properties) newClip.properties = JSON.parse(JSON.stringify(tpl.templateData.properties));
+                                    if (tpl.templateData.transitions) newClip.transitions = JSON.parse(JSON.stringify(tpl.templateData.transitions));
+                                    if (tpl.templateData.effects) newClip.effects = JSON.parse(JSON.stringify(tpl.templateData.effects));
+                                }
+                                targetTrack.addClip(newClip);
+                                if ((window as any).app.resolveCollisions) (window as any).app.resolveCollisions(targetTrack.id, newClip);
+                                if ((window as any).app.saveState) (window as any).app.saveState();
+                                (window as any).app.requestRedraw();
+                                (window as any).app.commitStateToReact();
+                            } else {
+                                if (tpl.type === 'audio') {
+                                    (window as any).app.addNewTrack('audio');
+                                    const newTarget = (window as any).app.tracks.find((t: any) => t.type === 'audio');
+                                    if (newTarget) {
+                                        const newClip = new (window as any).Clip(`c_${Date.now()}`, tpl.name, (window as any).app.currentTime || 0, tpl.duration || 5, 'audio', tpl.src);
+                                        newTarget.addClip(newClip);
+                                        if ((window as any).app.saveState) (window as any).app.saveState();
+                                        (window as any).app.requestRedraw();
+                                        (window as any).app.commitStateToReact();
+                                    }
                                 }
                             }
                         }
@@ -165,6 +189,25 @@ export function TemplatesTab({ handleAssetDrag, gridCols }: { handleAssetDrag: a
                             </div>
                         </div>
                     </div>
+                ) : tpl.type === 'smart' ? (
+                    <div className="w-full aspect-video flex items-center justify-center relative overflow-hidden bg-black group">
+                        <img src={tpl.thumbnail} alt={tpl.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 opacity-70" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent pointer-events-none" />
+                        
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-[2px]">
+                            <div className="bg-yellow-500 text-black px-3 py-1 rounded-full text-[8px] font-black shadow-lg">
+                                DOUBLE CLICK TO APPLY
+                            </div>
+                        </div>
+                        
+                        <div className="absolute bottom-1 left-1 flex flex-wrap gap-1 pointer-events-none pr-1">
+                            {tpl.templateData?.badges?.map((b: string, i: number) => (
+                                <div key={i} className="text-[6px] bg-white/20 text-white px-1 py-0.5 rounded font-bold backdrop-blur-sm shadow border border-white/10">
+                                    {b}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 ) : tpl.type === 'image' ? (
                     <div className="w-full aspect-video flex items-center justify-center relative overflow-hidden bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAOklEQVQYV2NkYGAwYkAD////Z8SRAaYIE2RYgDCAUgwjO4xXGHE6n2QzGGkG49bA0EGGp+x4Mh22CQBM5A81T+uOBAAAAABJRU5ErkJggg==')]">
                         <div className="absolute inset-0 bg-black/60 z-0"></div>
@@ -207,9 +250,15 @@ export function TemplatesTab({ handleAssetDrag, gridCols }: { handleAssetDrag: a
                 )}
                 <div className="p-2 flex flex-col gap-0.5 bg-[#151c2e]">
                     <div className="text-[10px] text-gray-200 font-bold truncate">{tpl.name}</div>
-                    <div className="text-[7px] text-gray-500 uppercase flex gap-1">
-                        {tpl.type === 'overlay' ? <span className="text-pink-500/80">💬 Live Comments + Stats</span> : (tpl.templateData?.properties?.positionY < -200 ? 'Top' : tpl.templateData?.properties?.positionY > 200 ? 'Bottom' : 'Center')}
-                    </div>
+                    {tpl.type === 'smart' ? (
+                        <div className="text-[7px] text-gray-400 line-clamp-2 leading-tight mt-0.5">
+                            {tpl.templateData?.description}
+                        </div>
+                    ) : (
+                        <div className="text-[7px] text-gray-500 uppercase flex gap-1">
+                            {tpl.type === 'overlay' ? <span className="text-pink-500/80">💬 Live Comments + Stats</span> : (tpl.templateData?.properties?.positionY < -200 ? 'Top' : tpl.templateData?.properties?.positionY > 200 ? 'Bottom' : 'Center')}
+                        </div>
+                    )}
                 </div>
                 </div>
                 );

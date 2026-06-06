@@ -8,7 +8,7 @@ import { collection, addDoc, onSnapshot, serverTimestamp } from 'firebase/firest
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export async function exportToMP4ClientSide(app: any, options: any) {
-    startCanvasRecording(app, options);
+    return await startCanvasRecording(app, options);
 }
 
 export async function startCanvasRecording(app: any, options: any) {
@@ -345,7 +345,9 @@ export async function startCanvasRecording(app: any, options: any) {
         
         const buffer = muxerTarget.buffer;
         const blob = new Blob([buffer], { type: 'video/mp4' });
-        downloadBlob(blob, 'project_final.mp4');
+        if (!options?.returnBlob) {
+            downloadBlob(blob, 'project_final.mp4');
+        }
         
         app.currentTime = 0;
         app.seek(0);
@@ -361,6 +363,9 @@ export async function startCanvasRecording(app: any, options: any) {
         if (btn) btn.innerHTML = '<i class="fa-solid fa-download"></i> MP4 Export';
         overlay.style.display = 'none';
 
+        if (options?.returnBlob) {
+            return blob;
+        }
     } catch (globalError) {
         alert(`Critical Export Error: ${globalError}`);
         console.error("Export Error:", globalError);

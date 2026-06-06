@@ -87,9 +87,30 @@ window.EditorApp.prototype.initWebGL = function() {
     uniform float u_borderRadius;
     uniform vec2 u_quadSize;
     
+    // ✅ P2: Color Grading Uniforms (replaces N× CSS filter WebGL passes)
+    uniform float u_cgBrightness;   // 1.0 = normal
+    uniform float u_cgContrast;     // 1.0 = normal
+    uniform float u_cgSaturation;   // 1.0 = normal
+    uniform float u_cgHue;          // 0.0 = no change (0..1 range)
+    
     in vec2 v_texCoord;
     in vec2 v_quadPos;
     out vec4 outColor;
+    
+    // ✅ P2: HSV helper functions for hue/saturation in GLSL
+    vec3 rgb2hsv(vec3 c) {
+        vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+        vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+        vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+        float d = q.x - min(q.w, q.y);
+        float e = 1.0e-10;
+        return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+    }
+    vec3 hsv2rgb(vec3 c) {
+        vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+        vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+        return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+    }
     
     void main() {
         if (v_texCoord.x < 0.0 || v_texCoord.x > 1.0 || v_texCoord.y < 0.0 || v_texCoord.y > 1.0) {
@@ -171,6 +192,23 @@ window.EditorApp.prototype.initWebGL = function() {
             if (dist < u_chromaThreshold) color.a = 0.0;
         }
         color.a *= u_opacity;
+        
+        // ✅ P2: Apply color grading in GPU (eliminates N× WebGL passes + CSS filter GPU readbacks)
+        if (u_cgBrightness != 1.0 || u_cgContrast != 1.0 || u_cgSaturation != 1.0 || u_cgHue != 0.0) {
+            // Brightness
+            color.rgb *= u_cgBrightness;
+            // Contrast: pivot around mid-gray
+            color.rgb = (color.rgb - 0.5) * u_cgContrast + 0.5;
+            // Saturation + Hue via HSV
+            if (u_cgSaturation != 1.0 || u_cgHue != 0.0) {
+                vec3 hsv = rgb2hsv(color.rgb);
+                hsv.x = fract(hsv.x + u_cgHue);
+                hsv.y = clamp(hsv.y * u_cgSaturation, 0.0, 1.0);
+                color.rgb = hsv2rgb(hsv);
+            }
+            color.rgb = clamp(color.rgb, 0.0, 1.0);
+        }
+        
         if (u_isTransition == 1) {
             vec4 colorB = texture(u_imageB, v_texCoord);
             float p = u_transitionProgress;
@@ -252,6 +290,11 @@ window.EditorApp.prototype.initWebGL = function() {
             removerStrengths: gl.getUniformLocation(this.program, "u_removerStrengths"),
             borderRadius:     gl.getUniformLocation(this.program, "u_borderRadius"),
             quadSize:         gl.getUniformLocation(this.program, "u_quadSize"),
+            // ✅ P2: Color grading uniforms
+            cgBrightness:     gl.getUniformLocation(this.program, "u_cgBrightness"),
+            cgContrast:       gl.getUniformLocation(this.program, "u_cgContrast"),
+            cgSaturation:     gl.getUniformLocation(this.program, "u_cgSaturation"),
+            cgHue:            gl.getUniformLocation(this.program, "u_cgHue"),
         },
         buffers: { position: positionBuffer, texCoord: texCoordBuffer }
     };
@@ -265,6 +308,9 @@ window.EditorApp.prototype.initWebGL = function() {
     
     // 🔥 NEW: Cache for Static Image Textures to avoid re-uploading every frame
     this.staticTextureCache = new Map();
+    // ✅ P2: Dirty-flag keys for video textures — avoids re-uploading same frame
+    this._lastVideoKey  = '';
+    this._lastVideoBKey = '';
 };
 
 window.EditorApp.prototype.setupTexture = function(tex) {

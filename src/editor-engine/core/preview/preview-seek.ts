@@ -34,19 +34,84 @@ window.EditorApp.prototype.managePlayers = function() {
     });
     const avail = [...this.players]; const assign = {}; 
     reqs.forEach((r,k) => { const ex = this.players.find(p => p.getAttribute('data-key') === k); if(ex) { assign[k] = ex; avail.splice(avail.indexOf(ex), 1); } });
-    reqs.forEach((r,k) => { if(!assign[k] && avail.length>0) { const p = avail.pop(); p.setAttribute('data-key', k); p.setAttribute('data-type', r.type); if(p.getAttribute('src')!==r.src) { p.src = r.src; p.load(); } assign[k] = p; } });
+    reqs.forEach((r,k) => { if(!assign[k] && avail.length>0) { const p = avail.pop(); p.setAttribute('data-key', k); p.setAttribute('data-type', r.type); if(p.getAttribute('data-current-src')!==r.src) { p.setAttribute('data-current-src', r.src); p.src = r.src; p.load(); } assign[k] = p; } });
     Object.keys(assign).forEach(k => {
         const p = assign[k], r = reqs.get(k), off = this.currentTime - r.clip.start;
-        const speed = r.clip.properties?.playbackSpeed || 1.0;
-        const t = (r.clip.sourceIn || 0) + (off * speed);
         
-        if (Math.abs(p.currentTime - t) > 0.15) p.currentTime = t;
+        // ✅ F5: Speed Ramping Support
+        // Get the dynamic speed at the current relative time
+        const currentSpeed = r.clip.getPropertyValue 
+            ? r.clip.getPropertyValue('playbackSpeed', off) 
+            : (r.clip.properties?.playbackSpeed || 1.0);
+            
+        // Calculate source time. (Ideally, this should be integrated over time for perfect accuracy 
+        // with complex curves, but for basic speed ramping, using the current speed gives the "rate" effect)
+        // If there are no keyframes, it's exact.
+        let t = (r.clip.sourceIn || 0) + (off * currentSpeed);
+        // ✅ Phase 4: Reverse Clip Support
+        if (r.clip.properties?.reverse) {
+            t = (r.clip.sourceIn || 0) + r.clip.duration - (off * currentSpeed);
+        }
+
+        if (Math.abs(p.currentTime - t) > 0.15 && p.readyState > 0) {
+            try { p.currentTime = t; } catch(e) {}
+        }
         
-        p.playbackRate = speed; // Set native video speed
-        if (this.isPlaying && p.paused && p.readyState >= 2) p.play().catch(e=>{}); else if (!this.isPlaying && !p.paused) p.pause();
+        // --- DEBUG LOGGING ---
+        if (!window._debugLastLog) window._debugLastLog = 0;
+        if (performance.now() - window._debugLastLog > 1000) {
+            console.log(`[Playback Debug] key=${k} readyState=${p.readyState} p.currentTime=${p.currentTime.toFixed(3)} t=${t.toFixed(3)} | this.currentTime=${this.currentTime.toFixed(3)} start=${r.clip.start.toFixed(3)} off=${off.toFixed(3)} sourceIn=${r.clip.sourceIn} speed=${currentSpeed}`);
+            window._debugLastLog = performance.now();
+        }
+        // ---------------------
+        
+        p.playbackRate = Math.max(0.0625, Math.min(16.0, currentSpeed)); // Chrome limits 0.0625 to 16.0
+        
+        // ✅ F5: Preserve Pitch
+        if ('preservesPitch' in p) {
+            p.preservesPitch = r.clip.properties?.preservesPitch !== false; // Default to true
+        }
+
+        // ✅ Phase 4: Audio Equalizer (3-Band EQ)
+        if (r.type === 'audio' && r.clip.properties?.eq) {
+            // Setup EQ nodes once per player if not exists
+            if (!p.audioNodes) {
+                if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                try {
+                    const source = this.audioCtx.createMediaElementSource(p);
+                    const low = this.audioCtx.createBiquadFilter(); low.type = 'lowshelf'; low.frequency.value = 320;
+                    const mid = this.audioCtx.createBiquadFilter(); mid.type = 'peaking'; mid.frequency.value = 1000; mid.Q.value = 0.5;
+                    const high = this.audioCtx.createBiquadFilter(); high.type = 'highshelf'; high.frequency.value = 3200;
+                    source.connect(low); low.connect(mid); mid.connect(high); high.connect(this.audioCtx.destination);
+                    p.audioNodes = { low, mid, high, connected: true };
+                } catch (e) {
+                    console.warn("Could not create audio node for EQ", e);
+                }
+            }
+            if (p.audioNodes) {
+                const eq = r.clip.properties.eq;
+                p.audioNodes.low.gain.value = eq.low || 0;
+                p.audioNodes.mid.gain.value = eq.mid || 0;
+                p.audioNodes.high.gain.value = eq.high || 0;
+            }
+        }
+
+        if (this.isPlaying && p.paused) p.play().catch(e=>{}); else if (!this.isPlaying && !p.paused) p.pause();
         if (r.type === 'visual') { p.muted = true; p.volume = 0; } else { p.muted = false; p.volume = r.vol; }
     });
-    avail.forEach(p => { if(p.getAttribute('data-key')) { p.removeAttribute('data-key'); p.removeAttribute('data-type'); p.pause(); p.muted = true; } });
+    avail.forEach(p => { 
+        if(p.getAttribute('data-key')) { 
+            p.removeAttribute('data-key'); 
+            p.removeAttribute('data-type'); 
+            p.pause(); 
+            p.muted = true; 
+            if (p.audioNodes) {
+                p.audioNodes.low.gain.value = 0;
+                p.audioNodes.mid.gain.value = 0;
+                p.audioNodes.high.gain.value = 0;
+            }
+        } 
+    });
 };
 
 window.EditorApp.prototype.seek = function(d) { 
@@ -162,8 +227,10 @@ window.EditorApp.prototype.setupPlayheadScrubbing = function() {
         const wp = this.isPlaying;
         if (wp) this.pausePlayback();
 
-        // Debounce scrub seeks so we don't flood the browser
-        let scrubTimer = null;
+        // ✅ P3: Replace setTimeout debounce with RAF throttle for perfectly smooth 60fps scrubbing
+        let _scrubRafId = null;
+        let _lastScrubTime = 0;
+        
         const onMove = (ev) => {
             const x = (ev.clientX - this.timelineContent.getBoundingClientRect().left)
                       + this.timelineScrollArea.scrollLeft
@@ -171,17 +238,23 @@ window.EditorApp.prototype.setupPlayheadScrubbing = function() {
             const t = Math.max(0, Math.min(x / this.pixelsPerSecond, this.duration));
             this.currentTime = t;
             this.updatePlayheadPosition();
-            // Debounce: only call managePlayers + render every ~40ms
-            clearTimeout(scrubTimer);
-            scrubTimer = setTimeout(() => {
-                this.managePlayers();
-                this.renderFrameToCanvas();
-                this.requestRedraw();
-            }, 40);
+            
+            if (_scrubRafId !== null) return;
+            
+            _scrubRafId = requestAnimationFrame((now) => {
+                _scrubRafId = null;
+                // Limit heavy DOM/WebGL updates to ~30-60fps while scrubbing
+                if (now - _lastScrubTime > 16) {
+                    this.managePlayers();
+                    this.renderFrameToCanvas();
+                    this.requestRedraw();
+                    _lastScrubTime = now;
+                }
+            });
         };
 
         const onUp = () => {
-            clearTimeout(scrubTimer);
+            if (_scrubRafId !== null) cancelAnimationFrame(_scrubRafId);
             this.isScrubbing = false;
             document.body.style.cursor = 'default';
             document.removeEventListener('mousemove', onMove);

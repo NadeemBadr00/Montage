@@ -225,6 +225,13 @@ window.EditorApp.prototype.updateEffectControls = function() {
                 onchange="app.toggleAI('${clipId}', this.checked)"
                 class="accent-purple-500 cursor-pointer">
         </h4>
+        <h4 class="font-bold text-xs text-blue-400 mb-2 flex items-center justify-between">
+            <span><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> AI Color Match</span>
+            <button class="bg-blue-900/50 hover:bg-blue-700 text-[9px] px-2 py-0.5 rounded transition-colors border border-blue-800"
+                onclick="if(app.aiColorMatch) { const btn = this; const old = btn.innerHTML; btn.innerHTML='<i class=\\'fa-solid fa-spinner fa-spin\\'></i>'; app.aiColorMatch('${clipId}').then(() => { btn.innerHTML='Matched!'; setTimeout(()=>btn.innerHTML=old, 2000); }).catch(()=>btn.innerHTML=old); } else { alert('AI Color Match not loaded'); }">
+                Match Prev Clip
+            </button>
+        </h4>
         <h4 class="font-bold text-xs text-green-400 mb-2 flex items-center justify-between">
             <span><i class="fa-solid fa-users-viewfinder mr-1"></i> Chroma Key</span>
             <input type="checkbox" ${clip.chromaKey.enabled ? 'checked' : ''} 

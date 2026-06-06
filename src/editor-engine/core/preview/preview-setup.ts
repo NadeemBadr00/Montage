@@ -73,10 +73,9 @@ window.EditorApp.prototype.setupVideoSync = function() {
             }
         });
 
-        try {
-            const source = this.audioCtx.createMediaElementSource(p);
-            source.connect(this.audioCtx.destination);
-        } catch(e) { /* Already connected */ }
+        // 🔥 FIX: Decoupled native HTML5 video from AudioContext to prevent playback locks.
+        // creating MediaElementSource ties the video clock to the Web Audio API clock,
+        // which completely freezes video playback if the AudioContext is suspended by the browser.
     });
 
     // 🔥 FIX: Set Safe Default Dimensions (Start Clean)

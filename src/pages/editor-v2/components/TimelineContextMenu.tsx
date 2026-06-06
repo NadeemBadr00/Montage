@@ -61,6 +61,19 @@ export default function TimelineContextMenu() {
               app.updateUltraProp(legacyClip.id, 'textStyle', 'backgroundColor', extraArgs);
               app.updateUltraProp(legacyClip.id, 'textStyle', 'backgroundOpacity', extraArgs === 'transparent' ? 0 : 1);
           }
+        } else if (action === 'autoCaptions') {
+          if ((window as any).aiManager) {
+              (window as any).aiManager.generateSubtitlesForClip(legacyClip);
+          }
+        } else if (action === 'autoReframe') {
+          if ((window as any).applyAutoReframe) {
+              (window as any).applyAutoReframe(legacyClip.id);
+          } else {
+              // Lazy load it dynamically if not already loaded
+              import('../../../editor-engine/features/auto-reframe').then(mod => {
+                  mod.applyAutoReframe(legacyClip.id);
+              });
+          }
         }
       }
     } else if (contextMenu.trackId) {
@@ -154,6 +167,20 @@ export default function TimelineContextMenu() {
              </div>
              <div className="px-3 py-2 hover:bg-blue-600 cursor-pointer flex items-center gap-2" onMouseDown={(e) => { e.stopPropagation(); handleAction('flipV'); }}>
                 <i className="fa-solid fa-arrows-up-down w-4"></i> Flip Vertical
+             </div>
+             
+             {/* AI Options */}
+             <div className="h-[1px] bg-gray-600 w-full my-1"></div>
+             <div className="px-3 py-2 text-xs text-indigo-400 font-bold uppercase tracking-wider bg-black/20 flex items-center gap-2">
+                <i className="fa-solid fa-wand-magic-sparkles"></i> AI Tools
+             </div>
+             <div className="px-3 py-2 hover:bg-indigo-600 cursor-pointer flex items-center justify-between gap-2" onMouseDown={(e) => { e.stopPropagation(); handleAction('autoCaptions'); }}>
+                <div className="flex items-center gap-2"><i className="fa-solid fa-closed-captioning w-4"></i> Auto Captions (Gemini)</div>
+                <i className="fa-solid fa-chevron-right text-[10px] text-gray-500"></i>
+             </div>
+             <div className="px-3 py-2 hover:bg-indigo-600 cursor-pointer flex items-center justify-between gap-2" onMouseDown={(e) => { e.stopPropagation(); handleAction('autoReframe'); }}>
+                <div className="flex items-center gap-2"><i className="fa-solid fa-crop-simple w-4"></i> Auto Reframe (Face Track)</div>
+                <i className="fa-solid fa-chevron-right text-[10px] text-gray-500"></i>
              </div>
              
              <div className="h-[1px] bg-gray-600 w-full my-1"></div>

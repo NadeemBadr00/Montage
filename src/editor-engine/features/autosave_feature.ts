@@ -78,8 +78,18 @@ export function injectAutosaveFeature() {
     };
 
     // ── Wrap saveState to also persist to IndexedDB ───────────────────────
-    const originalSaveState = (window as any).EditorApp.prototype.saveState;
-    (window as any).EditorApp.prototype.saveState = function () {
+    const proto = (window as any).EditorApp.prototype;
+    if (proto.saveState && proto.saveState.isWrappedForAutosave) {
+        console.log('[AutoSave] Already injected, skipping.');
+        return;
+    }
+    
+    const originalSaveState = proto.saveState;
+    proto.saveState = function () {
+        // Safety initialization if somehow undefined during HMR
+        if (!this.history) this.history = [];
+        if (!this.redoStack) this.redoStack = [];
+
         // Call original in-memory history save
         if (originalSaveState) originalSaveState.call(this);
 
@@ -99,6 +109,7 @@ export function injectAutosaveFeature() {
             }
         }, 400);
     };
+    proto.saveState.isWrappedForAutosave = true;
 
     console.log('[AutoSave] ✅ Feature injected — saveState now persists to IndexedDB');
 }

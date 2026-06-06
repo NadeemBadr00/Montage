@@ -185,8 +185,13 @@ window.EditorApp.prototype.drawLayerInWebGL = function(gl, clip, sourceEl, canva
         if (clip.type === 'image') {
             gl.bindTexture(gl.TEXTURE_2D, this.getOrUpdateImageTexture(gl, clip, sourceEl));
         } else {
+            // ✅ P2: Dirty-flag check — skip texImage2D if video frame hasn't changed
+            const vKey = (clip.src || '') + '@' + Math.round((sourceEl.currentTime || 0) * 90);
             gl.bindTexture(gl.TEXTURE_2D, this.videoTexture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceEl);
+            if (this._lastVideoKey !== vKey) {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceEl);
+                this._lastVideoKey = vKey;
+            }
         }
     } else {
         gl.bindTexture(gl.TEXTURE_2D, this.emptyTexture);
@@ -200,8 +205,13 @@ window.EditorApp.prototype.drawLayerInWebGL = function(gl, clip, sourceEl, canva
             if (clipB.type === 'image') {
                 gl.bindTexture(gl.TEXTURE_2D, this.getOrUpdateImageTexture(gl, clipB, sourceElB));
             } else {
+                // ✅ P2: Dirty-flag check for texture B
+                const vKeyB = (clipB.src || '') + '@' + Math.round((sourceElB.currentTime || 0) * 90);
                 gl.bindTexture(gl.TEXTURE_2D, this.videoTextureB);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceElB);
+                if (this._lastVideoBKey !== vKeyB) {
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceElB);
+                    this._lastVideoBKey = vKeyB;
+                }
             }
         } else {
             gl.bindTexture(gl.TEXTURE_2D, this.emptyTexture);
@@ -252,6 +262,29 @@ window.EditorApp.prototype.drawLayerInWebGL = function(gl, clip, sourceEl, canva
     let rawScaleY = baseClip.properties.scaleY !== undefined ? baseClip.properties.scaleY : 100;
     let rawX = baseClip.properties.positionX || 0;
     let rawY = baseClip.properties.positionY || 0;
+
+    // ✅ F2: Auto Reframe Keyframes Support (Interpolation)
+    if (baseClip.autoReframeEnabled && baseClip.keyframes && baseClip.keyframes.positionX) {
+        const timeInClip = this.currentTime - baseClip.start;
+        const keys = baseClip.keyframes.positionX;
+        if (keys.length > 0) {
+            if (timeInClip <= keys[0].time) {
+                rawX += keys[0].value;
+            } else if (timeInClip >= keys[keys.length - 1].time) {
+                rawX += keys[keys.length - 1].value;
+            } else {
+                for (let i = 0; i < keys.length - 1; i++) {
+                    if (timeInClip >= keys[i].time && timeInClip <= keys[i+1].time) {
+                        const t1 = keys[i].time; const t2 = keys[i+1].time;
+                        const v1 = keys[i].value; const v2 = keys[i+1].value;
+                        const progress = (timeInClip - t1) / (t2 - t1);
+                        rawX += v1 + (v2 - v1) * progress;
+                        break;
+                    }
+                }
+            }
+        }
+    }
 
     const refEl = sourceEl || sourceElB;
     let srcW = refEl ? (refEl.naturalWidth || refEl.videoWidth || canvasW) : canvasW;
@@ -340,9 +373,16 @@ window.EditorApp.prototype.drawLayerInWebGL = function(gl, clip, sourceEl, canva
     const removers = baseClip.logoRemovers || [];
     gl.uniform1i(this.glInfo.uniforms.numRemovers, removers.length);
     if (removers.length > 0) {
-        const rects = new Float32Array(3 * 4);
-        const modes = new Int32Array(3);
-        const strengths = new Float32Array(3);
+    // ✅ P7: Reusable arrays to prevent garbage collection pressure (Object Pool pattern)
+    if (!(window as any)._removerRectsPool) {
+        (window as any)._removerRectsPool = new Float32Array(3 * 4);
+        (window as any)._removerModesPool = new Int32Array(3);
+        (window as any)._removerStrengthsPool = new Float32Array(3);
+    }
+    const rects = (window as any)._removerRectsPool;
+    const modes = (window as any)._removerModesPool;
+    const strengths = (window as any)._removerStrengthsPool;
+    rects.fill(0); modes.fill(0); strengths.fill(0);
         
         for (let i = 0; i < Math.min(3, removers.length); i++) {
             const rm = removers[i];
@@ -366,6 +406,13 @@ window.EditorApp.prototype.drawLayerInWebGL = function(gl, clip, sourceEl, canva
 
     gl.uniform2f(this.glInfo.uniforms.quadSize, finalWidth, finalHeight);
     gl.uniform1f(this.glInfo.uniforms.borderRadius, baseClip.properties.borderRadius || 0.0);
+
+    // ✅ P2: Set color grading uniforms per-clip (handled in GLSL, no more N× WebGL passes)
+    const cg = baseClip.properties?.colorGrading;
+    gl.uniform1f(this.glInfo.uniforms.cgBrightness,  cg ? (cg.brightness ?? 100) / 100 : 1.0);
+    gl.uniform1f(this.glInfo.uniforms.cgContrast,    cg ? (cg.contrast   ?? 100) / 100 : 1.0);
+    gl.uniform1f(this.glInfo.uniforms.cgSaturation,  cg ? (cg.saturation ?? 100) / 100 : 1.0);
+    gl.uniform1f(this.glInfo.uniforms.cgHue,         cg ? (cg.hue        ??   0) / 360 : 0.0);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
 };

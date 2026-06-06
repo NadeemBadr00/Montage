@@ -23,11 +23,29 @@ window.EditorApp.prototype.startPlayback = function() {
     // FIX #5: notify Zustand immediately so React play button updates without polling
     if (window.useEditorStore) window.useEditorStore.setState({ isPlaying: true });
     
+    // 🔥 FIX: Bless all HTML5 video elements during this trusted user gesture!
+    // This allows them to be played unmuted later inside requestAnimationFrame by managePlayers.
+    if (!this._playersBlessed) {
+        this.players.forEach(p => {
+            const isPlaying = !p.paused;
+            const prom = p.play();
+            if (prom !== undefined) {
+                prom.catch(()=>{});
+            }
+            if (!isPlaying) p.pause(); // Restore paused state if it wasn't supposed to play yet
+        });
+        this._playersBlessed = true;
+    }
+    
     // Stop Lookahead when playing to save resources
     if(this.stopPredictiveCaching) this.stopPredictiveCaching();
 
     this.lastTick = performance.now();
+    this.lastTimePerf = performance.now();
     this.playbackStartTime = this.audioCtx.currentTime - this.currentTime;
+    // Mark if we started while suspended so we can re-sync when it wakes up
+    this._startedSuspended = (this.audioCtx.state === 'suspended');
+
     this.updatePlayStateUI();
     this.players.forEach(p => { 
         if(p.getAttribute('data-key') && p.paused) p.play().catch(()=>{}); 
@@ -120,12 +138,8 @@ window.EditorApp.prototype.playbackLoop = function(now) {
     this.lastTick = now;
 
     if (this.isPlaying) {
-        if (this.playbackRate === 1) {
-            this.currentTime = this.audioCtx.currentTime - this.playbackStartTime;
-        } else {
-             const dt = (now - this.lastTimePerf || now) / 1000;
-             this.currentTime += dt * this.playbackRate;
-        }
+        const dt = (now - (this.lastTimePerf || now)) / 1000;
+        this.currentTime += dt * this.playbackRate;
         this.lastTimePerf = now;
 
         if (this.currentTime >= this.duration) { this.currentTime = this.duration; this.pausePlayback(); } 

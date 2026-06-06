@@ -5,6 +5,8 @@ import { useEditorStore } from '../../../store/useEditorStore';
 
 export const injectEngineState = () => {
     window.EditorApp.prototype.saveState = function() {
+        if (!this.history) this.history = [];
+        if (!this.redoStack) this.redoStack = [];
         const state = JSON.stringify(this.tracks);
         this.history.push(state);
         if (this.history.length > this.maxHistory) this.history.shift();

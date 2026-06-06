@@ -15,6 +15,11 @@ export const injectActionsCore = () => {
 
         this.log(`🚀 Executing: ${cmdStr}`);
 
+        // Track command history (Phase 20)
+        if (!window.__cmdHistory__) window.__cmdHistory__ = [];
+        window.__cmdHistory__.push(cmdStr);
+        if (window.__cmdHistory__.length > 50) window.__cmdHistory__.shift();
+
         switch (parsed.type) {
             case 'UNDO':
                 this.undo();
@@ -143,6 +148,191 @@ export const injectActionsCore = () => {
                 break;
             case 'GOTO_MARKER':
                 this.executeGotoMarkerCommand(parsed.label);
+                break;
+            case 'BEAT_DETECT':
+                if (this.executeBeatDetection) this.executeBeatDetection();
+                break;
+            case 'SCENE_DETECT':
+                if (this.executeSceneDetection) this.executeSceneDetection();
+                break;
+            case 'AUTO_DUCKING':
+                if (this.executeAutoDucking) this.executeAutoDucking();
+                break;
+            case 'PROGRESS_BAR':
+                if (this.executeProgressBar) this.executeProgressBar();
+                break;
+            case 'THUMBNAIL_GENERATE':
+                if (this.executeThumbnailGenerate) this.executeThumbnailGenerate(parsed.text);
+                break;
+            case 'LOWER_THIRD':
+                if (this.executeLowerThird) this.executeLowerThird(parsed.name, parsed.title);
+                break;
+            case 'EMOJI_REACTION':
+                if (this.executeEmojiReaction) this.executeEmojiReaction(parsed.emoji);
+                break;
+            case 'VOICEOVER_GENERATE':
+                if (this.executeVoiceover) this.executeVoiceover(parsed.text);
+                break;
+            case 'AUTO_CAPTIONS':
+                if (this.executeAutoCaptions) this.executeAutoCaptions();
+                break;
+            case 'CUSTOM_FONT':
+                if (this.executeCustomFont) this.executeCustomFont(parsed.fontName);
+                break;
+            case 'AUDIO_MASTER':
+                if (this.executeAudioMaster) this.executeAudioMaster(parsed.filter);
+                break;
+            case 'REVERSE_CLIP':
+                if (this.executeReverseClip) this.executeReverseClip();
+                break;
+            case 'EXPORT_CHAPTERS':
+                if (this.executeExportChapters) this.executeExportChapters();
+                break;
+            case 'SAVE_SNAPSHOT':
+                if (this.executeSaveSnapshot) this.executeSaveSnapshot(parsed.name);
+                break;
+            case 'SPEED_RAMP':
+                if (this.executeSpeedRamp) this.executeSpeedRamp(parsed.direction);
+                break;
+            case 'LETTERBOX_TOGGLE':
+                if (this.executeLetterbox) this.executeLetterbox();
+                break;
+            case 'BROLL_SUGGEST':
+                if (this.executeBRollSuggest) this.executeBRollSuggest();
+                break;
+            case 'BATCH_EXPORT':
+                if (this.executeBatchExport) this.executeBatchExport();
+                break;
+            case 'GRID_LAYOUT':
+                if (this.executeGridLayout) this.executeGridLayout(parsed.cols, parsed.rows);
+                break;
+            case 'COUNTDOWN_TIMER':
+                if (this.executeCountdownTimer) this.executeCountdownTimer(parsed.seconds);
+                break;
+            case 'QUICK_FILTER':
+                if (this.executeQuickFilter) this.executeQuickFilter(parsed.filterType);
+                break;
+            case 'CINEMATIC_TITLE':
+                if (this.executeCinematicTitle) this.executeCinematicTitle(parsed.text);
+                break;
+            case 'CHROMA_KEY':
+                if (this.executeChromaKey) this.executeChromaKey();
+                break;
+            case 'AUTO_ZOOM':
+                if (this.executeAutoZoom) this.executeAutoZoom(parsed.direction);
+                break;
+            case 'AUDIO_WAVEFORM':
+                if (this.executeAudioWaveform) this.executeAudioWaveform();
+                break;
+            case 'FREEZE_FRAME':
+                if (this.executeFreezeFrame) this.executeFreezeFrame();
+                break;
+            case 'EXPORT_XML':
+                if (this.executeExportXML) this.executeExportXML();
+                break;
+            case 'BEAT_MATCH':
+                if (this.executeBeatMatch) this.executeBeatMatch();
+                break;
+            case 'KARAOKE_SUBTITLES':
+                if (this.executeKaraokeSubtitles) this.executeKaraokeSubtitles();
+                break;
+            case 'LOOP_CLIP':
+                if (this.executeLoopClip) this.executeLoopClip(parsed.times);
+                break;
+
+            // ═══ Phase 14 ═══
+            case 'PITCH_SHIFT':
+                if (this.executePitchShift) this.executePitchShift(parsed.semitones);
+                break;
+            case 'COLOR_MATCH':
+                if (this.executeColorMatch) this.executeColorMatch();
+                break;
+            case 'GIF_EXPORT':
+                if (this.executeGifExport) this.executeGifExport();
+                break;
+            case 'SOCIAL_PRESET':
+                if (this.executeSocialPreset) this.executeSocialPreset(parsed.platform);
+                break;
+
+            // ═══ Phase 15 ═══
+            case 'CAMERA_SHAKE':
+                if (this.executeCameraShake) this.executeCameraShake();
+                break;
+            case 'VIGNETTE_TOGGLE':
+                if (this.executeVignette) this.executeVignette();
+                break;
+            case 'GLITCH_EFFECT':
+                if (this.executeGlitchEffect) this.executeGlitchEffect();
+                break;
+            case 'BLUR_EFFECT':
+                if (this.executeBlurEffect) this.executeBlurEffect(parsed.amount);
+                break;
+
+            // ═══ Phase 16 ═══
+            case 'LENS_FLARE':
+                if (this.executeLensFlare) this.executeLensFlare();
+                break;
+            case 'RAIN_OVERLAY':
+                if (this.executeRainOverlay) this.executeRainOverlay();
+                break;
+            case 'SPARKLE_OVERLAY':
+                if (this.executeSparkleOverlay) this.executeSparkleOverlay();
+                break;
+            case 'LIGHT_SWEEP':
+                if (this.executeLightSweep) this.executeLightSweep();
+                break;
+
+            // ═══ Phase 17 ═══
+            case 'TEXT_OUTLINE':
+                if (this.executeTextOutline) this.executeTextOutline(parsed.color);
+                break;
+            case 'TEXT_SHADOW':
+                if (this.executeTextShadow) this.executeTextShadow(parsed.strength);
+                break;
+            case 'TEXT_BOLD':
+                if (this.executeToggleBold) this.executeToggleBold();
+                break;
+            case 'TEXT_SCALE':
+                if (this.executeTextScale) this.executeTextScale(parsed.size);
+                break;
+
+            // ═══ Phase 18 ═══
+            case 'WATERMARK':
+                if (this.executeWatermark) this.executeWatermark(parsed.text);
+                break;
+            case 'LOGO_OVERLAY':
+                if (this.executeLogoOverlay) this.executeLogoOverlay();
+                break;
+            case 'COPYRIGHT_STRIP':
+                if (this.executeCopyrightStrip) this.executeCopyrightStrip();
+                break;
+            case 'BRAND_COLOR':
+                if (this.executeBrandColor) this.executeBrandColor(parsed.color);
+                break;
+
+            // ═══ Phase 19 ═══
+            case 'STORYBOARD':
+                if (this.executeStoryboard) this.executeStoryboard();
+                break;
+            case 'CLEANUP_TIMELINE':
+                if (this.executeCleanupTimeline) this.executeCleanupTimeline();
+                break;
+            case 'MOOD_MODE':
+                if (this.executeMoodMode) this.executeMoodMode(parsed.mood);
+                break;
+
+            // ═══ Phase 20 ═══
+            case 'SHOW_HELP':
+                if (this.executeHelp) this.executeHelp();
+                break;
+            case 'SHOW_INFO':
+                if (this.executeShowInfo) this.executeShowInfo();
+                break;
+            case 'SHOW_HISTORY':
+                if (this.executeShowHistory) this.executeShowHistory();
+                break;
+            case 'RESET_EFFECTS':
+                if (this.executeResetEffects) this.executeResetEffects();
                 break;
 
             default:

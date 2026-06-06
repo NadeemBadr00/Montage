@@ -283,8 +283,22 @@ window.EditorApp.prototype.getClipDrawRect = function(clip, w, h) {
             const style = clip.textStyle || {};
             const text = clip.src || "Double Click to Edit";
             const fontSize = h * 0.05; 
+            const fontStr = `${style.fontWeight || 'bold'} ${fontSize}px "${style.fontFamily || 'Cairo'}", sans-serif`;
+            
+            // ✅ P7: measureText Cache (avoids O(m) string splits & measureText calls per frame)
+            const padding = style.padding !== undefined ? style.padding : 20;
+            const cacheKey = `${text}|${fontStr}|${w}|${padding}`;
+            if (!this._textMeasureCache) this._textMeasureCache = new Map();
+            
+            if (this._textMeasureCache.has(cacheKey)) {
+                const cached = this._textMeasureCache.get(cacheKey);
+                clip._computedWidth = cached.drawW;
+                clip._computedHeight = cached.drawH;
+                return cached;
+            }
+
             this.ctx.save();
-            this.ctx.font = `${style.fontWeight || 'bold'} ${fontSize}px "${style.fontFamily || 'Cairo'}", sans-serif`;
+            this.ctx.font = fontStr;
             
             const maxWidth = w * 0.8;
             const rawLines = text.split('\n');
@@ -314,11 +328,20 @@ window.EditorApp.prototype.getClipDrawRect = function(clip, w, h) {
                 if(m.width > maxLineWidth) maxLineWidth = m.width; 
             });
             
-            const padding = style.padding !== undefined ? style.padding : 20;
             drawW = maxLineWidth + (padding * 2);
             drawH = totalHeight + (padding * 2);
             
             this.ctx.restore();
+
+            // Store in cache (limit size to 100 to prevent leak)
+            if (this._textMeasureCache.size > 100) {
+                const firstKey = this._textMeasureCache.keys().next().value;
+                this._textMeasureCache.delete(firstKey);
+            }
+            this._textMeasureCache.set(cacheKey, { drawW, drawH });
+            clip._computedWidth = drawW;
+            clip._computedHeight = drawH;
+            
         } else {
             drawW = w * 0.8; drawH = h * 0.2; 
         }

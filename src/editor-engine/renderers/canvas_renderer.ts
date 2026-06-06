@@ -80,51 +80,120 @@ export function drawAdvancedText(ctx: CanvasRenderingContext2D, clip: any, w: nu
     const scale = (clip.properties.scale || 100) / 100;
 
     ctx.save();
-    ctx.translate(centerX + posX, centerY + posY);
-    ctx.rotate((rot * Math.PI) / 180);
-    ctx.scale(scale, scale);
+    
+    // ✅ F4: Motion Graphics (Animations)
+    const app = (window as any).app;
+    const currentTime = app ? app.currentTime : clip.start;
+    const timeInClip = currentTime - clip.start;
+    const timeRemaining = clip.end - currentTime;
+    
+    let animScale = scale;
+    let animX = posX;
+    let animY = posY;
+    let animAlpha = 1;
+    let animRot = rot;
+
+    if (clip.animation) {
+        // IN Animation
+        if (clip.animation.in && timeInClip < 1.0) {
+            const p = timeInClip; // 0 to 1
+            const easeOutBack = (x: number) => 1 + 2.70158 * Math.pow(x - 1, 3) + 1.70158 * Math.pow(x - 1, 2);
+            if (clip.animation.in === 'pop') {
+                animScale = scale * easeOutBack(p);
+            } else if (clip.animation.in === 'slideUp') {
+                animY += (1 - p) * 200;
+                animAlpha = p;
+            } else if (clip.animation.in === 'fadeIn') {
+                animAlpha = p;
+            }
+        }
+        
+        // OUT Animation
+        if (clip.animation.out && timeRemaining < 1.0) {
+            const p = 1.0 - timeRemaining; // 0 to 1
+            if (clip.animation.out === 'popOut') {
+                animScale = scale * (1 - p);
+            } else if (clip.animation.out === 'slideDown') {
+                animY += p * 200;
+                animAlpha = 1 - p;
+            } else if (clip.animation.out === 'fadeOut') {
+                animAlpha = 1 - p;
+            }
+        }
+        
+        // LOOP Animation
+        if (clip.animation.loop) {
+            if (clip.animation.loop === 'pulse') {
+                animScale *= 1.0 + Math.sin(currentTime * 5) * 0.1;
+            } else if (clip.animation.loop === 'shake') {
+                animRot += Math.sin(currentTime * 20) * 5;
+            } else if (clip.animation.loop === 'wave') {
+                animY += Math.sin(currentTime * 4) * 20;
+            }
+        }
+    }
+
+    ctx.globalAlpha *= Math.max(0, Math.min(1, animAlpha));
+    ctx.translate(centerX + animX, centerY + animY);
+    ctx.rotate((animRot * Math.PI) / 180);
+    ctx.scale(animScale, animScale);
     
     const fontSize = h * 0.05; 
     const fontStyle = style.fontStyle === 'italic' ? 'italic' : 'normal';
-    ctx.font = `${fontStyle} ${style.fontWeight || 'bold'} ${fontSize}px "${style.fontFamily || 'Cairo'}", "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
+    const fontStr = `${fontStyle} ${style.fontWeight || 'bold'} ${fontSize}px "${style.fontFamily || 'Cairo'}", "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
+    ctx.font = fontStr;
     
     const align = style.textAlign || 'center';
     ctx.textAlign = align as CanvasTextAlign; 
     ctx.textBaseline = "middle";
 
-    const maxWidth = w * 0.8;
-    const rawLines = text.split('\n');
-    const lines = [];
-    
-    for (const rawLine of rawLines) {
-        const words = rawLine.split(' ');
-        let line = '';
-        for (let n = 0; n < words.length; n++) {
-            const testLine = line + words[n] + ' ';
-            const metrics = ctx.measureText(testLine);
-            if (metrics.width > maxWidth && n > 0) { 
-                lines.push(line.trim()); 
-                line = words[n] + ' '; 
-            } else { 
-                line = testLine; 
-            }
-        }
-        lines.push(line.trim());
-    }
-
-    const lineHeight = fontSize * 1.4;
-    const totalHeight = lines.length * lineHeight;
-    let maxLineWidth = 0;
-    lines.forEach((l: string) => { const m = ctx.measureText(l); if(m.width > maxLineWidth) maxLineWidth = m.width; });
-    
+    // ✅ P7: Cache word-wrapping and measureText results per clip (O(1) rendering instead of O(m) per frame)
     const padding = style.padding !== undefined ? style.padding : 20;
-    const boxW = maxLineWidth + (padding * 2);
-    const boxH = totalHeight + (padding * 2);
-    const startY = -(totalHeight / 2) + (lineHeight / 2);
+    const cacheKey = `${text}|${fontStr}|${w}|${padding}`;
 
-    // Save computed dimensions for UI bounding box (Canvas transform handles)
-    (clip as any)._computedWidth = boxW;
-    (clip as any)._computedHeight = boxH;
+    let lines: string[] = [];
+    let boxW = 0, boxH = 0, startY = 0, lineHeight = fontSize * 1.4;
+
+    if ((clip as any)._lastTextCacheKey === cacheKey && (clip as any)._cachedLines) {
+        lines = (clip as any)._cachedLines;
+        boxW = (clip as any)._computedWidth;
+        boxH = (clip as any)._computedHeight;
+        startY = (clip as any)._cachedStartY;
+    } else {
+        const maxWidth = w * 0.8;
+        const rawLines = text.split('\n');
+        
+        for (const rawLine of rawLines) {
+            const words = rawLine.split(' ');
+            let line = '';
+            for (let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+                const metrics = ctx.measureText(testLine);
+                if (metrics.width > maxWidth && n > 0) { 
+                    lines.push(line.trim()); 
+                    line = words[n] + ' '; 
+                } else { 
+                    line = testLine; 
+                }
+            }
+            lines.push(line.trim());
+        }
+
+        const totalHeight = lines.length * lineHeight;
+        let maxLineWidth = 0;
+        lines.forEach((l: string) => { const m = ctx.measureText(l); if(m.width > maxLineWidth) maxLineWidth = m.width; });
+        
+        boxW = maxLineWidth + (padding * 2);
+        boxH = totalHeight + (padding * 2);
+        startY = -(totalHeight / 2) + (lineHeight / 2);
+
+        // Save computed dimensions for UI bounding box (Canvas transform handles) and fast render
+        (clip as any)._lastTextCacheKey = cacheKey;
+        (clip as any)._cachedLines = lines;
+        (clip as any)._computedWidth = boxW;
+        (clip as any)._computedHeight = boxH;
+        (clip as any)._cachedStartY = startY;
+    }
 
     // Render Background
     const bgOpacity = (style.backgroundOpacity !== undefined ? style.backgroundOpacity : 0) / 100;

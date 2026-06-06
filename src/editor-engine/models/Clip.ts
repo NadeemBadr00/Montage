@@ -63,7 +63,10 @@ export class Clip implements IClip {
     
     getPropertyValue(prop: keyof ClipProperties | string, timeRelative: number): number {
         if (!this.keyframes[prop] || this.keyframes[prop].length === 0) {
-            return (this.properties as any)[prop] !== undefined ? (this.properties as any)[prop] : (prop === 'scale' ? 100 : 0);
+            if ((this.properties as any)[prop] !== undefined) return (this.properties as any)[prop];
+            if (prop === 'scale' || prop === 'opacity' || prop === 'volume') return 100;
+            if (prop === 'playbackSpeed') return 1.0;
+            return 0;
         }
         const keys = this.keyframes[prop].sort((a: any, b: any) => a.t - b.t);
         if (timeRelative <= keys[0].t) return keys[0].v;

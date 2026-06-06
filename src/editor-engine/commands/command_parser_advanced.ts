@@ -171,5 +171,188 @@ export function parseAdvancedCommand(cmd: string): any {
         return { type: 'GOTO_MARKER', label: gotoMarkerMatch[1] };
     }
 
+    // Beat Detection
+    if (/^\/?beat$/i.test(cmd)) {
+        return { type: 'BEAT_DETECT' };
+    }
+
+    // Scene Detection
+    if (/^\/?scenes?$/i.test(cmd)) {
+        return { type: 'SCENE_DETECT' };
+    }
+
+    // Auto Ducking
+    if (/^\/?duck(ing)?$/i.test(cmd)) {
+        return { type: 'AUTO_DUCKING' };
+    }
+
+    // Phase 7: Progress Bar, Thumbnail, Lower Third, Emoji
+    const progressRegex = /^\/?progress$/i;
+    if (progressRegex.test(cmd)) return { type: 'PROGRESS_BAR' };
+
+    const thumbRegex = /^\/?thumb(?:\s+(.+))?$/i;
+    const thumbMatch = cmd.match(thumbRegex);
+    if (thumbMatch) return { type: 'THUMBNAIL_GENERATE', text: thumbMatch[1] || '' };
+
+    const lowerRegex = /^\/?lower(?:\s+(.+))?$/i;
+    const lowerMatch = cmd.match(lowerRegex);
+    if (lowerMatch) {
+        const parts = lowerMatch[1] ? lowerMatch[1].split('-').map(s=>s.trim()) : ['Name', 'Title'];
+        return { type: 'LOWER_THIRD', name: parts[0] || 'Name', title: parts[1] || 'Title' };
+    }
+
+    const emojiRegex = /^\/?emoji(?:\s+(.+))?$/i;
+    const emojiMatch = cmd.match(emojiRegex);
+    if (emojiMatch) return { type: 'EMOJI_REACTION', emoji: emojiMatch[1] || '😂' };
+
+    // Phase 8: Voiceover, Captions, Font
+    const voiceRegex = /^\/?voice\s+(.+)$/i;
+    const voiceMatch = cmd.match(voiceRegex);
+    if (voiceMatch) return { type: 'VOICEOVER_GENERATE', text: voiceMatch[1] };
+
+    const captionsRegex = /^\/?captions?$/i;
+    if (captionsRegex.test(cmd)) return { type: 'AUTO_CAPTIONS' };
+
+    const fontRegex = /^\/?font\s+(.+)$/i;
+    const fontMatch = cmd.match(fontRegex);
+    if (fontMatch) return { type: 'CUSTOM_FONT', fontName: fontMatch[1].trim() };
+
+    // Phase 9: Audio Mastering, Reverse, Chapters, Snapshot
+    if (/^\/?bass$/i.test(cmd)) return { type: 'AUDIO_MASTER', filter: 'bass' };
+    if (/^\/?noise$/i.test(cmd)) return { type: 'AUDIO_MASTER', filter: 'noise' };
+    if (/^\/?reverse$/i.test(cmd)) return { type: 'REVERSE_CLIP' };
+    if (/^\/?chapters?$/i.test(cmd)) return { type: 'EXPORT_CHAPTERS' };
+    
+    const snapRegex = /^\/?snapshot(?:\s+(.+))?$/i;
+    const snapMatch = cmd.match(snapRegex);
+    if (snapMatch) return { type: 'SAVE_SNAPSHOT', name: snapMatch[1] || `Snapshot_${Date.now()}` };
+
+    // Phase 10: Ramp, Letterbox, B-Roll, Batch Export
+    const rampRegex = /^\/?ramp\s+(up|down)$/i;
+    const rampMatch = cmd.match(rampRegex);
+    if (rampMatch) return { type: 'SPEED_RAMP', direction: rampMatch[1].toLowerCase() };
+
+    if (/^\/?letterbox$/i.test(cmd)) return { type: 'LETTERBOX_TOGGLE' };
+    if (/^\/?broll$/i.test(cmd)) return { type: 'BROLL_SUGGEST' };
+    if (/^\/?batchexport$/i.test(cmd)) return { type: 'BATCH_EXPORT' };
+
+    // Phase 11: Grid, Countdown, Filter, Title
+    const gridRegex = /^\/?grid\s+(\d+)x(\d+)$/i;
+    const gridMatch = cmd.match(gridRegex);
+    if (gridMatch) return { type: 'GRID_LAYOUT', cols: parseInt(gridMatch[1]), rows: parseInt(gridMatch[2]) };
+
+    const countdownRegex = /^\/?countdown(?:\s+(\d+))?$/i;
+    const countdownMatch = cmd.match(countdownRegex);
+    if (countdownMatch) return { type: 'COUNTDOWN_TIMER', seconds: parseInt(countdownMatch[1]) || 5 };
+
+    const quickFilterRegex = /^\/?filter\s+([a-zA-Z0-9_-]+)$/i;
+    const quickFilterMatch = cmd.match(quickFilterRegex);
+    if (quickFilterMatch) return { type: 'QUICK_FILTER', filterType: quickFilterMatch[1].toLowerCase() };
+
+    const titleRegex = /^\/?title(?:\s+(.+))?$/i;
+    const titleMatch = cmd.match(titleRegex);
+    if (titleMatch) return { type: 'CINEMATIC_TITLE', text: titleMatch[1] || 'TITLE' };
+
+    // Phase 12: Chroma, Zoom, Waveform, Freeze
+    if (/^\/?chroma$/i.test(cmd)) return { type: 'CHROMA_KEY' };
+    
+    const zoomRegex = /^\/?zoom\s+(in|out)$/i;
+    const zoomMatch = cmd.match(zoomRegex);
+    if (zoomMatch) return { type: 'AUTO_ZOOM', direction: zoomMatch[1].toLowerCase() };
+
+    if (/^\/?waveform$/i.test(cmd)) return { type: 'AUDIO_WAVEFORM' };
+    if (/^\/?freeze$/i.test(cmd)) return { type: 'FREEZE_FRAME' };
+
+    // Phase 13: FCPXML, BeatMatch, Karaoke, Loop
+    if (/^\/?export\s+xml$/i.test(cmd)) return { type: 'EXPORT_XML' };
+    if (/^\/?beatmatch$/i.test(cmd)) return { type: 'BEAT_MATCH' };
+    if (/^\/?karaoke$/i.test(cmd)) return { type: 'KARAOKE_SUBTITLES' };
+    
+    const loopRegex = /^\/?loop(?:\s+(\d+))?$/i;
+    const loopMatch = cmd.match(loopRegex);
+    if (loopMatch) return { type: 'LOOP_CLIP', times: parseInt(loopMatch[1]) || 1 };
+
+    // ═══════════════════════════════════════════════════
+    // Phase 14: Social Presets, Pitch, Color Match, GIF
+    // ═══════════════════════════════════════════════════
+    const pitchRegex = /^\/?pitch\s+([+-]?\d+)$/i;
+    const pitchMatch = cmd.match(pitchRegex);
+    if (pitchMatch) return { type: 'PITCH_SHIFT', semitones: parseInt(pitchMatch[1]) };
+
+    if (/^\/?colormatch$/i.test(cmd)) return { type: 'COLOR_MATCH' };
+    if (/^\/?gif$/i.test(cmd)) return { type: 'GIF_EXPORT' };
+
+    const socialRegex = /^\/?social\s+(.+)$/i;
+    const socialMatch = cmd.match(socialRegex);
+    if (socialMatch) return { type: 'SOCIAL_PRESET', platform: socialMatch[1].trim() };
+
+    // ═══════════════════════════════════════════════════
+    // Phase 15: Camera FX
+    // ═══════════════════════════════════════════════════
+    if (/^\/?shake$/i.test(cmd)) return { type: 'CAMERA_SHAKE' };
+    if (/^\/?vignette$/i.test(cmd)) return { type: 'VIGNETTE_TOGGLE' };
+    if (/^\/?glitch$/i.test(cmd)) return { type: 'GLITCH_EFFECT' };
+
+    const blurRegex = /^\/?blur(?:\s+(\d+))?$/i;
+    const blurMatch = cmd.match(blurRegex);
+    if (blurMatch) return { type: 'BLUR_EFFECT', amount: parseInt(blurMatch[1]) || 10 };
+
+    // ═══════════════════════════════════════════════════
+    // Phase 16: Particle & Light FX
+    // ═══════════════════════════════════════════════════
+    if (/^\/?flare$/i.test(cmd)) return { type: 'LENS_FLARE' };
+    if (/^\/?rain$/i.test(cmd)) return { type: 'RAIN_OVERLAY' };
+    if (/^\/?sparkle$/i.test(cmd)) return { type: 'SPARKLE_OVERLAY' };
+    if (/^\/?lightsweep$/i.test(cmd)) return { type: 'LIGHT_SWEEP' };
+
+    // ═══════════════════════════════════════════════════
+    // Phase 17: Typography Pro
+    // ═══════════════════════════════════════════════════
+    const outlineRegex = /^\/?outline(?:\s+(.+))?$/i;
+    const outlineMatch = cmd.match(outlineRegex);
+    if (outlineMatch) return { type: 'TEXT_OUTLINE', color: outlineMatch[1] || '#000000' };
+
+    const shadowRegex = /^\/?shadow(?:\s+(\d+))?$/i;
+    const shadowMatch = cmd.match(shadowRegex);
+    if (shadowMatch) return { type: 'TEXT_SHADOW', strength: parseInt(shadowMatch[1]) || 10 };
+
+    if (/^\/?bold$/i.test(cmd)) return { type: 'TEXT_BOLD' };
+
+    const tscaleRegex = /^\/?textscale\s+(\d+)$/i;
+    const tscaleMatch = cmd.match(tscaleRegex);
+    if (tscaleMatch) return { type: 'TEXT_SCALE', size: parseInt(tscaleMatch[1]) };
+
+    // ═══════════════════════════════════════════════════
+    // Phase 18: Branding
+    // ═══════════════════════════════════════════════════
+    const watermarkRegex = /^\/?watermark(?:\s+(.+))?$/i;
+    const watermarkMatch = cmd.match(watermarkRegex);
+    if (watermarkMatch) return { type: 'WATERMARK', text: watermarkMatch[1] || '@AI4Montage' };
+
+    if (/^\/?logo$/i.test(cmd)) return { type: 'LOGO_OVERLAY' };
+    if (/^\/?copyright$/i.test(cmd)) return { type: 'COPYRIGHT_STRIP' };
+
+    const brandRegex = /^\/?brand\s+(#[0-9a-fA-F]{3,6}|[a-zA-Z]+)$/i;
+    const brandMatch = cmd.match(brandRegex);
+    if (brandMatch) return { type: 'BRAND_COLOR', color: brandMatch[1] };
+
+    // ═══════════════════════════════════════════════════
+    // Phase 19: AI Automation
+    // ═══════════════════════════════════════════════════
+    if (/^\/?storyboard$/i.test(cmd)) return { type: 'STORYBOARD' };
+    if (/^\/?cleanup$/i.test(cmd)) return { type: 'CLEANUP_TIMELINE' };
+
+    const moodRegex = /^\/?mood\s+(.+)$/i;
+    const moodMatch = cmd.match(moodRegex);
+    if (moodMatch) return { type: 'MOOD_MODE', mood: moodMatch[1].trim() };
+
+    // ═══════════════════════════════════════════════════
+    // Phase 20: Final Polish
+    // ═══════════════════════════════════════════════════
+    if (/^\/?help$/i.test(cmd)) return { type: 'SHOW_HELP' };
+    if (/^\/?info$/i.test(cmd)) return { type: 'SHOW_INFO' };
+    if (/^\/?history$/i.test(cmd)) return { type: 'SHOW_HISTORY' };
+    if (/^\/?reset$/i.test(cmd)) return { type: 'RESET_EFFECTS' };
+
     return null;
 }

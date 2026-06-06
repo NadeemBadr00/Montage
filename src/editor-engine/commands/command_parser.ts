@@ -222,6 +222,32 @@ export function parseCommand(cmdString: string): any {
         return { type: 'CROP_RESET', index: parseInt(m[1]), trackName: m[2].toUpperCase() };
     }
 
+    // ── Phase 4: Missing Features
+    // scene-detect c1V1
+    const sdRegex = /^scene-detect c(\d+)([vta]\d+)$/i;
+    const sdMatch = cmd.match(sdRegex);
+    if (sdMatch) {
+        return { type: 'SCENE_DETECT', clipId: `c_${sdMatch[2].toUpperCase()}_${sdMatch[1]}` }; // Actually better to pass trackName and index, or assume standard clip IDs.
+    }
+    
+    // auto-duck
+    if (cmd === 'auto-duck') return { type: 'AUTO_DUCK' };
+    
+    // generate-thumbnail
+    if (cmd === 'generate-thumbnail' || cmd === 'thumbnail') return { type: 'THUMBNAIL' };
+
+    // ── Phase 5: Final Missing Features
+    if (cmd === 'export-audio') return { type: 'EXPORT_AUDIO' };
+    if (cmd === 'export-gif') return { type: 'EXPORT_GIF' };
+    if (cmd === 'generate-chapters') return { type: 'GENERATE_CHAPTERS' };
+    
+    // color-match c1V1
+    const cmRegex = /^color-match c(\d+)([vta]\d+)$/i;
+    const cmMatch = cmd.match(cmRegex);
+    if (cmMatch) {
+        return { type: 'COLOR_MATCH', clipId: `c_${cmMatch[2].toUpperCase()}_${cmMatch[1]}` };
+    }
+
     const advanced = parseAdvancedCommand(cmd);
     if (advanced) return advanced;
 
