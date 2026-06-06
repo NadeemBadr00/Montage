@@ -422,3 +422,117 @@ input[type="number"] {
   50%  { opacity: 0.8; box-shadow: 0 0 0 2px #a5b4fc, 0 0 12px rgba(165,180,252,0.6); }
   100% { opacity: 0; box-shadow: 0 0 0 0px transparent; }
 }
+
+/* ═══════════════════════════════════════════════
+   Phase 10 — EffectControls & QuickFX UI Polish
+   ═══════════════════════════════════════════════ */
+
+/* Props slider custom styling */
+.prop-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.prop-slider:hover { opacity: 1; }
+.prop-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid currentColor;
+  cursor: pointer;
+  box-shadow: 0 0 4px rgba(0,0,0,0.5);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.prop-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.3);
+  box-shadow: 0 0 8px rgba(255,255,255,0.3);
+}
+
+/* Effect Controls tab content transition */
+.ec-tab-content {
+  animation: ecTabIn 0.15s ease-out;
+}
+@keyframes ecTabIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* FX grid button glow on active */
+.fx-btn-active {
+  box-shadow: 0 0 12px var(--fx-color, rgba(236,72,153,0.4));
+  border-color: var(--fx-color, rgba(236,72,153,0.6)) !important;
+}
+
+/* Preset applied flash */
+@keyframes presetApplied {
+  0%   { background: rgba(74,222,128,0.3); }
+  100% { background: transparent; }
+}
+.preset-flash { animation: presetApplied 0.8s ease-out; }
+
+/* Export button shimmer */
+.export-btn-shimmer {
+  background-size: 200% 100%;
+  background-position: 100% 0;
+  animation: shimmer 2s infinite linear;
+}
+@keyframes shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Panel glassmorphism header */
+.panel-glass-header {
+  background: linear-gradient(135deg, rgba(15,23,42,0.9), rgba(6,11,20,0.95));
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+/* Tooltip on hover for prop controls */
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #cbd5e1;
+  font-size: 9px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 9999;
+}
+[data-tooltip]:hover::after { opacity: 1; }
+
+/* Color temperature slider gradient */
+.colortemp-slider {
+  background: linear-gradient(to right, #bfdbfe, #fff, #fde68a) !important;
+}
+
+/* Volume/Audio meter bar */
+.audio-meter {
+  display: flex;
+  gap: 1px;
+  align-items: flex-end;
+  height: 20px;
+}
+.audio-meter-bar {
+  width: 3px;
+  border-radius: 1px;
+  background: linear-gradient(to top, #22c55e, #fbbf24 70%, #f87171);
+  transition: height 0.08s ease-out;
+}
