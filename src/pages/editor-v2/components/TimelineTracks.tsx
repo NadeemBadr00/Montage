@@ -4,6 +4,7 @@ import TimelineTrackHeader from './TimelineTrackHeader';
 import TrackHeader from './TrackHeader';
 import ClipItem from './ClipItem';
 import TransitionItem from './TransitionItem';
+import KeyframeLane from './KeyframeLane';
 import { Clip } from '../../../types/editor.types';
 import TimelineContextMenu from './TimelineContextMenu';
 import { useTimelineDrop } from '../panels/useTimelineDrop';
@@ -263,6 +264,11 @@ export default function TimelineTracks() {
               )}
             </div>
           </div>
+
+          {/* Phase 24: Keyframe Lane */}
+          {track.showKeyframes && (
+            <KeyframeLane track={track} headerWidth={headerWidth} />
+          )}
           
           {/* Divider between tracks for insertion */}
           <div 

@@ -224,6 +224,15 @@ export default function TimelineTrackHeader({ track, trackIndex, height, onHeigh
           <i className={`fa-solid ${track.hidden ? 'fa-eye-slash' : 'fa-eye'} text-[9px]`} />
         </button>
 
+        {/* Phase 24: KF toggle — Keyframe Lane */}
+        <button
+          title="Keyframe Lane"
+          className={`track-ctrl-btn ${track.showKeyframes ? 'text-indigo-400 bg-indigo-400/10' : 'text-gray-600 hover:text-indigo-400'}`}
+          onClick={() => { track.showKeyframes = !track.showKeyframes; app?.commitStateToReact?.(); }}
+        >
+          <i className="fa-solid fa-diamond text-[9px]" />
+        </button>
+
         {/* Clip count badge */}
         <span className="ml-auto text-[9px] text-gray-600 tabular-nums">{track.clips?.length ?? 0}</span>
       </div>
