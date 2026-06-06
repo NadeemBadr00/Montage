@@ -30,16 +30,26 @@ export default function TimelineTrackHeader({ track, trackIndex, height, onHeigh
     app?.commitStateToReact?.();
   };
 
-  const toggleLock   = () => { track.locked = !track.locked;   app?.commitStateToReact?.(); };
-  const toggleMute   = () => { track.muted  = !track.muted;    app?.commitStateToReact?.(); };
+  const toggleLock   = () => { track.locked = !track.locked; track.isLocked = track.locked; app?.commitStateToReact?.(); };
+  const toggleMute   = () => { 
+    track.muted = !track.muted; 
+    track.isMuted = track.muted; // engine reads isMuted
+    app?.requestRedraw?.(); app?.commitStateToReact?.(); 
+  };
   const toggleSolo   = () => {
     const wasSolo = track.solo;
-    app?.tracks?.forEach((t: any) => { t.muted = !wasSolo && t !== track; t.solo = false; });
+    app?.tracks?.forEach((t: any) => { t.muted = !wasSolo && t !== track; t.isMuted = t.muted; t.solo = false; t.isSolo = false; });
     track.solo  = !wasSolo;
+    track.isSolo = track.solo;
     track.muted = false;
-    app?.commitStateToReact?.();
+    track.isMuted = false;
+    app?.requestRedraw?.(); app?.commitStateToReact?.();
   };
-  const toggleHide   = () => { track.hidden = !track.hidden;   app?.commitStateToReact?.(); app?.requestRedraw?.(); };
+  const toggleHide   = () => { 
+    track.hidden = !track.hidden; 
+    track.isMuted = track.hidden; // hide = mute from renderer POV for video tracks
+    app?.requestRedraw?.(); app?.commitStateToReact?.(); 
+  };
   const setColor     = (c: string) => { track.color = c; setShowColorPicker(false); app?.commitStateToReact?.(); };
 
   /* Height resize by dragging bottom edge */
@@ -167,25 +177,25 @@ export default function TimelineTrackHeader({ track, trackIndex, height, onHeigh
         {/* LOCK */}
         <button
           title={track.locked ? 'Unlock' : 'Lock track'}
-          className={`track-ctrl-btn ${track.locked ? 'text-yellow-400 bg-yellow-400/10' : 'text-gray-600 hover:text-yellow-400'}`}
+          className={`track-ctrl-btn ${(track.locked || track.isLocked) ? 'text-yellow-400 bg-yellow-400/10' : 'text-gray-600 hover:text-yellow-400'}`}
           onClick={toggleLock}
         >
-          <i className={`fa-solid ${track.locked ? 'fa-lock' : 'fa-lock-open'} text-[9px]`} />
+          <i className={`fa-solid ${(track.locked || track.isLocked) ? 'fa-lock' : 'fa-lock-open'} text-[9px]`} />
         </button>
 
         {/* MUTE */}
         <button
-          title={track.muted ? 'Unmute' : 'Mute track'}
-          className={`track-ctrl-btn ${track.muted ? 'text-red-400 bg-red-400/10' : 'text-gray-600 hover:text-red-400'}`}
+          title={(track.muted || track.isMuted) ? 'Unmute' : 'Mute track'}
+          className={`track-ctrl-btn ${(track.muted || track.isMuted) ? 'text-red-400 bg-red-400/10' : 'text-gray-600 hover:text-red-400'}`}
           onClick={toggleMute}
         >
-          <i className={`fa-solid ${track.muted ? 'fa-volume-xmark' : 'fa-volume-high'} text-[9px]`} />
+          <i className={`fa-solid ${(track.muted || track.isMuted) ? 'fa-volume-xmark' : 'fa-volume-high'} text-[9px]`} />
         </button>
 
         {/* SOLO */}
         <button
-          title={track.solo ? 'Unsolo' : 'Solo track'}
-          className={`track-ctrl-btn ${track.solo ? 'text-green-400 bg-green-400/10' : 'text-gray-600 hover:text-green-400'}`}
+          title={(track.solo || track.isSolo) ? 'Unsolo' : 'Solo track'}
+          className={`track-ctrl-btn ${(track.solo || track.isSolo) ? 'text-green-400 bg-green-400/10' : 'text-gray-600 hover:text-green-400'}`}
           onClick={toggleSolo}
         >
           <i className="fa-solid fa-headphones text-[9px]" />

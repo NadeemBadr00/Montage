@@ -97,7 +97,20 @@ window.EditorApp.prototype.managePlayers = function() {
         }
 
         if (this.isPlaying && p.paused) p.play().catch(e=>{}); else if (!this.isPlaying && !p.paused) p.pause();
-        if (r.type === 'visual') { p.muted = true; p.volume = 0; } else { p.muted = false; p.volume = r.vol; }
+        if (r.type === 'visual') { p.muted = true; p.volume = 0; } else { 
+            p.muted = false; 
+            // ── Audio Fade In/Out gain ramp ──────────────────────────
+            const timeInClip = this.currentTime - r.clip.start;
+            const clipDur = r.clip.duration || 1;
+            const fadeIn  = r.clip.properties?.fadeIn  || 0;
+            const fadeOut = r.clip.properties?.fadeOut || 0;
+            let gainMult = 1;
+            if (fadeIn  > 0 && timeInClip < fadeIn)  gainMult = Math.min(1, timeInClip / fadeIn);
+            if (fadeOut > 0 && timeInClip > clipDur - fadeOut) gainMult = Math.min(gainMult, Math.max(0, (clipDur - timeInClip) / fadeOut));
+            p.volume = Math.max(0, Math.min(1, r.vol * gainMult));
+            // ── Loop ─────────────────────────────────────────────────
+            p.loop = r.clip.properties?.loop === true;
+        }
     });
     avail.forEach(p => { 
         if(p.getAttribute('data-key')) { 

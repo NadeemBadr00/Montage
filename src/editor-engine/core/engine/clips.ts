@@ -445,4 +445,80 @@ export const injectEngineClips = () => {
     };
 
     injectEngineTransitions();
+
+    /* ── Clipboard ─────────────────────────────────────────── */
+    window.EditorApp.prototype.selectAllClips = function() {
+        this.tracks.forEach((track: any) => {
+            track.clips.forEach((clip: any) => this.selectedClipIds.add(clip.id));
+        });
+        useEditorStore.setState({ selectedClipIds: new Set(this.selectedClipIds) });
+        this.requestRedraw();
+        this.log(`✅ Selected all ${this.selectedClipIds.size} clips`);
+    };
+
+    window.EditorApp.prototype.copySelectedClip = function() {
+        if (this.selectedClipIds.size === 0) return;
+        const copied: any[] = [];
+        this.tracks.forEach((track: any) => {
+            track.clips.forEach((clip: any) => {
+                if (this.selectedClipIds.has(clip.id)) {
+                    copied.push({ clip: JSON.parse(JSON.stringify({ ...clip, id: clip.id, src: clip.src, type: clip.type, name: clip.name, start: clip.start, duration: clip.duration, sourceIn: clip.sourceIn || 0, properties: clip.properties, textStyle: clip.textStyle, keyframes: clip.keyframes })), trackId: track.id });
+                }
+            });
+        });
+        (window as any)._clipboardClips = copied;
+        this.log(`📋 Copied ${copied.length} clip${copied.length > 1 ? 's' : ''}`);
+    };
+
+    window.EditorApp.prototype.pasteCopiedClip = function() {
+        const clipboard = (window as any)._clipboardClips;
+        if (!clipboard || clipboard.length === 0) return;
+        this.saveState();
+        let pasted = 0;
+        clipboard.forEach((entry: any) => {
+            const src = entry.clip;
+            const track = this.tracks.find((t: any) => t.id === entry.trackId) || this.tracks[0];
+            if (!track) return;
+            const newId = `c_paste_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+            const newClip = new (window as any).Clip(newId, src.name + ' (Paste)', this.currentTime, src.duration, src.type, src.src);
+            newClip.sourceIn = src.sourceIn || 0;
+            if (src.properties) newClip.properties = JSON.parse(JSON.stringify(src.properties));
+            if (src.textStyle) newClip.textStyle = JSON.parse(JSON.stringify(src.textStyle));
+            if (src.keyframes) newClip.keyframes = JSON.parse(JSON.stringify(src.keyframes));
+            track.addClip(newClip);
+            if (this.resolveCollisions) this.resolveCollisions(track.id, newClip);
+            pasted++;
+        });
+        if (pasted > 0) {
+            this.refreshProjectTopology();
+            this.log(`📋 Pasted ${pasted} clip${pasted > 1 ? 's' : ''}`);
+            if (this.renderTracks) this.renderTracks();
+            if (this.syncOverlays) this.syncOverlays();
+            this.requestRedraw();
+            this.commitStateToReact();
+        }
+    };
+
+    /* ── Audio Fade support (applied in managePlayers via Web Audio) ─ */
+    window.EditorApp.prototype.setClipFade = function(clipId: string, fadeIn = 0, fadeOut = 0) {
+        const clip = this.findClipById(clipId);
+        if (!clip) return;
+        if (!clip.properties) clip.properties = {};
+        clip.properties.fadeIn = fadeIn;
+        clip.properties.fadeOut = fadeOut;
+        this.saveState();
+        this.requestRedraw();
+        this.commitStateToReact();
+        this.log(`🔊 Fade: in=${fadeIn}s out=${fadeOut}s`);
+    };
+
+    /* ── Loop support ────────────────────────────────────────── */
+    window.EditorApp.prototype.setClipLoop = function(clipId: string, loop = true) {
+        const clip = this.findClipById(clipId);
+        if (!clip) return;
+        if (!clip.properties) clip.properties = {};
+        clip.properties.loop = loop;
+        this.requestRedraw();
+        this.commitStateToReact();
+    };
 };

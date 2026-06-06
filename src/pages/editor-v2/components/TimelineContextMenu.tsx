@@ -341,12 +341,12 @@ export default function TimelineContextMenu() {
             <Divider />
             <FlyoutItem icon="fa-arrow-trend-up" label="Fade In">
               {[['0.5s', 0.5], ['1s', 1], ['2s', 2], ['3s', 3]].map(([l, v]: any) => (
-                <MenuItem key={l} icon="fa-waveform" label={l} onClick={() => run(() => { clip.fadeIn = v; app.saveState?.(); app.commitStateToReact?.(); })} />
+                <MenuItem key={l} icon="fa-waveform" label={l} onClick={() => run(() => app.setClipFade?.(clip.id, v, clip.properties?.fadeOut || 0))} />
               ))}
             </FlyoutItem>
             <FlyoutItem icon="fa-arrow-trend-down" label="Fade Out">
               {[['0.5s', 0.5], ['1s', 1], ['2s', 2], ['3s', 3]].map(([l, v]: any) => (
-                <MenuItem key={l} icon="fa-waveform" label={l} onClick={() => run(() => { clip.fadeOut = v; app.saveState?.(); app.commitStateToReact?.(); })} />
+                <MenuItem key={l} icon="fa-waveform" label={l} onClick={() => run(() => app.setClipFade?.(clip.id, clip.properties?.fadeIn || 0, v))} />
               ))}
             </FlyoutItem>
             <FlyoutItem icon="fa-building-columns" label="Reverb">
@@ -360,7 +360,8 @@ export default function TimelineContextMenu() {
               ))}
             </FlyoutItem>
             <Divider />
-            <MenuItem icon="fa-repeat" label="Loop Audio" onClick={() => run(() => { clip.loop = !clip.loop; app.saveState?.(); app.commitStateToReact?.(); })} />
+            <MenuItem icon="fa-repeat" label={clip.properties?.loop ? 'Disable Loop' : 'Loop Audio'}
+              onClick={() => run(() => app.setClipLoop?.(clip.id, !clip.properties?.loop))} />
             <MenuItem icon="fa-wave-square" label="Normalize Audio" onClick={() => run(() => { setProp('normalize', true); setProp('volume', 100); })} />
             <MenuItem icon={clip.properties?.muted ? 'fa-volume-high' : 'fa-volume-xmark'}
               label={clip.properties?.muted ? 'Unmute' : 'Mute'}
