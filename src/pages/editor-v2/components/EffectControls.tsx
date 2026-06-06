@@ -56,6 +56,17 @@ function applyTextStyle(propKey: string, value: any) {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   runCmd — dispatch command to engine
+───────────────────────────────────────────────────────────── */
+function runCmd(cmd: string) {
+  const app = (window as any).app;
+  if (!app) return;
+  app.commandBuffer = cmd;
+  app.isCmdFocused = true;
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
+}
+
+/* ─────────────────────────────────────────────────────────────
    PropSlider — live-synced range input
 ───────────────────────────────────────────────────────────── */
 function PropSlider({ label, propKey, min, max, step = 1, unit = '', color = '#6366f1', clip, isText = false }: any) {
@@ -121,6 +132,38 @@ function Section({ title, children }: any) {
     <div className="mb-3">
       <div className="text-[8px] uppercase tracking-widest text-gray-600 font-bold mb-1 px-0.5">{title}</div>
       <div className="bg-[#0d1526] border border-[#1e293b] rounded-lg px-2 py-1.5">{children}</div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TypeOnlyState — empty state for wrong clip type
+───────────────────────────────────────────────────────────── */
+function TypeOnlyState({ icon, typeName }: { icon: string; typeName: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-8 gap-2 text-center">
+      <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center">
+        <i className={`fa-solid ${icon} text-gray-600 text-lg`} />
+      </div>
+      <p className="text-[9px] text-gray-600 leading-relaxed">Select a <span className="text-gray-400 font-semibold">{typeName}</span> clip<br/>to use this tab</p>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Inline Toggle helper (reusable)
+───────────────────────────────────────────────────────────── */
+function Toggle({ label, checked, onChange, color = '#38bdf8' }: any) {
+  return (
+    <div className="flex items-center justify-between py-1">
+      <span className="text-[9px] text-gray-400">{label}</span>
+      <label className="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" className="sr-only peer" checked={!!checked} onChange={e => onChange(e.target.checked)} />
+        <div
+          className="w-7 h-4 rounded-full bg-gray-700 peer-checked:transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3 after:h-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-3"
+          style={{ ['--tw-peer-checked-bg' as any]: color }}
+        />
+      </label>
     </div>
   );
 }
@@ -408,7 +451,404 @@ function SpeedTab({ clip }: any) {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Tab config
+   TAB 6: Spectrum — Audio Spectrum (audio/video only)
+───────────────────────────────────────────────────────────── */
+function SpectrumTab({ clip }: any) {
+  const clipType = clip?.type ?? '';
+  const isValid = clipType === 'audio' || clipType === 'video';
+
+  if (!isValid) return <TypeOnlyState icon="fa-wave-square" typeName="audio or video" />;
+
+  const deNoise  = clip?.properties?.deNoise  ?? false;
+  const deReverb = clip?.properties?.deReverb ?? false;
+  const monoMix  = clip?.properties?.monoMix  ?? false;
+
+  return (
+    <div>
+      <Section title="EQ Bands">
+        <PropSlider label="Sub Bass" propKey="eqSub"  min={-12} max={12} step={0.5} unit=" dB" color="#0891b2" clip={clip} />
+        <PropSlider label="Bass"     propKey="eqBass" min={-12} max={12} step={0.5} unit=" dB" color="#06b6d4" clip={clip} />
+        <PropSlider label="Mid"      propKey="eqMid"  min={-12} max={12} step={0.5} unit=" dB" color="#22d3ee" clip={clip} />
+        <PropSlider label="High"     propKey="eqHigh" min={-12} max={12} step={0.5} unit=" dB" color="#67e8f9" clip={clip} />
+        <PropSlider label="Air"      propKey="eqAir"  min={-12} max={12} step={0.5} unit=" dB" color="#a5f3fc" clip={clip} />
+      </Section>
+      <Section title="Compressor">
+        <PropSlider label="Threshold"  propKey="compThreshold" min={-60}  max={0}    step={1}   unit=" dB" color="#0ea5e9" clip={clip} />
+        <PropSlider label="Ratio"      propKey="compRatio"     min={1}    max={20}   step={0.5} unit=":1"  color="#38bdf8" clip={clip} />
+        <PropSlider label="Attack"     propKey="compAttack"    min={0}    max={100}  step={1}   unit=" ms" color="#7dd3fc" clip={clip} />
+        <PropSlider label="Release"    propKey="compRelease"   min={10}   max={1000} step={10}  unit=" ms" color="#bae6fd" clip={clip} />
+      </Section>
+      <Section title="Spatial">
+        <PropSlider label="Reverb"       propKey="reverbWet"   min={0} max={100} step={1} unit="%" color="#818cf8" clip={clip} />
+        <PropSlider label="Room Size"    propKey="reverbSize"  min={0} max={100} step={1} unit="%" color="#a78bfa" clip={clip} />
+        <PropSlider label="Stereo Width" propKey="stereoWidth" min={0} max={200} step={1} unit="%" color="#c4b5fd" clip={clip} />
+      </Section>
+      <Section title="Filters">
+        <div className="flex items-center justify-between py-1">
+          <span className="text-[9px] text-gray-400">De-Noise</span>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" className="sr-only peer" checked={deNoise} onChange={() => applyProp('deNoise', !deNoise)} />
+            <div className="w-7 h-4 rounded-full bg-gray-700 peer-checked:bg-cyan-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3 after:h-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-3" />
+          </label>
+        </div>
+        <div className="flex items-center justify-between py-1">
+          <span className="text-[9px] text-gray-400">De-Reverb</span>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" className="sr-only peer" checked={deReverb} onChange={() => applyProp('deReverb', !deReverb)} />
+            <div className="w-7 h-4 rounded-full bg-gray-700 peer-checked:bg-cyan-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3 after:h-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-3" />
+          </label>
+        </div>
+        <div className="flex items-center justify-between py-1">
+          <span className="text-[9px] text-gray-400">Mono Mix</span>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" className="sr-only peer" checked={monoMix} onChange={() => applyProp('monoMix', !monoMix)} />
+            <div className="w-7 h-4 rounded-full bg-gray-700 peer-checked:bg-cyan-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3 after:h-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-3" />
+          </label>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TAB 7: Motion — Video Motion (video only)
+───────────────────────────────────────────────────────────── */
+const LUT_NAMES = ['Rec709', 'Log', 'ACES', 'Flat'];
+
+function MotionTab({ clip }: any) {
+  const clipType = clip?.type ?? '';
+  if (clipType !== 'video') return <TypeOnlyState icon="fa-film" typeName="video" />;
+
+  const stabilize         = clip?.properties?.stabilize          ?? false;
+  const rollingShutterFix = clip?.properties?.rollingShutterFix  ?? false;
+  const lutEnabled        = clip?.properties?.lutEnabled         ?? false;
+
+  return (
+    <div>
+      <Section title="Blur & Shake">
+        <PropSlider label="Motion Blur" propKey="motionBlur"  min={0} max={100} step={1} unit="%" color="#fbbf24" clip={clip} />
+        <PropSlider label="Radial Blur" propKey="radialBlur"  min={0} max={100} step={1} unit="%" color="#f59e0b" clip={clip} />
+      </Section>
+      <Section title="Lens">
+        <PropSlider label="Fisheye"      propKey="lensDistortion"     min={-100} max={100} step={1}   unit=""   color="#f97316" clip={clip} />
+        <PropSlider label="Chromatic AB" propKey="chromaticAberration" min={0}   max={20}  step={0.5} unit="px" color="#ef4444" clip={clip} />
+        <PropSlider label="Vignette"     propKey="vignetteStrength"    min={0}   max={100} step={1}   unit="%"  color="#dc2626" clip={clip} />
+      </Section>
+      <Section title="Stabilization">
+        <div className="flex items-center justify-between py-1">
+          <span className="text-[9px] text-gray-400">Stabilize</span>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" className="sr-only peer" checked={stabilize} onChange={() => applyProp('stabilize', !stabilize)} />
+            <div className="w-7 h-4 rounded-full bg-gray-700 peer-checked:bg-amber-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3 after:h-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-3" />
+          </label>
+        </div>
+        <div className="flex items-center justify-between py-1">
+          <span className="text-[9px] text-gray-400">Rolling Shutter Fix</span>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" className="sr-only peer" checked={rollingShutterFix} onChange={() => applyProp('rollingShutterFix', !rollingShutterFix)} />
+            <div className="w-7 h-4 rounded-full bg-gray-700 peer-checked:bg-amber-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3 after:h-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-3" />
+          </label>
+        </div>
+        <ActionBtn label="Auto Level Horizon" icon="fa-ruler-horizontal" onClick={() => applyProp('autoLevel', true)} color="#f59e0b" />
+      </Section>
+      <Section title="Color Science">
+        <div className="flex items-center justify-between py-1">
+          <span className="text-[9px] text-gray-400">LUT Apply</span>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" className="sr-only peer" checked={lutEnabled} onChange={() => applyProp('lutEnabled', !lutEnabled)} />
+            <div className="w-7 h-4 rounded-full bg-gray-700 peer-checked:bg-amber-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3 after:h-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-3" />
+          </label>
+        </div>
+        <PropSlider label="LUT Strength" propKey="lutStrength" min={0} max={100} step={1} unit="%" color="#d97706" clip={clip} />
+        <div className="flex flex-wrap gap-1 mt-1">
+          {LUT_NAMES.map(name => (
+            <ActionBtn key={name} label={name} onClick={() => applyProp('lutName', name)} color="#f59e0b" />
+          ))}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TAB 8: Image — Image Depth (image only)
+───────────────────────────────────────────────────────────── */
+function ImageTab({ clip }: any) {
+  const clipType = clip?.type ?? '';
+  if (clipType !== 'image') return <TypeOnlyState icon="fa-image" typeName="image" />;
+
+  const [color1, setColor1] = useState(clip?.properties?.duotoneColor1 || '#6366f1');
+  const [color2, setColor2] = useState(clip?.properties?.duotoneColor2 || '#f43f5e');
+  const duotoneEnabled = clip?.properties?.duotoneEnabled ?? false;
+
+  useEffect(() => {
+    setColor1(clip?.properties?.duotoneColor1 || '#6366f1');
+    setColor2(clip?.properties?.duotoneColor2 || '#f43f5e');
+  }, [clip?.id]);
+
+  const kenBurnsPresets = [
+    { label: 'Pan Left',  value: { startX: 0, startY: 0, startScale: 1.1, endX: -5, endY: 0,  endScale: 1.1 } },
+    { label: 'Pan Right', value: { startX: 0, startY: 0, startScale: 1.1, endX: 5,  endY: 0,  endScale: 1.1 } },
+    { label: 'Zoom In',   value: { startX: 0, startY: 0, startScale: 1,   endX: 0,  endY: 0,  endScale: 1.3 } },
+    { label: 'Zoom Out',  value: { startX: 0, startY: 0, startScale: 1.3, endX: 0,  endY: 0,  endScale: 1   } },
+  ];
+
+  return (
+    <div>
+      <Section title="Enhancement">
+        <PropSlider label="Sharpen"  propKey="sharpness" min={0}    max={200} step={1} unit=""  color="#34d399" clip={clip} />
+        <PropSlider label="De-Noise" propKey="denoise"   min={0}    max={100} step={1} unit="%" color="#6ee7b7" clip={clip} />
+        <PropSlider label="Clarity"  propKey="clarity"   min={-100} max={100} step={1} unit=""  color="#a7f3d0" clip={clip} />
+      </Section>
+      <Section title="Depth">
+        <PropSlider label="BG Blur (Bokeh)" propKey="bgBlur"  min={0} max={100} step={1} unit="%" color="#10b981" clip={clip} />
+        <PropSlider label="Focus Point X"   propKey="focusX"  min={0} max={100} step={1} unit="%" color="#059669" clip={clip} />
+        <PropSlider label="Focus Point Y"   propKey="focusY"  min={0} max={100} step={1} unit="%" color="#047857" clip={clip} />
+      </Section>
+      <Section title="Ken Burns Presets">
+        <div className="grid grid-cols-2 gap-1">
+          {kenBurnsPresets.map(p => (
+            <ActionBtn key={p.label} label={p.label} onClick={() => applyProp('kenBurns', p.value)} color="#34d399" />
+          ))}
+        </div>
+      </Section>
+      <Section title="Duotone">
+        <div className="flex items-center gap-2 py-1">
+          <span className="text-[9px] text-gray-500 w-[68px]">Color 1</span>
+          <input type="color" value={color1} onChange={e => { setColor1(e.target.value); applyProp('duotoneColor1', e.target.value); }} className="w-6 h-6 rounded cursor-pointer border border-gray-700 bg-transparent" />
+          <span className="text-[9px] text-gray-400 font-mono">{color1}</span>
+        </div>
+        <div className="flex items-center gap-2 py-1">
+          <span className="text-[9px] text-gray-500 w-[68px]">Color 2</span>
+          <input type="color" value={color2} onChange={e => { setColor2(e.target.value); applyProp('duotoneColor2', e.target.value); }} className="w-6 h-6 rounded cursor-pointer border border-gray-700 bg-transparent" />
+          <span className="text-[9px] text-gray-400 font-mono">{color2}</span>
+        </div>
+        <div className="flex items-center justify-between py-1">
+          <span className="text-[9px] text-gray-400">Enable Duotone</span>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" className="sr-only peer" checked={duotoneEnabled} onChange={() => applyProp('duotoneEnabled', !duotoneEnabled)} />
+            <div className="w-7 h-4 rounded-full bg-gray-700 peer-checked:bg-emerald-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3 after:h-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-3" />
+          </label>
+        </div>
+      </Section>
+      <button
+        onClick={() => runCmd('removebg')}
+        className="w-full mt-1 py-1.5 rounded-lg text-white text-[9px] font-semibold transition-all duration-150 flex items-center justify-center gap-1.5"
+        style={{ background: 'linear-gradient(90deg, #059669, #34d399)' }}
+      >
+        <i className="fa-solid fa-scissors text-[9px]" />
+        Remove Background
+      </button>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TAB 9: TextAnim — Text Animation (text only)
+───────────────────────────────────────────────────────────── */
+const ENTRY_ANIMS = ['None', 'Fade', 'Slide Up', 'Slide Down', 'Typewriter', 'Bounce', 'Glitch', 'Scale Up'];
+const EXIT_ANIMS  = ['None', 'Fade Out', 'Slide Out', 'Shrink', 'Blur Out'];
+const GRAD_DIRS   = ['→', '↓', '↗'];
+
+function TextAnimTab({ clip }: any) {
+  const clipType = clip?.type ?? '';
+  if (clipType !== 'text') return <TypeOnlyState icon="fa-text-height" typeName="text" />;
+
+  const [entryAnim,  setEntryAnim]  = useState(clip?.textStyle?.entryAnim  || 'None');
+  const [exitAnim,   setExitAnim]   = useState(clip?.textStyle?.exitAnim   || 'None');
+  const [gradFrom,   setGradFrom]   = useState(clip?.textStyle?.gradientFrom || '#6366f1');
+  const [gradTo,     setGradTo]     = useState(clip?.textStyle?.gradientTo   || '#f43f5e');
+  const [gradDir,    setGradDir]    = useState(clip?.textStyle?.gradientDir  || '→');
+  const gradEnabled = clip?.textStyle?.gradientEnabled ?? false;
+  const [glowColor,  setGlowColor]  = useState(clip?.textStyle?.glowColor   || '#e879f9');
+
+  useEffect(() => {
+    const ts = clip?.textStyle || {};
+    setEntryAnim(ts.entryAnim  || 'None');
+    setExitAnim(ts.exitAnim    || 'None');
+    setGradFrom(ts.gradientFrom || '#6366f1');
+    setGradTo(ts.gradientTo     || '#f43f5e');
+    setGradDir(ts.gradientDir   || '→');
+    setGlowColor(ts.glowColor   || '#e879f9');
+  }, [clip?.id]);
+
+  return (
+    <div>
+      <Section title="Entry Animation">
+        <div className="grid grid-cols-2 gap-1">
+          {ENTRY_ANIMS.map(anim => (
+            <ActionBtn
+              key={anim}
+              label={anim}
+              active={entryAnim === anim}
+              color="#e879f9"
+              onClick={() => { setEntryAnim(anim); applyTextStyle('entryAnim', anim); }}
+            />
+          ))}
+        </div>
+      </Section>
+      <Section title="Exit Animation">
+        <div className="grid grid-cols-2 gap-1">
+          {EXIT_ANIMS.map(anim => (
+            <ActionBtn
+              key={anim}
+              label={anim}
+              active={exitAnim === anim}
+              color="#e879f9"
+              onClick={() => { setExitAnim(anim); applyTextStyle('exitAnim', anim); }}
+            />
+          ))}
+        </div>
+      </Section>
+      <Section title="Timing">
+        <PropSlider label="Char Delay"   propKey="charDelay"    min={0}   max={500} step={10}  unit=" ms" color="#e879f9" clip={clip} isText />
+        <PropSlider label="Anim Duration" propKey="animDuration" min={0.1} max={3}   step={0.1} unit="s"   color="#d946ef" clip={clip} isText />
+      </Section>
+      <Section title="Gradient Text">
+        <div className="flex items-center gap-2 py-1">
+          <span className="text-[9px] text-gray-500 w-[68px]">From</span>
+          <input type="color" value={gradFrom} onChange={e => { setGradFrom(e.target.value); applyTextStyle('gradientFrom', e.target.value); }} className="w-6 h-6 rounded cursor-pointer border border-gray-700 bg-transparent" />
+          <span className="text-[9px] text-gray-400 font-mono">{gradFrom}</span>
+        </div>
+        <div className="flex items-center gap-2 py-1">
+          <span className="text-[9px] text-gray-500 w-[68px]">To</span>
+          <input type="color" value={gradTo} onChange={e => { setGradTo(e.target.value); applyTextStyle('gradientTo', e.target.value); }} className="w-6 h-6 rounded cursor-pointer border border-gray-700 bg-transparent" />
+          <span className="text-[9px] text-gray-400 font-mono">{gradTo}</span>
+        </div>
+        <div className="flex gap-1 mt-1">
+          {GRAD_DIRS.map(dir => (
+            <ActionBtn key={dir} label={dir} active={gradDir === dir} color="#e879f9" onClick={() => { setGradDir(dir); applyTextStyle('gradientDir', dir); }} />
+          ))}
+        </div>
+        <div className="flex items-center justify-between py-1 mt-1">
+          <span className="text-[9px] text-gray-400">Enable Gradient</span>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" className="sr-only peer" checked={gradEnabled} onChange={() => applyTextStyle('gradientEnabled', !gradEnabled)} />
+            <div className="w-7 h-4 rounded-full bg-gray-700 peer-checked:bg-fuchsia-500 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3 after:h-3 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-3" />
+          </label>
+        </div>
+      </Section>
+      <Section title="Glow & Neon">
+        <PropSlider label="Glow Blur"    propKey="glowBlur"    min={0} max={50}  step={1} unit="px" color="#f0abfc" clip={clip} isText />
+        <div className="flex items-center gap-2 py-1">
+          <span className="text-[9px] text-gray-500 w-[68px]">Glow Color</span>
+          <input type="color" value={glowColor} onChange={e => { setGlowColor(e.target.value); applyTextStyle('glowColor', e.target.value); }} className="w-6 h-6 rounded cursor-pointer border border-gray-700 bg-transparent" />
+          <span className="text-[9px] text-gray-400 font-mono">{glowColor}</span>
+        </div>
+        <PropSlider label="Glow Opacity" propKey="glowOpacity" min={0} max={100} step={1} unit="%" color="#e879f9" clip={clip} isText />
+      </Section>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TAB 10: Keyframes Panel (all types)
+───────────────────────────────────────────────────────────── */
+const KF_PROPS = ['positionX', 'positionY', 'scale', 'opacity', 'rotation', 'brightness', 'volume'];
+const KF_EASES = ['Linear', 'EaseIn', 'EaseOut', 'EaseInOut'];
+
+function KeyframesTab({ clip }: any) {
+  const [selectedKfProp, setSelectedKfProp] = useState('opacity');
+  const [kfEase,         setKfEase]         = useState('Linear');
+
+  const addKey = () => {
+    const app = (window as any).app;
+    const time = app?.currentTime ?? 0;
+    applyProp('keyframe_' + time.toFixed(2), {
+      time,
+      prop: selectedKfProp,
+      value: clip?.properties?.[selectedKfProp],
+    });
+  };
+
+  const keyframeEntries = Object.entries(clip?.properties || {}).filter(([k]) => k.startsWith('keyframe_'));
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1.5">
+          <i className="fa-solid fa-diamond text-[9px] text-orange-400" />
+          <span className="text-[9px] text-gray-300 font-semibold">Keyframe Editor</span>
+        </div>
+        <button
+          onClick={addKey}
+          className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-semibold border border-orange-500/40 text-orange-400 hover:bg-orange-500/10 transition-all"
+        >
+          <i className="fa-solid fa-plus text-[8px]" />
+          Add Key
+        </button>
+      </div>
+
+      {/* Property picker */}
+      <Section title="Property">
+        <select
+          value={selectedKfProp}
+          onChange={e => setSelectedKfProp(e.target.value)}
+          className="w-full bg-[#0d1526] border border-[#1e293b] rounded px-2 py-1 text-[9px] text-gray-300 outline-none"
+        >
+          {KF_PROPS.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+      </Section>
+
+      {/* Ease */}
+      <Section title="Easing">
+        <div className="flex flex-wrap gap-1">
+          {KF_EASES.map(ease => (
+            <ActionBtn
+              key={ease}
+              label={ease}
+              active={kfEase === ease}
+              color="#fb923c"
+              onClick={() => { setKfEase(ease); applyProp('kfEase', ease); }}
+            />
+          ))}
+        </div>
+      </Section>
+
+      {/* Nav */}
+      <div className="flex gap-1 mb-3">
+        <button
+          onClick={() => runCmd('prevkey')}
+          className="flex-1 flex items-center justify-center gap-1 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-orange-500 text-[9px] font-semibold transition-all hover:bg-orange-500/10"
+        >
+          <i className="fa-solid fa-chevron-left text-[8px]" />
+          Prev
+        </button>
+        <button
+          onClick={() => runCmd('nextkey')}
+          className="flex-1 flex items-center justify-center gap-1 py-1 rounded border border-gray-700 text-gray-400 hover:text-white hover:border-orange-500 text-[9px] font-semibold transition-all hover:bg-orange-500/10"
+        >
+          Next
+          <i className="fa-solid fa-chevron-right text-[8px]" />
+        </button>
+      </div>
+
+      {/* Keyframe list */}
+      <Section title="Keyframes">
+        {keyframeEntries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-4 gap-2 text-center">
+            <i className="fa-solid fa-diamond text-gray-700 text-lg" />
+            <p className="text-[9px] text-gray-600">No keyframes yet</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {keyframeEntries.map(([key, val]: [string, any]) => (
+              <div key={key} className="flex items-center justify-between bg-[#060b14] border border-[#1e293b] rounded px-2 py-1">
+                <span className="text-[8px] text-orange-400 font-mono">{val?.time?.toFixed(2) ?? '—'}s</span>
+                <span className="text-[8px] text-gray-400">{val?.prop}</span>
+                <span className="text-[8px] text-gray-500 font-mono">{String(val?.value ?? '')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Tab config — 10 tabs
 ───────────────────────────────────────────────────────────── */
 const TABS = [
   { id: 'transform', icon: 'fa-arrows-up-down-left-right', label: 'Transform', color: '#6366f1' },
@@ -416,6 +856,11 @@ const TABS = [
   { id: 'audio',     icon: 'fa-music',                     label: 'Audio',     color: '#10b981' },
   { id: 'text',      icon: 'fa-font',                      label: 'Text',      color: '#f472b6' },
   { id: 'speed',     icon: 'fa-gauge-high',                label: 'Speed',     color: '#38bdf8' },
+  { id: 'spectrum',  icon: 'fa-wave-square',               label: 'Spectrum',  color: '#22d3ee' },
+  { id: 'motion',    icon: 'fa-film',                      label: 'Motion',    color: '#f59e0b' },
+  { id: 'image',     icon: 'fa-image',                     label: 'Image',     color: '#34d399' },
+  { id: 'textanim',  icon: 'fa-text-height',               label: 'Animate',   color: '#e879f9' },
+  { id: 'keyframes', icon: 'fa-diamond',                   label: 'Keys',      color: '#fb923c' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -424,7 +869,7 @@ type TabId = typeof TABS[number]['id'];
    Main Component
 ───────────────────────────────────────────────────────────── */
 export default function EffectControls() {
-  const [mainTab, setMainTab] = useState<'controls' | 'fx'>('controls');
+  const [mainTab,   setMainTab]   = useState<'controls' | 'fx'>('controls');
   const [activeTab, setActiveTab] = useState<TabId>('transform');
   const clip = useSelectedClip();
   const selectedClipIds = useEditorStore(s => s.selectedClipIds);
@@ -438,7 +883,7 @@ export default function EffectControls() {
     return () => clearTimeout(t);
   }, [selectedClipIds, mainTab]);
 
-  const clipType = clip?.type ?? '';
+  const clipType  = clip?.type ?? '';
   const clipLabel = clip ? (clip.name || `${clipType.charAt(0).toUpperCase() + clipType.slice(1)} Clip`) : null;
 
   return (
@@ -486,18 +931,18 @@ export default function EffectControls() {
             </div>
           ) : null}
 
-          {/* 5 icon-tab bar */}
-          <div className="flex border-b border-[#1e293b] flex-shrink-0 bg-[#060b14]">
+          {/* 10-icon tab bar — scrollable, smaller icons/labels */}
+          <div className="flex border-b border-[#1e293b] flex-shrink-0 bg-[#060b14] overflow-x-auto">
             {TABS.map(t => (
               <button
                 key={t.id}
                 onClick={() => setActiveTab(t.id)}
                 title={t.label}
-                className={`flex-1 py-2 flex flex-col items-center gap-0.5 transition-all duration-150 ${activeTab === t.id ? 'border-b-2 bg-[#0a1022]' : 'border-b-2 border-transparent text-gray-600 hover:text-gray-400'}`}
+                className={`flex-shrink-0 px-1 py-2 flex flex-col items-center gap-0.5 transition-all duration-150 min-w-[22px] ${activeTab === t.id ? 'border-b-2 bg-[#0a1022]' : 'border-b-2 border-transparent text-gray-600 hover:text-gray-400'}`}
                 style={activeTab === t.id ? { borderColor: t.color, color: t.color } : {}}
               >
-                <i className={`fa-solid ${t.icon} text-[10px]`} />
-                <span className="text-[6px] font-semibold tracking-wide">{t.label}</span>
+                <i className={`fa-solid ${t.icon} text-[9px]`} />
+                <span className="text-[5px] font-semibold tracking-wide">{t.label}</span>
               </button>
             ))}
           </div>
@@ -515,11 +960,16 @@ export default function EffectControls() {
             </div>
           ) : (
             <div className="flex-grow overflow-y-auto custom-scrollbar p-2.5">
-              {activeTab === 'transform' && <TransformTab clip={clip} />}
-              {activeTab === 'color'     && <ColorTab     clip={clip} />}
-              {activeTab === 'audio'     && <AudioTab     clip={clip} />}
-              {activeTab === 'text'      && <TextTab      clip={clip} />}
-              {activeTab === 'speed'     && <SpeedTab     clip={clip} />}
+              {activeTab === 'transform' && <TransformTab  clip={clip} />}
+              {activeTab === 'color'     && <ColorTab      clip={clip} />}
+              {activeTab === 'audio'     && <AudioTab      clip={clip} />}
+              {activeTab === 'text'      && <TextTab       clip={clip} />}
+              {activeTab === 'speed'     && <SpeedTab      clip={clip} />}
+              {activeTab === 'spectrum'  && <SpectrumTab   clip={clip} />}
+              {activeTab === 'motion'    && <MotionTab     clip={clip} />}
+              {activeTab === 'image'     && <ImageTab      clip={clip} />}
+              {activeTab === 'textanim'  && <TextAnimTab   clip={clip} />}
+              {activeTab === 'keyframes' && <KeyframesTab  clip={clip} />}
             </div>
           )}
         </div>

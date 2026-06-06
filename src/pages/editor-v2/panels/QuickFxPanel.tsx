@@ -1,10 +1,15 @@
 // @ts-nocheck
 /**
- * QuickFxPanel — Phases 6-9: Complete redesign
+ * QuickFxPanel — Phases 6-20: Complete redesign
  * - Phase 6: FX Chain + Active state + Search + Favorites + Grid layout
  * - Phase 7: Keyframe Animator tab
  * - Phase 8: One-Click Fix Presets + Style Packs
  * - Phase 9: Export Settings Quick Panel
+ * - Phase 16: New FX categories — audio, image, text
+ * - Phase 17: Updated FX_CATS
+ * - Phase 18: Smart Presets per Clip Type
+ * - Phase 19: Clip Type Info Bar
+ * - Phase 20: Type-aware Style Packs
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useEditorStore } from '../../../store/useEditorStore';
@@ -27,6 +32,23 @@ function applyProp(propKey: string, value: any) {
       if (ids.includes(c.id)) {
         c.properties = c.properties || {};
         c.properties[propKey] = value;
+      }
+    });
+  });
+  app.saveState?.();
+  app.requestRedraw?.();
+  app.commitStateToReact?.();
+}
+
+function applyTextStyle(propKey: string, value: any) {
+  const app = (window as any).app;
+  if (!app) return;
+  const ids = Array.from(app.selectedClipIds || []);
+  app.tracks?.forEach((t: any) => {
+    t.clips?.forEach((c: any) => {
+      if (ids.includes(c.id)) {
+        c.textStyle = c.textStyle || {};
+        c.textStyle[propKey] = value;
       }
     });
   });
@@ -67,14 +89,48 @@ const ALL_FX = [
   { id: 'waveform',  label: 'Waveform',    icon: 'fa-waveform-lines',     color: '#22d3ee', cmd: 'waveform',         cat: 'overlay' },
   { id: 'watermark', label: 'Watermark',   icon: 'fa-tag',                color: '#9ca3af', cmd: 'watermark',        cat: 'overlay' },
   { id: 'lightsweep',label: 'Light Sweep', icon: 'fa-lightbulb',          color: '#fef9c3', cmd: 'lightsweep',       cat: 'overlay' },
+  // Audio FX
+  { id: 'reverb',    label: 'Reverb',      icon: 'fa-tower-broadcast',    color: '#818cf8', cmd: 'reverb hall',      cat: 'audio' },
+  { id: 'echo',      label: 'Echo',        icon: 'fa-rotate-right',       color: '#6366f1', cmd: 'echo',             cat: 'audio' },
+  { id: 'chorus',    label: 'Chorus',      icon: 'fa-people-group',       color: '#8b5cf6', cmd: 'chorus',           cat: 'audio' },
+  { id: 'distort',   label: 'Distortion',  icon: 'fa-guitar',             color: '#f87171', cmd: 'distortion',       cat: 'audio' },
+  { id: 'vinyl',     label: 'Vinyl',       icon: 'fa-record-vinyl',       color: '#9ca3af', cmd: 'vinyl crackle',    cat: 'audio' },
+  { id: 'radio',     label: 'Radio',       icon: 'fa-radio',              color: '#fbbf24', cmd: 'radio effect',     cat: 'audio' },
+  { id: '8bit',      label: '8-Bit',       icon: 'fa-gamepad',            color: '#4ade80', cmd: '8bit sound',       cat: 'audio' },
+  { id: 'robot',     label: 'Robot',       icon: 'fa-robot',              color: '#22d3ee', cmd: 'robot voice',      cat: 'audio' },
+  { id: 'whisper',   label: 'Whisper',     icon: 'fa-comment-dots',       color: '#e2e8f0', cmd: 'whisper',          cat: 'audio' },
+  { id: 'telephone', label: 'Telephone',   icon: 'fa-phone',              color: '#fb923c', cmd: 'telephone',        cat: 'audio' },
+  // Image FX
+  { id: 'oilpaint',  label: 'Oil Paint',   icon: 'fa-paintbrush',         color: '#f59e0b', cmd: 'oil paint',        cat: 'image' },
+  { id: 'watercolor',label: 'Watercolor',  icon: 'fa-fill-drip',          color: '#60a5fa', cmd: 'watercolor',       cat: 'image' },
+  { id: 'pencil',    label: 'Pencil',      icon: 'fa-pencil',             color: '#d1d5db', cmd: 'pencil sketch',    cat: 'image' },
+  { id: 'neon-out',  label: 'Neon Edge',   icon: 'fa-atom',               color: '#22d3ee', cmd: 'neon outline',     cat: 'image' },
+  { id: 'popart',    label: 'Pop Art',     icon: 'fa-bomb',               color: '#f87171', cmd: 'pop art',          cat: 'image' },
+  { id: 'infrared',  label: 'Infrared',    icon: 'fa-temperature-half',   color: '#fb923c', cmd: 'infrared',         cat: 'image' },
+  { id: 'tiltshift', label: 'Tilt Shift',  icon: 'fa-magnifying-glass',   color: '#a78bfa', cmd: 'tilt shift',       cat: 'image' },
+  { id: 'crossproc', label: 'Cross Proc',  icon: 'fa-arrows-spin',        color: '#34d399', cmd: 'cross process',    cat: 'image' },
+  { id: 'bleach',    label: 'Bleach',      icon: 'fa-droplet-slash',      color: '#f1f5f9', cmd: 'bleach bypass',    cat: 'image' },
+  { id: 'solarize',  label: 'Solarize',    icon: 'fa-sun',                color: '#fde68a', cmd: 'solarize',         cat: 'image' },
+  // Text FX
+  { id: 'neon-txt',  label: 'Neon Glow',   icon: 'fa-lightbulb',          color: '#22d3ee', cmd: 'text neon',        cat: 'text' },
+  { id: 'shadow-drp',label: 'Drop Shadow', icon: 'fa-clone',              color: '#475569', cmd: 'text shadow',      cat: 'text' },
+  { id: 'grad-fill', label: 'Gradient',    icon: 'fa-fill',               color: '#8b5cf6', cmd: 'text gradient',    cat: 'text' },
+  { id: 'bold-out',  label: 'Bold Outline',icon: 'fa-bold',               color: '#f1f5f9', cmd: 'text bold outline',cat: 'text' },
+  { id: 'typewrite', label: 'Typewriter',  icon: 'fa-keyboard',           color: '#6ee7b7', cmd: 'typewriter',       cat: 'text' },
+  { id: 'kinetic',   label: 'Kinetic',     icon: 'fa-person-running',     color: '#f59e0b', cmd: 'kinetic type',     cat: 'text' },
+  { id: 'shake-txt', label: 'Shake',       icon: 'fa-arrows-left-right',  color: '#f87171', cmd: 'text shake',       cat: 'text' },
+  { id: 'rainbow',   label: 'Rainbow',     icon: 'fa-rainbow',            color: '#fb923c', cmd: 'rainbow text',     cat: 'text' },
 ];
 
 const FX_CATS = [
-  { id: 'all',     label: 'All',     icon: 'fa-th-large' },
-  { id: 'visual',  label: 'Visual',  icon: 'fa-eye' },
-  { id: 'speed',   label: 'Speed',   icon: 'fa-gauge-high' },
-  { id: 'mood',    label: 'Mood',    icon: 'fa-face-laugh' },
-  { id: 'overlay', label: 'Overlay', icon: 'fa-layer-group' },
+  { id: 'all',    label: 'All',     icon: 'fa-border-all' },
+  { id: 'visual', label: 'Visual',  icon: 'fa-eye' },
+  { id: 'speed',  label: 'Speed',   icon: 'fa-gauge-high' },
+  { id: 'mood',   label: 'Mood',    icon: 'fa-face-smile' },
+  { id: 'overlay',label: 'Overlay', icon: 'fa-layer-group' },
+  { id: 'audio',  label: 'Audio',   icon: 'fa-music' },
+  { id: 'image',  label: 'Image',   icon: 'fa-image' },
+  { id: 'text',   label: 'Text',    icon: 'fa-font' },
 ];
 
 /* ─── One-Click Fix Presets ───────────────────────────────────── */
@@ -113,6 +169,52 @@ const FIX_PRESETS = [
   },
 ];
 
+/* ─── Smart Presets per Clip Type ────────────────────────────── */
+const AUDIO_PRESETS = [
+  { id: 'podcast',    label: 'Podcast',     icon: 'fa-microphone',    color: '#6366f1',
+    apply: () => { applyProp('eqMid', 3); applyProp('compThreshold', -20); applyProp('compRatio', 3); applyProp('deNoise', true); } },
+  { id: 'music-mix',  label: 'Music Mix',   icon: 'fa-music',         color: '#8b5cf6',
+    apply: () => { applyProp('eqBass', 3); applyProp('eqAir', 2); applyProp('stereoWidth', 130); } },
+  { id: 'cine-sound', label: 'Cine Sound',  icon: 'fa-film',          color: '#a78bfa',
+    apply: () => { applyProp('reverbWet', 20); applyProp('reverbSize', 60); applyProp('eqBass', -2); } },
+  { id: 'voiceover',  label: 'Voice Over',  icon: 'fa-user-voice',    color: '#22d3ee',
+    apply: () => { applyProp('compThreshold', -30); applyProp('compRatio', 5); applyProp('eqMid', 5); applyProp('deReverb', true); } },
+  { id: 'bass-heavy', label: 'Bass Heavy',  icon: 'fa-volume-high',   color: '#34d399',
+    apply: () => { applyProp('eqSub', 6); applyProp('eqBass', 4); applyProp('eqHigh', -2); } },
+  { id: 'lofi',       label: 'Lo-Fi',       icon: 'fa-record-vinyl',  color: '#fbbf24',
+    apply: () => { applyProp('eqAir', -6); applyProp('eqBass', 3); runCmd('vinyl crackle'); } },
+];
+
+const IMAGE_PRESETS = [
+  { id: 'photo-enh', label: 'Photo Enhance', icon: 'fa-camera',       color: '#34d399',
+    apply: () => { applyProp('sharpness', 130); applyProp('clarity', 30); applyProp('brightness', 105); applyProp('saturation', 110); } },
+  { id: 'portrait',  label: 'Portrait',      icon: 'fa-user',         color: '#f472b6',
+    apply: () => { applyProp('bgBlur', 60); applyProp('sharpness', 120); applyProp('brightness', 108); applyProp('saturation', 105); } },
+  { id: 'landscape', label: 'Landscape',     icon: 'fa-mountain',     color: '#6ee7b7',
+    apply: () => { applyProp('saturation', 120); applyProp('clarity', 40); applyProp('contrast', 110); applyProp('brightness', 103); } },
+  { id: 'product',   label: 'Product Shot',  icon: 'fa-box',          color: '#a78bfa',
+    apply: () => { applyProp('sharpness', 150); applyProp('contrast', 115); applyProp('saturation', 100); applyProp('bgBlur', 0); } },
+  { id: 'social-img',label: 'Social Media',  icon: 'fa-share-nodes',  color: '#f59e0b',
+    apply: () => { applyProp('saturation', 140); applyProp('contrast', 120); applyProp('brightness', 110); applyProp('vignetteStrength', 20); } },
+  { id: 'bw-photo',  label: 'B&W Photo',     icon: 'fa-circle-half-stroke', color: '#94a3b8',
+    apply: () => { applyProp('saturation', 0); applyProp('contrast', 120); applyProp('sharpness', 110); } },
+];
+
+const TEXT_PRESETS = [
+  { id: 'title-card', label: 'Title Card',  icon: 'fa-heading',      color: '#818cf8',
+    apply: () => { applyTextStyle('fontSize', 72); applyTextStyle('fontWeight', 'bold'); applyTextStyle('entryAnim', 'fade'); applyTextStyle('glowBlur', 15); } },
+  { id: 'subtitle',   label: 'Subtitle',    icon: 'fa-closed-captioning', color: '#94a3b8',
+    apply: () => { applyTextStyle('fontSize', 28); applyTextStyle('backgroundColor', '#00000099'); applyTextStyle('textAlign', 'center'); } },
+  { id: 'lower3rd',   label: 'Lower Third', icon: 'fa-bars',         color: '#22d3ee',
+    apply: () => { applyTextStyle('fontSize', 24); applyTextStyle('fontWeight', 'bold'); applyTextStyle('entryAnim', 'slideup'); } },
+  { id: 'credits',    label: 'Credits',     icon: 'fa-list',         color: '#6ee7b7',
+    apply: () => { applyTextStyle('fontSize', 18); applyTextStyle('textAlign', 'center'); applyTextStyle('entryAnim', 'fade'); applyTextStyle('lineHeight', 2); } },
+  { id: 'watermark',  label: 'Watermark',   icon: 'fa-copyright',    color: '#6b7280',
+    apply: () => { applyProp('opacity', 40); applyTextStyle('fontSize', 20); } },
+  { id: 'meme',       label: 'Meme Text',   icon: 'fa-face-laugh',   color: '#fde68a',
+    apply: () => { applyTextStyle('fontSize', 48); applyTextStyle('fontWeight', 'bold'); applyTextStyle('color', '#ffffff'); applyTextStyle('outlineWidth', 3); } },
+];
+
 /* ─── Export Formats ──────────────────────────────────────────── */
 const PLATFORMS = [
   { id: 'youtube', label: 'YouTube',   icon: 'fa-youtube',   brand: true,  color: '#ef4444', cmd: 'social youtube' },
@@ -125,6 +227,7 @@ const PLATFORMS = [
 export function QuickFxPanel() {
   const selectedClipIds = useEditorStore(s => s.selectedClipIds);
   const hasSelection = selectedClipIds.size > 0;
+  const tracks = useEditorStore(s => s.tracks);
 
   const [activeTab, setActiveTab] = useState<'fx' | 'fix' | 'export'>('fx');
   const [fxCat, setFxCat]   = useState('all');
@@ -132,12 +235,24 @@ export function QuickFxPanel() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [fxChain, setFxChain] = useState<string[]>([]);  // active effects applied
   const [appliedPreset, setAppliedPreset] = useState<string | null>(null);
+  const [filterByType, setFilterByType] = useState(false);
 
   // Export state
   const [expFormat, setExpFormat] = useState('mp4');
   const [expRes, setExpRes]       = useState('1080p');
   const [expFps, setExpFps]       = useState('30');
   const [expQuality, setExpQuality] = useState('high');
+
+  // Detect selected clip type
+  const clipType = React.useMemo(() => {
+    if (selectedClipIds.size === 0) return 'none';
+    const id = Array.from(selectedClipIds)[0];
+    for (const t of tracks) {
+      const c = t.clips.find((c: any) => c.id === id);
+      if (c) return c.type || 'video';
+    }
+    return 'none';
+  }, [selectedClipIds, tracks]);
 
   const toggleFavorite = (id: string) => {
     setFavorites(prev => prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]);
@@ -168,10 +283,22 @@ export function QuickFxPanel() {
   const filtered = ALL_FX.filter(fx => {
     const matchCat = fxCat === 'all' || fx.cat === fxCat;
     const matchSearch = !fxSearch || fx.label.toLowerCase().includes(fxSearch.toLowerCase());
-    return matchCat && matchSearch;
+    const matchType = !filterByType || fx.cat === clipType || fx.cat === 'visual' || fx.cat === 'speed';
+    return matchCat && matchSearch && matchType;
   });
 
   const favItems = ALL_FX.filter(fx => favorites.includes(fx.id));
+
+  // Smart presets based on clip type
+  const smartPresets = clipType === 'audio' ? AUDIO_PRESETS
+    : clipType === 'image' ? IMAGE_PRESETS
+    : clipType === 'text' ? TEXT_PRESETS
+    : FIX_PRESETS;
+
+  const smartPresetLabel = clipType === 'audio' ? '🎵 Audio Presets'
+    : clipType === 'image' ? '🖼️ Image Presets'
+    : clipType === 'text' ? '🔤 Text Presets'
+    : '⚡ Video Presets';
 
   const TABS = [
     { id: 'fx',    label: 'Effects',  icon: 'fa-wand-magic-sparkles' },
@@ -181,6 +308,69 @@ export function QuickFxPanel() {
 
   return (
     <div className="flex flex-col h-full text-[9px] overflow-hidden">
+
+      {/* Clip Type Info Bar */}
+      {selectedClipIds.size > 0 && (
+        <div className="flex items-center gap-1.5 px-2 py-1 border-b border-gray-800/60 flex-shrink-0 bg-[#060b14]">
+          <div
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[7px] font-bold"
+            style={{
+              background: clipType === 'audio' ? 'rgba(34,211,238,0.15)'
+                : clipType === 'image' ? 'rgba(52,211,153,0.15)'
+                : clipType === 'text' ? 'rgba(232,121,249,0.15)'
+                : 'rgba(99,102,241,0.15)',
+              color: clipType === 'audio' ? '#22d3ee'
+                : clipType === 'image' ? '#34d399'
+                : clipType === 'text' ? '#e879f9'
+                : '#818cf8',
+              border: `1px solid ${clipType === 'audio' ? 'rgba(34,211,238,0.3)' : clipType === 'image' ? 'rgba(52,211,153,0.3)' : clipType === 'text' ? 'rgba(232,121,249,0.3)' : 'rgba(99,102,241,0.3)'}`,
+            }}
+          >
+            <i className={`fa-solid ${
+              clipType === 'audio' ? 'fa-music'
+              : clipType === 'image' ? 'fa-image'
+              : clipType === 'text' ? 'fa-font'
+              : 'fa-film'
+            } text-[7px]`} />
+            {clipType.toUpperCase()}
+          </div>
+          {/* Filter by type toggle */}
+          <button
+            onClick={() => setFilterByType(prev => !prev)}
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[7px] transition-all ${
+              filterByType
+                ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30'
+                : 'text-gray-600 hover:text-gray-400 border border-transparent'
+            }`}
+          >
+            <i className="fa-solid fa-filter text-[7px]" />
+            {filterByType ? 'Filtered' : 'Filter'}
+          </button>
+          {/* Apply to all of type button */}
+          <button
+            onClick={() => {
+              const app = (window as any).app;
+              if (!app || fxChain.length === 0) return;
+              app.tracks?.forEach((t: any) => {
+                t.clips?.forEach((c: any) => {
+                  if ((c.type || 'video') === clipType) {
+                    fxChain.forEach(id => {
+                      const fx = ALL_FX.find(f => f.id === id);
+                      if (fx) { app.commandBuffer = fx.cmd; document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true })); }
+                    });
+                  }
+                });
+              });
+            }}
+            disabled={fxChain.length === 0}
+            className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded text-[7px] border border-gray-800 text-gray-600 hover:text-pink-400 hover:border-pink-500/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Apply FX chain to all clips of this type"
+          >
+            <i className="fa-solid fa-wand-magic-sparkles text-[7px]" />
+            All {clipType}s
+          </button>
+        </div>
+      )}
 
       {/* Sub-tab bar */}
       <div className="flex border-b border-gray-800/60 bg-[#060b14] flex-shrink-0">
@@ -322,11 +512,11 @@ export function QuickFxPanel() {
         <div className="flex-1 overflow-y-auto custom-scrollbar p-1.5 space-y-1">
 
           <p className="text-[8px] text-gray-500 px-1 mb-1 flex items-center gap-1">
-            <i className="fa-solid fa-bolt text-yellow-500" /> One-Click Fix Presets
+            <i className="fa-solid fa-bolt text-yellow-500" /> {smartPresetLabel}
           </p>
 
           <div className="grid grid-cols-2 gap-1">
-            {FIX_PRESETS.map(p => {
+            {smartPresets.map(p => {
               const isApplied = appliedPreset === p.id;
               return (
                 <button
@@ -348,16 +538,23 @@ export function QuickFxPanel() {
             })}
           </div>
 
-          {/* Style Packs */}
+          {/* Style Packs — type-aware */}
           <div className="mt-2">
             <p className="text-[8px] text-gray-500 px-1 mb-1 flex items-center gap-1">
               <i className="fa-solid fa-wand-magic-sparkles text-purple-400" /> Style Packs
             </p>
             <div className="flex flex-wrap gap-1">
-              {['TikTok', 'YouTube', 'Documentary', 'Music Video', 'News'].map(style => (
+              {(clipType === 'audio'
+                ? ['Podcast', 'Music', 'ASMR', 'Documentary', 'Gaming']
+                : clipType === 'image'
+                ? ['Instagram', 'Portfolio', 'Wedding', 'Editorial', 'Product']
+                : clipType === 'text'
+                ? ['Minimal', 'Bold', 'Retro', 'Neon', 'Elegant']
+                : ['TikTok', 'YouTube', 'Documentary', 'Music Video', 'News']
+              ).map(style => (
                 <button
                   key={style}
-                  onClick={() => runCmd(`social ${style.toLowerCase().replace(' ', '')}`)}
+                  onClick={() => runCmd(`style ${style.toLowerCase()}`)}
                   className="px-2 py-1 rounded text-[7px] bg-gray-800/60 hover:bg-purple-900/30 text-gray-400 hover:text-purple-300 border border-gray-700 hover:border-purple-600 transition-all"
                 >
                   {style}
