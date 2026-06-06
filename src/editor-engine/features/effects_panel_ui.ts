@@ -268,18 +268,25 @@ window.EditorApp.prototype.updateEffectControls = function() {
                 </div>
                 <div class="flex items-center justify-between mb-3 gap-3">
                     <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">Color</label>
-                    <input type="color" value="${forceHex(clip.textStyle.color)}" onchange="app.updateProProperty('${clipId}', 'textStyle', 'color', this.value)" class="w-full h-7 bg-[#050811] border border-gray-700 rounded cursor-pointer">
+                    <div class="flex items-center gap-1 flex-grow">
+                        <input type="color" value="${forceHex(clip.textStyle.color)}" onchange="app.updateProProperty('${clipId}', 'textStyle', 'color', this.value)" class="flex-grow h-7 bg-[#050811] border border-gray-700 rounded cursor-pointer">
+                        <button onclick="if(window.EyeDropper){new EyeDropper().open().then(r => {app.updateProProperty('${clipId}','textStyle','color',r.sRGBHex);app.updateEffectControls();}).catch(e=>console.log(e));}else{alert('Eyedropper API not supported in this browser.');}" class="w-7 h-7 bg-[#1e293b] rounded text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Pick color from canvas"><i class="fa-solid fa-eye-dropper text-[10px]"></i></button>
+                    </div>
                 </div>
                 <div class="flex items-center justify-between mb-3 gap-3">
                     <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">Bg Color</label>
-                    <div class="flex items-center gap-2 flex-grow">
+                    <div class="flex items-center gap-1 flex-grow">
                         <input type="color" value="${forceHex(clip.textStyle.backgroundColor)}" onchange="app.updateProProperty('${clipId}', 'textStyle', 'backgroundColor', this.value)" class="flex-grow h-7 bg-[#050811] border border-gray-700 rounded cursor-pointer">
+                        <button onclick="if(window.EyeDropper){new EyeDropper().open().then(r => {app.updateProProperty('${clipId}','textStyle','backgroundColor',r.sRGBHex);app.updateEffectControls();}).catch(e=>console.log(e));}" class="w-7 h-7 bg-[#1e293b] rounded text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Pick color from canvas"><i class="fa-solid fa-eye-dropper text-[10px]"></i></button>
                         <input type="number" min="0" max="100" value="${clip.textStyle.backgroundOpacity || 0}" lang="en" dir="ltr" onchange="app.updateProProperty('${clipId}', 'textStyle', 'backgroundOpacity', this.value)" class="w-10 bg-[#050811] text-[10px] text-gray-200 border border-gray-700 py-1 rounded text-center focus:border-red-500 outline-none" title="Bg Opacity %">
                     </div>
                 </div>
                 <div class="flex items-center justify-between mb-3 gap-3">
                     <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">Stroke Color</label>
-                    <input type="color" value="${forceHex(clip.textStyle.strokeColor || '#000000')}" onchange="app.updateProProperty('${clipId}', 'textStyle', 'strokeColor', this.value)" class="w-full h-7 bg-[#050811] border border-gray-700 rounded cursor-pointer">
+                    <div class="flex items-center gap-1 flex-grow">
+                        <input type="color" value="${forceHex(clip.textStyle.strokeColor || '#000000')}" onchange="app.updateProProperty('${clipId}', 'textStyle', 'strokeColor', this.value)" class="flex-grow h-7 bg-[#050811] border border-gray-700 rounded cursor-pointer">
+                        <button onclick="if(window.EyeDropper){new EyeDropper().open().then(r => {app.updateProProperty('${clipId}','textStyle','strokeColor',r.sRGBHex);app.updateEffectControls();}).catch(e=>console.log(e));}" class="w-7 h-7 bg-[#1e293b] rounded text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Pick color from canvas"><i class="fa-solid fa-eye-dropper text-[10px]"></i></button>
+                    </div>
                 </div>
                 ${createDualControl('Stroke Width', 'textStyle', 'strokeWidth', 0, 20, 'px')}
                 ${createDualControl('Padding', 'textStyle', 'padding', 0, 100, 'px')}

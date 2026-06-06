@@ -419,3 +419,45 @@ window.EditorApp.prototype.openOnCanvasTextEditor = function(clip) {
         this.requestRedraw(); // Live preview
     });
 };
+
+// Phase 43: Advanced Alignment
+window.EditorApp.prototype.alignSelectedClips = function(alignment) {
+    if (this.selectedClipIds.size < 2) return;
+    
+    const clips = Array.from(this.selectedClipIds)
+        .map(id => this.findClipById(id))
+        .filter(c => c && c.properties);
+        
+    if (clips.length < 2) return;
+
+    // Find bounding box encompassing all clips to get edges
+    // Actually, simple alignment: align to the first selected clip or the bounding box
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    
+    clips.forEach(clip => {
+        const x = clip.properties.positionX || 0;
+        const y = clip.properties.positionY || 0;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+    });
+
+    const targetX = (minX + maxX) / 2;
+    const targetY = (minY + maxY) / 2;
+
+    this.saveState();
+
+    clips.forEach(clip => {
+        if (alignment === 'left') clip.properties.positionX = minX;
+        if (alignment === 'right') clip.properties.positionX = maxX;
+        if (alignment === 'center-x') clip.properties.positionX = targetX;
+        
+        if (alignment === 'top') clip.properties.positionY = minY;
+        if (alignment === 'bottom') clip.properties.positionY = maxY;
+        if (alignment === 'center-y') clip.properties.positionY = targetY;
+    });
+
+    this.commitStateToReact();
+    this.requestRedraw();
+};

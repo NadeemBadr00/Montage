@@ -125,6 +125,37 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
     if (this.renderWebGLComposition && renderJobs.length > 0) {
         const glCanvas = this.renderWebGLComposition(renderJobs, w, h);
         if (glCanvas) {
+            // ═══════════════════════════════════════════════════════
+            // Phase 41 — 🌫️ Auto-Fill Background Blur for Vertical Video
+            // ═══════════════════════════════════════════════════════
+            const baseJob = [...renderJobs].reverse().find(j => (j.clip || j.clipA) && ((j.clip || j.clipA).type === 'video' || (j.clip || j.clipA).type === 'image'));
+            const baseClip = baseJob ? (baseJob.clip || baseJob.clipA) : null;
+            if (baseClip && this.getSourceElement) {
+                const sourceEl = this.getSourceElement(baseClip);
+                if (sourceEl) {
+                    let srcW = sourceEl.naturalWidth || sourceEl.videoWidth || w;
+                    let srcH = sourceEl.naturalHeight || sourceEl.videoHeight || h;
+                    const aspect = srcW / srcH;
+                    const canvasAspect = w / h;
+                    
+                    // If video is vertical/square and canvas is wider, OR video is much narrower than canvas
+                    if (aspect < canvasAspect * 0.9) {
+                        ctx.save();
+                        ctx.filter = 'blur(45px) brightness(0.6) saturate(1.5)';
+                        const scale = Math.max(w / srcW, h / srcH) * 1.15; // slightly larger to hide blur bleeding
+                        const drawW = srcW * scale;
+                        const drawH = srcH * scale;
+                        const drawX = w/2 - drawW/2;
+                        const drawY = h/2 - drawH/2;
+                        
+                        try {
+                            ctx.drawImage(sourceEl, drawX, drawY, drawW, drawH);
+                        } catch(e) {} // Ignore cross-origin canvas taint errors temporarily if any
+                        ctx.restore();
+                    }
+                }
+            }
+
             // ✅ P2-OPT: Color grading now handled per-clip in GLSL shader (zero GPU readbacks)
             // Single drawImage — shader applies brightness/contrast/saturation/hue per layer
             ctx.drawImage(glCanvas, 0, 0);

@@ -133,6 +133,21 @@ export default function Player() {
             <span className="text-xs font-mono text-cyan-200">Loading AI Model...</span>
           </div>
 
+          {/* ═══════════════════════════════════════════════════════ */}
+          {/* Phase 43 — 📐 Advanced Alignment Mini-HUD               */}
+          {/* ═══════════════════════════════════════════════════════ */}
+          {useEditorStore(state => state.selectedClipIds).size > 1 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 bg-[#1e293b]/90 backdrop-blur border border-gray-700 p-1.5 rounded-lg shadow-2xl">
+              <button className="w-7 h-7 rounded hover:bg-blue-600 transition-colors text-gray-300 hover:text-white" title="Align Left" onClick={() => (window as any).app?.alignSelectedClips?.('left')}><i className="fa-solid fa-align-left text-[10px]"></i></button>
+              <button className="w-7 h-7 rounded hover:bg-blue-600 transition-colors text-gray-300 hover:text-white" title="Align Center X" onClick={() => (window as any).app?.alignSelectedClips?.('center-x')}><i className="fa-solid fa-align-center text-[10px]"></i></button>
+              <button className="w-7 h-7 rounded hover:bg-blue-600 transition-colors text-gray-300 hover:text-white" title="Align Right" onClick={() => (window as any).app?.alignSelectedClips?.('right')}><i className="fa-solid fa-align-right text-[10px]"></i></button>
+              <div className="w-[1px] h-4 bg-gray-600 mx-1"></div>
+              <button className="w-7 h-7 rounded hover:bg-blue-600 transition-colors text-gray-300 hover:text-white" title="Align Top" onClick={() => (window as any).app?.alignSelectedClips?.('top')}><i className="fa-solid fa-arrow-up-to-line text-[10px]"></i></button>
+              <button className="w-7 h-7 rounded hover:bg-blue-600 transition-colors text-gray-300 hover:text-white" title="Align Center Y" onClick={() => (window as any).app?.alignSelectedClips?.('center-y')}><i className="fa-solid fa-arrows-up-down text-[10px]"></i></button>
+              <button className="w-7 h-7 rounded hover:bg-blue-600 transition-colors text-gray-300 hover:text-white" title="Align Bottom" onClick={() => (window as any).app?.alignSelectedClips?.('bottom')}><i className="fa-solid fa-arrow-down-to-line text-[10px]"></i></button>
+            </div>
+          )}
+
           {/* Hidden video elements for processing (Must not use display: none for requestVideoFrameCallback) */}
           <div style={{ opacity: 0, position: 'absolute', width: '1px', height: '1px', pointerEvents: 'none', overflow: 'hidden' }}>
             <video id="source-video-a" playsInline preload="auto" crossOrigin="anonymous"></video>
@@ -188,6 +203,20 @@ export default function Player() {
         </div>
         
         <div className="w-32 flex justify-end gap-3 items-center">
+          <i 
+            className="fa-solid fa-camera cursor-pointer text-[11px] text-gray-400 hover:text-white transition-colors"
+            onClick={() => {
+                const canvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
+                if(canvas) {
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const a = document.createElement('a');
+                    a.href = dataUrl;
+                    a.download = `montage-snapshot-${Date.now()}.png`;
+                    a.click();
+                }
+            }}
+            title="Snapshot Canvas (PNG)"
+          ></i>
           <i 
             className={`fa-solid fa-border-all cursor-pointer text-[11px] transition-colors ${useEditorStore(state => state.showRuleOfThirds) ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
             onClick={() => useEditorStore.getState().setShowRuleOfThirds(!useEditorStore.getState().showRuleOfThirds)}

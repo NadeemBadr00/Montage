@@ -35,7 +35,8 @@ window.EditorApp.prototype.renderWebGLComposition = function(renderJobs, w, h) {
         this.glCanvas.width = w; this.glCanvas.height = h;
         gl.viewport(0, 0, w, h);
     }
-    gl.clearColor(0, 0, 0, 1);
+    // Phase 41: Make WebGL background transparent so we can draw blurred backgrounds behind it in 2D
+    gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.useProgram(this.program);
