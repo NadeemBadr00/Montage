@@ -15,6 +15,9 @@ export function VideoExportModalPro() {
   const [draftMode, setDraftMode] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [codec, setCodec] = useState('avc');
+  
+  const [customWidth, setCustomWidth] = useState("1920");
+  const [customHeight, setCustomHeight] = useState("1080");
 
   // -- Progress State --
   const [exportStatus, setExportStatus] = useState<'idle' | 'rendering' | 'done'>('idle');
@@ -101,6 +104,8 @@ export function VideoExportModalPro() {
           const id = app.projectId || `proj_${Date.now()}`;
             const isVertical = preset === 'tiktok';
             const isSquare = preset === 'instagram';
+            const isCustom = preset === 'custom';
+            
             let finalWidth = resolution === '4320' ? 7680 : resolution === '2160' ? 3840 : resolution === '1080' ? 1920 : resolution === '720' ? 1280 : resolution === '480' ? 854 : resolution === '360' ? 640 : resolution === '240' ? 426 : 256;
             let finalHeight = parseInt(resolution) || 1080;
             
@@ -109,6 +114,9 @@ export function VideoExportModalPro() {
                 finalHeight = resolution === '4320' ? 7680 : resolution === '2160' ? 3840 : resolution === '1080' ? 1920 : resolution === '720' ? 1280 : resolution === '480' ? 854 : resolution === '360' ? 640 : resolution === '240' ? 426 : 256;
             } else if (isSquare) {
                 finalWidth = finalHeight;
+            } else if (isCustom) {
+                finalWidth = parseInt(customWidth) || 1920;
+                finalHeight = parseInt(customHeight) || 1080;
             }
 
             const exportManifest = {
@@ -284,7 +292,7 @@ export function VideoExportModalPro() {
                         </div>
                         <div className="flex flex-col gap-2">
                             <label className="text-xs text-gray-400 font-bold">الدقة (Resolution)</label>
-                            <select disabled={draftMode} value={resolution} onChange={e => setResolution(e.target.value)} className="bg-gray-800/80 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none backdrop-blur-sm disabled:opacity-50">
+                            <select disabled={draftMode || preset === 'custom'} value={resolution} onChange={e => setResolution(e.target.value)} className="bg-gray-800/80 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none backdrop-blur-sm disabled:opacity-50">
                                 <option value="4320">8K UHD (4320p)</option>
                                 <option value="2160">4K UHD (2160p)</option>
                                 <option value="1080">FHD (1080p)</option>
@@ -312,11 +320,24 @@ export function VideoExportModalPro() {
                                 <i className="fa-brands fa-instagram text-lg"></i>
                                 <span className="text-[10px]">Instagram (1:1)</span>
                             </button>
-                            <button onClick={() => setPreset('custom')} className={`flex-1 py-2 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all ${preset === 'custom' ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:bg-gray-800'}`}>
+                            <button onClick={() => handlePresetChange('custom')} className={`flex-1 py-2 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all ${preset === 'custom' ? 'bg-blue-600/20 border-blue-500 text-blue-400' : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:bg-gray-800'}`}>
                                 <i className="fa-solid fa-sliders text-lg"></i>
                                 <span className="text-[10px]">مخصص</span>
                             </button>
                         </div>
+                        
+                        {preset === 'custom' && (
+                            <div className="flex gap-4 mt-4 animate-fade-in-up">
+                                <div className="flex-1">
+                                    <label className="text-[10px] text-gray-500 mb-1 block">العرض (Width)</label>
+                                    <input type="number" value={customWidth} onChange={e => setCustomWidth(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-xs text-white outline-none focus:border-blue-500" />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="text-[10px] text-gray-500 mb-1 block">الطول (Height)</label>
+                                    <input type="number" value={customHeight} onChange={e => setCustomHeight(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-xs text-white outline-none focus:border-blue-500" />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="bg-gray-800/40 rounded-lg border border-gray-700 p-4 mb-6">
@@ -388,9 +409,9 @@ export function VideoExportModalPro() {
                             </button>
                         </div>
                         
-                        <div className="aspect-video bg-black rounded-lg border border-gray-700 mb-6 flex items-center justify-center relative overflow-hidden shadow-inner">
+                        <div className={`mx-auto bg-black rounded-lg border border-gray-700 mb-6 flex items-center justify-center relative overflow-hidden shadow-inner transition-all duration-500 ${preset === 'youtube' ? 'aspect-video w-full' : preset === 'tiktok' ? 'aspect-[9/16] h-32' : preset === 'instagram' ? 'aspect-square h-24' : 'aspect-video w-full'}`}>
                             <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 to-purple-900/20"></div>
-                            <i className="fa-solid fa-film text-4xl text-gray-700"></i>
+                            <i className="fa-solid fa-film text-3xl text-gray-700"></i>
                             {watermark && <div className="absolute bottom-2 right-2 text-[8px] text-white/50 font-mono">AI4Montage</div>}
                         </div>
 
@@ -406,7 +427,7 @@ export function VideoExportModalPro() {
                             <div className="flex justify-between border-b border-gray-800 pb-2">
                                 <span className="text-gray-500 text-xs">أبعاد الفيديو</span>
                                 <span className="text-gray-300 text-xs font-mono">
-                                    {preset === 'tiktok' ? `1080x1920` : preset === 'instagram' ? `1080x1080` : `${resolution === '4320' ? 7680 : resolution === '2160' ? 3840 : resolution === '1080' ? 1920 : resolution === '720' ? 1280 : resolution === '480' ? 854 : resolution === '360' ? 640 : resolution === '240' ? 426 : 256}x${resolution}`}
+                                    {preset === 'tiktok' ? `1080x1920` : preset === 'instagram' ? `1080x1080` : preset === 'custom' ? `${customWidth}x${customHeight}` : `${resolution === '4320' ? 7680 : resolution === '2160' ? 3840 : resolution === '1080' ? 1920 : resolution === '720' ? 1280 : resolution === '480' ? 854 : resolution === '360' ? 640 : resolution === '240' ? 426 : 256}x${resolution}`}
                                 </span>
                             </div>
                             <div className="flex justify-between bg-blue-900/20 p-2 rounded border border-blue-500/20">
