@@ -247,6 +247,12 @@ html, body { width: 100%; min-height: 100vh; background: var(--bg); color: var(-
 .toolbar-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: all 0.2s; font-size: 13px; color: #9ca3af; }
 .toolbar-btn:hover { background-color: rgba(255,255,255,0.1); color: white; }
 .toolbar-btn.active { background-color: #374151; color: #10b981; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
+/* Track Control Buttons */
+.track-ctrl-btn { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 3px; transition: all 0.15s; font-size: 9px; cursor: pointer; border: none; background: transparent; flex-shrink: 0; }
+.track-ctrl-btn:hover { background-color: rgba(255,255,255,0.08); }
+/* Context menu animation */
+.context-menu-container { animation: ctxFadeIn 0.1s ease-out; transform-origin: top left; }
+@keyframes ctxFadeIn { from { opacity: 0; transform: scale(0.95) translateY(-4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
 /* ─── TIMELINE ───────────────────────────────────────── */
 .timeline-container { user-select: none; background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 100px 100%; background-color: #111827; }

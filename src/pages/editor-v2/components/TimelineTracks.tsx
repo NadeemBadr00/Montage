@@ -1,5 +1,6 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useEditorStore } from '../../../store/useEditorStore';
+import TimelineTrackHeader from './TimelineTrackHeader';
 import TrackHeader from './TrackHeader';
 import ClipItem from './ClipItem';
 import TransitionItem from './TransitionItem';
@@ -14,6 +15,20 @@ export default function TimelineTracks() {
   const collapsedTracks = useEditorStore(state => state.collapsedTracks);
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [trackHeights, setTrackHeights] = useState<Record<string, number>>({});
+
+  const getTrackHeight = (track: any, isCollapsed: boolean) => {
+    if (isCollapsed) return 28;
+    return trackHeights[track.id] || track.height || 72;
+  };
+
+  const handleHeightChange = (idx: number, h: number) => {
+    const track = tracks[idx];
+    if (track) {
+      setTrackHeights(prev => ({ ...prev, [track.id]: h }));
+      track.height = h; // persist to engine state
+    }
+  };
 
   // ✅ P5: Virtual Timeline — track scroll position to filter visible clips only
   const [scrollLeft, setScrollLeft] = React.useState(0);
@@ -187,26 +202,30 @@ export default function TimelineTracks() {
 
       {tracks.map((track, index) => {
         const isCollapsed = collapsedTracks.has(track.id);
-        const currentHeight = isCollapsed ? 28 : (track.height || 96);
+        const currentHeight = getTrackHeight(track, isCollapsed);
 
         return (
         <React.Fragment key={track.id}>
-          <div 
-            className={`track-row relative w-full bg-gray-800/80 border-b border-gray-700/50 flex group hover:bg-gray-800 transition-all duration-300 ${isCollapsed ? 'opacity-80' : ''}`}
-            style={{ height: `${currentHeight}px` }}
+          <div
+            className={`track-row relative w-full bg-gray-800/80 border-b border-gray-700/50 flex group hover:bg-gray-800 transition-all duration-300 ${isCollapsed ? 'opacity-80' : ''} ${track.hidden ? 'opacity-40' : ''}`}
+            style={{ height: `${currentHeight}px`, borderLeft: track.locked ? '2px solid #facc15' : undefined }}
             data-track-id={track.id}
             data-track-type={track.type}
             onDragOver={(e) => handleDragOver(e, track.id)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, track.id)}
-            onContextMenu={(e) => {
-               e.stopPropagation();
-               handleContextMenu(e, track.id);
-            }}
+            onContextMenu={(e) => { e.stopPropagation(); handleContextMenu(e, track.id); }}
           >
-            
-            {/* Track Header (Fixed Left) */}
-            <TrackHeader track={track} />
+
+            {/* Track Header (Fixed Left) — New Professional Header */}
+            <div className="flex-shrink-0 overflow-hidden" style={{ width: `${headerWidth}px` }}>
+              <TimelineTrackHeader
+                track={track}
+                trackIndex={index}
+                height={currentHeight}
+                onHeightChange={handleHeightChange}
+              />
+            </div>
 
             <div className="relative flex-grow h-full" style={{ minWidth: '2000px' }}>
               {/* Transitions rendered FIRST (below) so clip handles on top in DOM stacking order */}
