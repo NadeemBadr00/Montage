@@ -141,6 +141,25 @@ export default function TimelineContextMenu() {
   const reverseClip = () => {
     if (clip) { clip.reversed = !clip.reversed; app.saveState?.(); app.requestRedraw?.(); app.commitStateToReact?.(); }
   };
+
+  const saveAsTemplate = () => {
+      if (!clip) return;
+      const tpl = {
+          id: `tpl_user_${Date.now()}`,
+          name: `${clip.name} (Custom)`,
+          type: clip.type === 'text' ? 'text' : clip.type === 'image' ? 'image' : 'smart',
+          src: clip.src,
+          templateData: {
+              properties: clip.properties,
+              textStyle: clip.textStyle,
+              effects: clip.effects,
+              transitions: clip.transitions
+          }
+      };
+      // In a real app we'd save this to a backend or localStorage, for now we just alert.
+      alert(`Saved "${tpl.name}" to your templates!`);
+  };
+
   const detachAudio = () => {
     if (!clip || clip.type !== 'video') return;
     let audioTrack = app.tracks.find((t: any) => t.type === 'audio');
@@ -205,6 +224,7 @@ export default function TimelineContextMenu() {
             <SectionLabel icon="fa-scissors" label="Edit" />
             <MenuItem icon="fa-scissors" label="Cut at Playhead" shortcut="C" onClick={() => run(cutAtPlayhead)} />
             <MenuItem icon="fa-copy" label="Duplicate" shortcut="Ctrl+D" onClick={() => run(duplicateClip)} />
+            <MenuItem icon="fa-star" label="Save as Template" accent onClick={() => run(saveAsTemplate)} />
             <MenuItem icon="fa-rotate" label="Reverse Clip" onClick={() => run(reverseClip)} />
             <MenuItem icon="fa-link-slash" label="Ripple Delete" onClick={() => run(rippleDelete)} />
             <Divider />
@@ -251,6 +271,7 @@ export default function TimelineContextMenu() {
             <SectionLabel icon="fa-scissors" label="Edit" />
             <MenuItem icon="fa-scissors" label="Cut at Playhead" onClick={() => run(cutAtPlayhead)} />
             <MenuItem icon="fa-copy" label="Duplicate" shortcut="Ctrl+D" onClick={() => run(duplicateClip)} />
+            <MenuItem icon="fa-star" label="Save as Template" accent onClick={() => run(saveAsTemplate)} />
             <Divider />
             <SectionLabel icon="fa-arrows-rotate" label="Transform" />
             <MenuItem icon="fa-rotate-right" label="Rotate 90° CW" onClick={() => run(() => setProp('rotation', ((clip.properties?.rotation || 0) + 90) % 360))} />
@@ -296,6 +317,7 @@ export default function TimelineContextMenu() {
           {clip.type === 'text' && <>
             <SectionLabel icon="fa-font" label="Text" />
             <MenuItem icon="fa-copy" label="Duplicate" shortcut="Ctrl+D" onClick={() => run(duplicateClip)} />
+            <MenuItem icon="fa-star" label="Save as Template" accent onClick={() => run(saveAsTemplate)} />
             <Divider />
             <SectionLabel label="Quick Color" />
             <div className="px-3 py-2 flex gap-2 flex-wrap">

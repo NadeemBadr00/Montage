@@ -12,38 +12,56 @@ export async function exportToMP4ClientSide(app: any, options: any) {
 }
 
 export async function startCanvasRecording(app: any, options: any) {
-    const btn = document.getElementById('export-mp4-btn');
-    let overlay = document.getElementById('export-overlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'export-overlay';
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100vw';
-        overlay.style.height = '100vh';
-        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
-        overlay.style.backdropFilter = 'blur(5px)';
-        overlay.style.zIndex = '9999';
+    const isSilent = options?.silentMode === true;
+    
+    let overlay: any = null;
+    if (!isSilent) {
+        overlay = document.getElementById('export-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'export-overlay';
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100vw';
+            overlay.style.height = '100vh';
+            overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+            overlay.style.backdropFilter = 'blur(5px)';
+            overlay.style.zIndex = '9999';
+            overlay.style.display = 'flex';
+            overlay.style.flexDirection = 'column';
+            overlay.style.justifyContent = 'center';
+            overlay.style.alignItems = 'center';
+            overlay.style.color = 'white';
+            overlay.style.fontFamily = 'Inter, sans-serif';
+            overlay.style.fontSize = '24px';
+            document.body.appendChild(overlay);
+        }
         overlay.style.display = 'flex';
-        overlay.style.flexDirection = 'column';
-        overlay.style.justifyContent = 'center';
-        overlay.style.alignItems = 'center';
-        overlay.style.color = 'white';
-        overlay.style.fontFamily = 'Inter, sans-serif';
-        overlay.style.fontSize = '24px';
-        document.body.appendChild(overlay);
+        overlay.innerHTML = `<div><i class="fa-solid fa-spinner fa-spin"></i> Preparing Export...</div>`;
     }
-    overlay.style.display = 'flex';
-    overlay.innerHTML = `<div><i class="fa-solid fa-spinner fa-spin"></i> Preparing Export...</div>`;
+
+    const reportProgress = (percent: number, msg?: string) => {
+        if (!isSilent && overlay) {
+            if (msg) overlay.innerHTML = `<div>${msg}</div>`;
+            else {
+                overlay.innerHTML = `<div><i class="fa-solid fa-video"></i> Rendering Video: ${percent}%</div>
+                <div style="width: 300px; height: 10px; background: #333; border-radius: 5px; margin-top: 15px; overflow: hidden;">
+                    <div style="width: ${percent}%; height: 100%; background: #ef4444; transition: width 0.1s;"></div>
+                </div>`;
+            }
+        }
+        if (options?.onProgress) {
+            options.onProgress(percent, msg);
+        }
+    };
 
     let decoders: Map<string, MP4Decoder> | undefined;
 
     try {
         if (typeof (window as any).VideoEncoder === 'undefined') {
             alert("Your browser does not support WebCodecs API. Please use Chrome 94+ or Edge.");
-            if (btn) btn.innerHTML = '<i class="fa-solid fa-download"></i> MP4 Export';
-            overlay.style.display = 'none';
+            if (!isSilent && overlay) overlay.style.display = 'none';
             return;
         }
 
@@ -62,7 +80,7 @@ export async function startCanvasRecording(app: any, options: any) {
         const anySolo = app.tracks.some((t: any) => t.isSolo);
 
         // --- 1. Offline Audio Mixdown ---
-        overlay.innerHTML = `<div><i class="fa-solid fa-music"></i> Mixing Audio...</div>`;
+        reportProgress(0, '<i class="fa-solid fa-music"></i> Mixing Audio...');
         const sampleRate = 44100;
         const renderedAudio = await mixdownAudio(app, options);
         const hasAudio = renderedAudio !== null;
@@ -100,7 +118,7 @@ export async function startCanvasRecording(app: any, options: any) {
         const support = await VideoEncoder.isConfigSupported({ codec: encoderCodecString, width: w, height: h, bitrate });
         if (!support.supported) {
             alert(`Your GPU does not support hardware encoding for ${codec.toUpperCase()} at ${w}x${h}. Try H.264 or a lower resolution.`);
-            overlay.style.display = 'none';
+            if (!isSilent && overlay) overlay.style.display = 'none';
             return;
         }
 
@@ -168,7 +186,7 @@ export async function startCanvasRecording(app: any, options: any) {
 
         // --- 3. Encode Audio (Chunked) ---
         if (hasAudio && renderedAudio && audioEncoder) {
-            overlay.innerHTML = `<div><i class="fa-solid fa-wave-square"></i> Encoding Audio...</div>`;
+            reportProgress(5, '<i class="fa-solid fa-wave-square"></i> Encoding Audio...');
             const frameCount = renderedAudio.length;
             const numChannels = renderedAudio.numberOfChannels;
             const chunkSize = sampleRate; // 1 second chunks
@@ -195,7 +213,7 @@ export async function startCanvasRecording(app: any, options: any) {
         }
 
         // --- 3.5. Initialize WebCodecs MP4Decoders (Phase 2b: parallel init, concurrency = 4) ---
-        overlay.innerHTML = `<div><i class="fa-solid fa-microchip"></i> Initializing Decoders...</div>`;
+        reportProgress(10, '<i class="fa-solid fa-microchip"></i> Initializing Decoders...');
         decoders = new Map<string, MP4Decoder>();
 
         // Collect all blob video clips
@@ -324,15 +342,12 @@ export async function startCanvasRecording(app: any, options: any) {
 
             if (frame % 5 === 0) {
                 const percent = Math.round((frame / totalFrames) * 100);
-                overlay.innerHTML = `<div><i class="fa-solid fa-video"></i> Rendering Video: ${percent}%</div>
-                <div style="width: 300px; height: 10px; background: #333; border-radius: 5px; margin-top: 15px; overflow: hidden;">
-                    <div style="width: ${percent}%; height: 100%; background: #ef4444; transition: width 0.1s;"></div>
-                </div>`;
+                reportProgress(percent);
             }
         }
 
         // --- 5. Finalize and Download ---
-        overlay.innerHTML = `<div><i class="fa-solid fa-box-archive"></i> Muxing MP4...</div>`;
+        reportProgress(100, '<i class="fa-solid fa-box-archive"></i> Muxing MP4...');
         await videoEncoder.flush();
         muxer.finalize();
         
@@ -360,8 +375,7 @@ export async function startCanvasRecording(app: any, options: any) {
         app.requestRedraw();
         
         savedSelectedIds.forEach(id => app.selectedClipIds.add(id));
-        if (btn) btn.innerHTML = '<i class="fa-solid fa-download"></i> MP4 Export';
-        overlay.style.display = 'none';
+        if (!isSilent && overlay) overlay.style.display = 'none';
 
         if (options?.returnBlob) {
             return blob;
@@ -380,9 +394,7 @@ export async function startCanvasRecording(app: any, options: any) {
             app.exportVideoFrames = undefined;
         }
 
-        const btn = document.getElementById('export-mp4-btn');
-        if (btn) btn.innerHTML = '<i class="fa-solid fa-download"></i> MP4 Export';
-        if (overlay) overlay.style.display = 'none';
+        if (!isSilent && overlay) overlay.style.display = 'none';
         // Ensure UI is somewhat restored
         app.selectedClipIds.clear();
         

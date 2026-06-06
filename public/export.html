@@ -527,6 +527,7 @@
         <div style="margin-top: 10px;">
             <label for="qualitySelect">جودة الفيديو: </label>
             <select id="qualitySelect" style="padding: 5px; font-size: 16px; border-radius: 5px; margin-bottom: 10px; margin-left: 15px;">
+                <option value="4320">8K (UHD)</option>
                 <option value="2160">4K (UHD)</option>
                 <option value="1440">2K (QHD)</option>
                 <option value="1080">1080p (FHD)</option>
@@ -550,6 +551,7 @@
             <select id="codecSelect" style="padding: 5px; font-size: 16px; border-radius: 5px; margin-bottom: 10px;">
                 <option value="avc" selected>H.264 (الأكثر توافقاً)</option>
                 <option value="hevc">HEVC / H.265 (أفضل جودة وحجم)</option>
+                <option value="av1">AV1 (متوافق مع 8K برمجياً)</option>
             </select>
         </div>
 
@@ -619,7 +621,8 @@
             const selectedCodec = document.getElementById('codecSelect').value;
             
             let bitrate = 4_000_000; 
-            if (h >= 2160) bitrate = 40_000_000;
+            if (h >= 4320) bitrate = 80_000_000;
+            else if (h >= 2160) bitrate = 40_000_000;
             else if (h >= 1440) bitrate = 16_000_000;
             else if (h >= 1080) bitrate = 8_000_000;
             else if (h === 540) bitrate = 3_000_000;
@@ -632,7 +635,9 @@
 
             let muxerCodec = 'avc';
             let encoderCodecString = 'avc1.42001f'; // H.264 Level 3.1 (720p)
-            if (h >= 2160) {
+            if (h >= 4320) {
+                encoderCodecString = 'avc1.64003c'; // H.264 High Profile Level 6.0 (8K)
+            } else if (h >= 2160) {
                 encoderCodecString = 'avc1.640033'; // H.264 High Profile Level 5.1 (4K)
             } else if (h >= 1080) {
                 encoderCodecString = 'avc1.42002a'; // H.264 Baseline Level 4.2 (1080p)
@@ -640,8 +645,20 @@
             
             if (selectedCodec === 'hevc') {
                 muxerCodec = 'hevc';
-                // HEVC Main Profile, Level 5.0 (يدعم 4K و 1080p بكفاءة)
-                encoderCodecString = 'hev1.1.6.L150.90'; 
+                if (h >= 4320) {
+                    encoderCodecString = 'hev1.1.6.L180.90'; // HEVC Main Profile Level 6.0 (8K)
+                } else {
+                    encoderCodecString = 'hev1.1.6.L150.90'; // HEVC Main Profile Level 5.0 (4K/1080p)
+                }
+            } else if (selectedCodec === 'av1') {
+                muxerCodec = 'av1';
+                if (h >= 4320) {
+                    encoderCodecString = 'av01.0.17M.10'; // AV1 Profile 0 Level 6.2 Main Tier 10-bit (8K)
+                } else if (h >= 2160) {
+                    encoderCodecString = 'av01.0.08M.08'; // AV1 Profile 0 Level 5.0 (4K)
+                } else {
+                    encoderCodecString = 'av01.0.05M.08'; // AV1 Profile 0 Level 4.0 (1080p)
+                }
             }
 
             return { width: w, height: h, bitrate, muxerCodec, encoderCodecString, selectedCodec };
@@ -751,6 +768,7 @@
                             if (clip.type === 'image' && clip.src && !window.imageCache[clip.src]) {
                                 log(`🖼️ جاري تحميل صورة للمعاينة: ${clip.src.substring(0, 30)}...`);
                                 const img = new Image();
+                                img.crossOrigin = 'anonymous';
                                 img.src = clip.src;
                                 await new Promise(r => { img.onload = r; img.onerror = r; });
                                 window.imageCache[clip.src] = img;
@@ -758,6 +776,7 @@
                             if (clip.properties && clip.properties.innerMediaSrc && clip.properties.innerMediaType === 'image' && !window.imageCache[clip.properties.innerMediaSrc]) {
                                 log(`🖼️ جاري تحميل الميديا الداخلية: ${clip.properties.innerMediaSrc.substring(0, 30)}...`);
                                 const img = new Image();
+                                img.crossOrigin = 'anonymous';
                                 img.src = clip.properties.innerMediaSrc;
                                 await new Promise(r => { img.onload = r; img.onerror = r; });
                                 window.imageCache[clip.properties.innerMediaSrc] = img;
@@ -776,6 +795,7 @@
             
             if (!window.bgImgLoaded) {
                 window.bgImgLoaded = new Image();
+                window.bgImgLoaded.crossOrigin = 'anonymous';
                 if (window.bgFile) {
                     window.bgImgLoaded.src = URL.createObjectURL(window.bgFile);
                 } else {
@@ -899,8 +919,11 @@
                     },
                     error: e => log("❌ خطأ VideoEncoder: " + e.message)
                 });
-                
-                videoEncoder.configure({ codec: encoderCodecString, width, height, bitrate, bitrateMode: "variable", framerate: fps, hardwareAcceleration: "prefer-hardware" });
+                try {
+                    videoEncoder.configure({ codec: encoderCodecString, width, height, bitrate, bitrateMode: "variable", framerate: fps, hardwareAcceleration: "prefer-hardware" });
+                } catch (e) {
+                    throw new Error(`للأسف، المتصفح أو كارت الشاشة الخاص بك لا يدعم معالجة هذا الحجم الضخم (${width}x${height}) باستخدام كوديك ${selectedCodec.toUpperCase()}. جرب تقليل الدقة إلى 4K أو تغيير الكوديك.`);
+                }
 
                 const audioEncoder = new AudioEncoder({
                     output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
@@ -923,6 +946,7 @@
                             if (clip.type === 'image' && clip.src && !window.imageCache[clip.src]) {
                                 log(`🖼️ جاري تحميل صورة: ${clip.src.substring(0, 30)}...`);
                                 const img = new Image();
+                                img.crossOrigin = 'anonymous';
                                 img.src = clip.src;
                                 await new Promise(r => { img.onload = r; img.onerror = r; });
                                 window.imageCache[clip.src] = img;
@@ -930,6 +954,7 @@
                             if (clip.properties && clip.properties.innerMediaSrc && clip.properties.innerMediaType === 'image' && !window.imageCache[clip.properties.innerMediaSrc]) {
                                 log(`🖼️ جاري تحميل الميديا الداخلية للتصدير: ${clip.properties.innerMediaSrc.substring(0, 30)}...`);
                                 const img = new Image();
+                                img.crossOrigin = 'anonymous';
                                 img.src = clip.properties.innerMediaSrc;
                                 await new Promise(r => { img.onload = r; img.onerror = r; });
                                 window.imageCache[clip.properties.innerMediaSrc] = img;
@@ -953,12 +978,14 @@
                     return new Promise(async (resolve, reject) => {
                         try {
                             let buffer;
-                            if (window.videoFile) {
+                            // Use window.videoFile ONLY if videoSrc is "file" or missing
+                            if ((!videoSrc || videoSrc === "file") && window.videoFile) {
                                 log(`📦 تحميل الفيديو من الذاكرة المحلية (IndexedDB)...`);
                                 buffer = await window.videoFile.arrayBuffer();
                             } else {
                                 log(`🎬 سحب الداتا الخام لفيديو ${videoSrc}...`);
                                 const response = await fetch(videoSrc);
+                                if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
                                 buffer = await response.arrayBuffer();
                             }
                             buffer.fileStart = 0;
@@ -1018,9 +1045,9 @@
                                         let needsAI = false;
                                         if (window.exportManifest && window.exportManifest.tracks) {
                                             for (const track of window.exportManifest.tracks) {
-                                                for (const clip of track.clips) {
-                                                    if (timeInSeconds >= clip.start && timeInSeconds < clip.start + clip.duration) {
-                                                        if ((clip.type === 'video' || clip.type === 'main' || clip.type === 'speaker') && clip.aiSegmentation?.enabled) {
+                                                for (const c of track.clips) {
+                                                    if (timeInSeconds >= c.start && timeInSeconds < c.start + c.duration) {
+                                                        if ((c.type === 'video' || c.type === 'main' || c.type === 'speaker') && c.aiSegmentation?.enabled) {
                                                             needsAI = true;
                                                         }
                                                     }
@@ -1131,6 +1158,11 @@
                                                 }
                                             }
 
+                                            if (videoEncoder.state !== 'configured') {
+                                                frame.close();
+                                                throw new Error(`محرك الفيديو انهار! يبدو أن كارت الشاشة أو المتصفح يرفض معالجة الكوديك (${selectedCodec.toUpperCase()}) على هذه الدقة. جرب اختيار H.264 أو HEVC أو تقليل الدقة.`);
+                                            }
+                                            
                                             const newFrame = new VideoFrame(canvas, { timestamp: timelineTimeUs });
                                             videoEncoder.encode(newFrame, { keyFrame: isKeyFrame });
                                             newFrame.close();
@@ -1246,7 +1278,7 @@
                 await initAIModelIfNeeded();
 
                 for (const clip of videoClips) {
-                    await processVideo("file", clip);
+                    await processVideo(clip.src || "file", clip);
                 }
 
                 // processVideo already waits for the queue to empty internally.
@@ -1528,80 +1560,107 @@
 
             return new Promise((resolve) => {
                 const req = indexedDB.open('p43_file_store', 1);
-                req.onsuccess = (e) => {
+                req.onsuccess = async (e) => {
                     const db = e.target.result;
                     if (!db.objectStoreNames.contains('files')) { resolve(); return; }
                     const tx = db.transaction('files', 'readonly');
                     const store = tx.objectStore('files');
                     
-                    const reqVid = store.get(`${projectId}_video`);
-                    reqVid.onsuccess = (ev) => {
-                        if (ev.target.result) {
-                            window.videoFile = ev.target.result;
-                            document.getElementById('hiddenPreviewVideo').src = URL.createObjectURL(window.videoFile);
-                            log('📥 تم تحميل فيديو المشروع من الذاكرة بنجاح.');
-                        } else {
-                            document.getElementById('hiddenPreviewVideo').src = '/1.mp4';
-                        }
-                    };
+                    const getFile = (key) => new Promise((res) => {
+                        const r = store.get(key);
+                        r.onsuccess = (ev) => res(ev.target.result);
+                        r.onerror = () => res(null);
+                    });
 
-                    const reqBg = store.get(`${projectId}_bg_image`);
-                    reqBg.onsuccess = (ev) => {
-                        if (ev.target.result) {
-                            window.bgFile = ev.target.result;
-                            log('📥 تم تحميل صورة الخلفية من الذاكرة بنجاح.');
-                        }
-                    };
+                    // 1. Load Main Video
+                    window.videoFile = await getFile(`${projectId}_video`);
+                    if (window.videoFile) {
+                        document.getElementById('hiddenPreviewVideo').src = URL.createObjectURL(window.videoFile);
+                        log('📥 تم تحميل فيديو المشروع من الذاكرة بنجاح.');
+                    } else {
+                        document.getElementById('hiddenPreviewVideo').src = '/1.mp4';
+                    }
 
-                    const reqManifest = store.get(`${projectId}_export_manifest`);
-                    reqManifest.onsuccess = async (ev) => {
-                        if (ev.target.result) {
-                            const text = await ev.target.result.text();
-                            window.exportManifest = JSON.parse(text);
-                            log('📥 تم تحميل خريطة التايم لاين (Manifest) بنجاح.');
-                            
-                            // طباعة اللقطة (Snapshot) للتأكيد وتعيين أسماء التراكات
-                            if (window.exportManifest.tracks) {
-                                const getTrackName = (type, index) => {
-                                    if (['video', 'main', 'overlay'].includes(type)) return `V${index}`;
-                                    if (['audio'].includes(type)) return `A${index}`;
-                                    if (['text', 'subtitle'].includes(type)) return `T${index}`;
-                                    return `X${index}`;
-                                };
-                                let trackCounters = { video: 1, audio: 1, text: 1 };
-                                const reversedTracks = [...window.exportManifest.tracks].reverse();
-                                
-                                const snapshot = reversedTracks.map(t => {
-                                    let typeGroup = 'video';
-                                    if (['audio'].includes(t.type)) typeGroup = 'audio';
-                                    if (['text', 'subtitle'].includes(t.type)) typeGroup = 'text';
-                                    const tName = getTrackName(t.type, trackCounters[typeGroup]++);
-                                    
-                                    // تخزين اسم التراك الحقيقي عشان نستخدمه في الرندرة
-                                    t.trackName = tName;
-                                    
-                                    let trackTransStr = "";
-                                    if (t.transitions && t.transitions.length > 0) {
-                                        trackTransStr = "\n  [Track Transitions: " + t.transitions.map(tr => `${tr.type} @ ${tr.cutTime.toFixed(3)}s (Dur: ${((tr.inOffset || 0.5) + (tr.outOffset || 0.5)).toFixed(3)}s)`).join(", ") + "]";
+                    // 2. Load Background Image
+                    window.bgFile = await getFile(`${projectId}_bg_image`);
+                    if (window.bgFile) log('📥 تم تحميل صورة الخلفية من الذاكرة بنجاح.');
+
+                    // 3. Load Extra Files
+                    const extraCount = parseInt(localStorage.getItem(`${projectId}_extra_count`) || '0', 10);
+                    const fileUrlMap = {};
+                    if (window.videoFile) fileUrlMap['__main_video__'] = URL.createObjectURL(window.videoFile);
+                    
+                    for (let i = 0; i < extraCount; i++) {
+                        const f = await getFile(`${projectId}_extra_${i}`);
+                        if (f) fileUrlMap[`__extra_${i}__`] = URL.createObjectURL(f);
+                    }
+
+                    // 4. Load & Patch Manifest
+                    const manifestBlob = await getFile(`${projectId}_export_manifest`);
+                    if (manifestBlob) {
+                        const text = await manifestBlob.text();
+                        window.exportManifest = JSON.parse(text);
+                        log('📥 تم تحميل خريطة التايم لاين (Manifest) بنجاح.');
+                        
+                        // Patch blob URLs!
+                        let extraIdx = 0;
+                        if (window.exportManifest.tracks) {
+                            window.exportManifest.tracks.forEach(track => {
+                                track.clips?.forEach(clip => {
+                                    if (clip.src && clip.src.startsWith('blob:')) {
+                                        if (clip.type === 'video' && track.type !== 'audio') {
+                                            clip.src = fileUrlMap['__main_video__'] || clip.src;
+                                        } else if (clip.type === 'audio' && fileUrlMap['__main_video__']) {
+                                            clip.src = fileUrlMap['__main_video__'] || clip.src;
+                                        } else {
+                                            const key = `__extra_${extraIdx}__`;
+                                            if (fileUrlMap[key]) { clip.src = fileUrlMap[key]; extraIdx++; }
+                                        }
                                     }
-                                    return `[${tName}] (${t.type.toUpperCase()}):${trackTransStr}\n` + 
-                                        t.clips.map((c, cIdx) => {
-                                            const ai = c.aiSegmentation?.enabled ? "Yes" : "No";
-                                            let transStr = "none(1.0s) -> none(1.0s)";
-                                            if (c.transitions) {
-                                                const dur = (c.transitions.duration || 1.0).toFixed(1);
-                                                transStr = `${c.transitions.in || 'none'}(${dur}s) -> ${c.transitions.out || 'none'}(${dur}s)`;
-                                            }
-                                            return `  - ${cIdx+1}${tName.toLowerCase()} (${c.start.toFixed(3)}s -> ${(c.start + c.duration).toFixed(3)}s) | AI Removal: ${ai} | Transitions: ${transStr}\n    Props: ${JSON.stringify(c.properties || {})}`;
-                                        }).join('\n');
-                                }).reverse().join('\n\n');
-                                
-                                log(`📸 لقطة التايم لاين الحالية (بواسطة محرك التصدير):\n${snapshot}`);
-                            }
+                                });
+                            });
                         }
-                    };
+                        
+                        // Print Snapshot
+                        if (window.exportManifest.tracks) {
+                            const getTrackName = (type, index) => {
+                                if (['video', 'main', 'overlay'].includes(type)) return `V${index}`;
+                                if (['audio'].includes(type)) return `A${index}`;
+                                if (['text', 'subtitle'].includes(type)) return `T${index}`;
+                                return `X${index}`;
+                            };
+                            let trackCounters = { video: 1, audio: 1, text: 1 };
+                            const reversedTracks = [...window.exportManifest.tracks].reverse();
+                            
+                            const snapshot = reversedTracks.map(t => {
+                                let typeGroup = 'video';
+                                if (['audio'].includes(t.type)) typeGroup = 'audio';
+                                if (['text', 'subtitle'].includes(t.type)) typeGroup = 'text';
+                                const tName = getTrackName(t.type, trackCounters[typeGroup]++);
+                                
+                                t.trackName = tName;
+                                
+                                let trackTransStr = "";
+                                if (t.transitions && t.transitions.length > 0) {
+                                    trackTransStr = "\n  [Track Transitions: " + t.transitions.map(tr => `${tr.type} @ ${tr.cutTime.toFixed(3)}s (Dur: ${((tr.inOffset || 0.5) + (tr.outOffset || 0.5)).toFixed(3)}s)`).join(", ") + "]";
+                                }
+                                return `[${tName}] (${t.type.toUpperCase()}):${trackTransStr}\n` + 
+                                    t.clips.map((c, cIdx) => {
+                                        const ai = c.aiSegmentation?.enabled ? "Yes" : "No";
+                                        let transStr = "none(1.0s) -> none(1.0s)";
+                                        if (c.transitions) {
+                                            const dur = (c.transitions.duration || 1.0).toFixed(1);
+                                            transStr = `${c.transitions.in || 'none'}(${dur}s) -> ${c.transitions.out || 'none'}(${dur}s)`;
+                                        }
+                                        return `  - ${cIdx+1}${tName.toLowerCase()} (${c.start.toFixed(3)}s -> ${(c.start + c.duration).toFixed(3)}s) | AI Removal: ${ai} | Transitions: ${transStr}\n    Props: ${JSON.stringify(c.properties || {})}`;
+                                    }).join('\n');
+                            }).reverse().join('\n\n');
+                            
+                            log(`📸 لقطة التايم لاين الحالية (بواسطة محرك التصدير):\n${snapshot}`);
+                        }
+                    }
 
-                    tx.oncomplete = resolve;
+                    resolve();
                 };
                 req.onerror = () => {
                     document.getElementById('hiddenPreviewVideo').src = '/1.mp4';
@@ -1612,7 +1671,45 @@
         
         window.addEventListener('DOMContentLoaded', async () => {
             log('جاري فحص الذاكرة المحلية للمشروع...');
+            
+            // Parse URL Parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('res')) {
+                const resSelect = document.getElementById('qualitySelect');
+                if (resSelect) resSelect.value = urlParams.get('res');
+            }
+            if (urlParams.has('quality')) {
+                const qualSelect = document.getElementById('compressionSelect');
+                if (qualSelect) {
+                    const qMap = { 'high': '1', 'medium': '0.6', 'low': '0.3', 'draft': '0.1' };
+                    const qVal = qMap[urlParams.get('quality')];
+                    if (qVal) qualSelect.value = qVal;
+                }
+            }
+            if (urlParams.has('codec')) {
+                const codecSelect = document.getElementById('codecSelect');
+                if (codecSelect) codecSelect.value = urlParams.get('codec');
+            }
+            
             await loadFromDB();
+            
+            if (urlParams.get('auto') === 'true') {
+                // Hide settings UI if auto-starting
+                const container = document.querySelector('.container');
+                if (container) {
+                    Array.from(container.children).forEach(child => {
+                        if (child.id !== 'log' && child.id !== 'resultVideo' && child.tagName !== 'H2' && child.tagName !== 'P') {
+                            child.style.display = 'none';
+                        }
+                    });
+                }
+                document.querySelector('h2').innerText = '🚀 جاري الرندر التلقائي...';
+                document.querySelector('p').innerText = 'يرجى عدم إغلاق هذه النافذة حتى ينتهي التصدير. سيتم تنزيل الفيديو تلقائياً.';
+                
+                setTimeout(() => {
+                    document.getElementById('startBtn').click();
+                }, 1000);
+            }
         });
     </script>
 </body>

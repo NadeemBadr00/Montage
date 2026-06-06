@@ -325,6 +325,10 @@ window.EditorApp.prototype.setupTexture = function(tex) {
 
 // 🔥 NEW: Helper to resize huge images to 1080p for Preview Texture (Speed up)
 window.EditorApp.prototype.getOrUpdateImageTexture = function(gl, clip, sourceEl) {
+    if (!sourceEl || sourceEl.naturalWidth === 0 || sourceEl.naturalHeight === 0) {
+        return this.videoTexture; // Return fallback texture if not loaded
+    }
+    
     if (this.staticTextureCache.has(clip.src)) {
         return this.staticTextureCache.get(clip.src);
     }

@@ -233,6 +233,7 @@ window.EditorApp.prototype.showLayerSelectionMenu = function(x, y, hits) {
 };
 
 window.EditorApp.prototype.getCanvasCoordinates = function(e) {
+    if (!this.canvas || typeof this.canvas.getBoundingClientRect !== 'function') return { x: 0, y: 0 };
     const rect = this.canvas.getBoundingClientRect();
     
     const canvasAR = this.canvas.width / this.canvas.height;

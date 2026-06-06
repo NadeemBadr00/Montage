@@ -1,5 +1,6 @@
 // @ts-nocheck
 // preview-renderer.ts — renderFrameToCanvas, drawUIOverlays, drawBoundingBox
+import { drawAdvancedText } from '../../renderers/canvas_renderer';
 window.EditorApp.prototype.renderFrameToCanvas = function() {
     const ctx = this.ctx; 
     const w = this.canvas.width; 

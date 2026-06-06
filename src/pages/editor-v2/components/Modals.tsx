@@ -1,7 +1,8 @@
 import React from 'react';
 import { useEditorStore } from '../../../store/useEditorStore';
-import { SpeedDurationModal, VideoExportModal } from '../panels/modals-speed-export';
+import { SpeedDurationModal } from '../panels/modals-speed-export';
 import { TemplatesModal } from '../panels/modals-templates';
+import { VideoExportModalPro } from '../panels/modals-export-pro';
 
 export default function Modals() {
   const logs = useEditorStore(state => state.logs);
@@ -107,8 +108,8 @@ export default function Modals() {
       {/* Speed & Duration Modal */}
       <SpeedDurationModal />
 
-      {/* Video Export Modal */}
-      <VideoExportModal />
+      {/* Video Export Modal PRO */}
+      <VideoExportModalPro />
 
       {/* Templates Modal */}
       <TemplatesModal />

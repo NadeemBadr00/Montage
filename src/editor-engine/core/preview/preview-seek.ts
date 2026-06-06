@@ -32,8 +32,8 @@ window.EditorApp.prototype.managePlayers = function() {
             }
         }
     });
-    const avail = [...this.players]; const assign = {}; 
-    reqs.forEach((r,k) => { const ex = this.players.find(p => p.getAttribute('data-key') === k); if(ex) { assign[k] = ex; avail.splice(avail.indexOf(ex), 1); } });
+    const avail = this.players ? this.players.filter(p => p) : []; const assign = {}; 
+    reqs.forEach((r,k) => { const ex = avail.find(p => p.getAttribute('data-key') === k); if(ex) { assign[k] = ex; avail.splice(avail.indexOf(ex), 1); } });
     reqs.forEach((r,k) => { if(!assign[k] && avail.length>0) { const p = avail.pop(); p.setAttribute('data-key', k); p.setAttribute('data-type', r.type); if(p.getAttribute('data-current-src')!==r.src) { p.setAttribute('data-current-src', r.src); p.src = r.src; p.load(); } assign[k] = p; } });
     Object.keys(assign).forEach(k => {
         const p = assign[k], r = reqs.get(k), off = this.currentTime - r.clip.start;

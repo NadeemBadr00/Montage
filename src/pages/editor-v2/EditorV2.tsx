@@ -65,52 +65,11 @@ export default function EditorV2() {
           </button>
 
           <button 
-            className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg"
-            onClick={async () => {
-              const app = (window as any).app;
-              if (app && (window as any).FileStore) {
-                const btn = document.getElementById('export-btn-icon');
-                if (btn) btn.className = "fa-solid fa-spinner fa-spin";
-                
-                try {
-                  const exportManifest = {
-                    tracks: app.tracks.map((t: any) => ({
-                        id: t.id,
-                        type: t.type,
-                        clips: t.clips.map((c: any) => ({
-                            id: c.id,
-                            type: c.type,
-                            src: c.src,
-                            start: c.start,
-                            duration: c.duration,
-                            sourceIn: c.sourceIn,
-                            properties: c.properties,
-                            text: c.src, // Text content is in src
-                            textStyle: c.textStyle,
-                            transitions: c.transitions,
-                            aiSegmentation: c.aiSegmentation,
-                            logoRemovers: c.logoRemovers
-                        }))
-                    })),
-                    duration: app.duration,
-                    fps: app.FPS,
-                    baseWidth: app.canvas?.width || 1280,
-                    baseHeight: app.canvas?.height || 720
-                  };
-                  
-                  await (window as any).FileStore.save(`${id}_export_manifest`, new Blob([JSON.stringify(exportManifest)], { type: 'application/json' }));
-                } catch(e) {
-                  console.error('Failed to save export manifest', e);
-                  useEditorStore.getState().addLog(`❌ فشل حفظ خريطة التصدير: ${e.message}`);
-                }
-                
-                if (btn) btn.className = "fa-solid fa-download";
-              }
-              useEditorStore.getState().addLog(`🎬 جاري التصدير (مدة التايم لاين: ${app?.duration.toFixed(2)} ثانية, الفريمات: ${app?.FPS})`);
-              window.open(`/export.html?id=${id}`, '_blank');
-            }}
+            className="flex items-center gap-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-4 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-[0_0_15px_rgba(59,130,246,0.4)] transform hover:scale-105 active:scale-95"
+            onClick={() => useEditorStore.getState().setExportVideoModal(true)}
+            title="Export Video PRO"
           >
-            <i id="export-btn-icon" className="fa-solid fa-download"></i> MP4 Export
+            <i id="export-btn-icon" className="fa-solid fa-rocket"></i> تصدير (Export)
           </button>
           <button 
             className="flex items-center gap-1 bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg"

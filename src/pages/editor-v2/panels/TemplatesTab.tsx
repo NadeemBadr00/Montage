@@ -4,50 +4,132 @@ import { sfxTemplates } from '../../../assets/sfxTemplates';
 import { imageTemplates } from '../../../assets/imageTemplates';
 import { framesTemplates } from '../../../assets/framesTemplates';
 import { smartTemplates } from '../../../assets/smartTemplates';
-
+import { lutsTemplates } from '../../../assets/lutsTemplates';
+import { generatorsTemplates } from '../../../assets/generatorsTemplates';
 export function TemplatesTab({ handleAssetDrag, gridCols }: { handleAssetDrag: any, gridCols: 2|3|4 }) {
-  const [templateMode, setTemplateMode] = useState<'smart' | 'text' | 'sfx' | 'image' | 'frame'>('smart');
+  const [templateMode, setTemplateMode] = useState<'smart' | 'text' | 'sfx' | 'image' | 'frame' | 'favorites' | 'lut' | 'generator'>('smart');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [subCategory, setSubCategory] = useState('all');
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
+  const getSubCategories = () => {
+      switch (templateMode) {
+          case 'text': return ['all', 'titles', 'lower thirds', 'subtitles'];
+          case 'smart': return ['all', 'vlogs', 'gaming', 'cinematic', 'social'];
+          case 'sfx': return ['all', 'transitions', 'ui', 'ambient'];
+          case 'frame': return ['all', 'mobile', 'browser', 'overlay'];
+          case 'lut': return ['all', 'cinematic', 'vintage', 'bnw', 'vibrant'];
+          case 'generator': return ['all', 'motion graphics', 'news', 'typewriter'];
+          default: return ['all'];
+      }
+  };
+
+  const currentList = templateMode === 'favorites' ? 
+                      [...smartTemplates, ...textTemplates, ...imageTemplates, ...framesTemplates, ...sfxTemplates, ...lutsTemplates, ...generatorsTemplates].filter(t => favorites.has(t.id)) :
+                      templateMode === 'smart' ? smartTemplates : 
+                      templateMode === 'text' ? textTemplates : 
+                      templateMode === 'image' ? imageTemplates : 
+                      templateMode === 'lut' ? lutsTemplates : 
+                      templateMode === 'generator' ? generatorsTemplates : 
+                      templateMode === 'frame' ? framesTemplates : sfxTemplates;
+
+  const filteredList = currentList.filter(tpl => {
+      if (searchQuery && !tpl.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (subCategory !== 'all') {
+          // Fake filtering for mock templates without real tags
+          if (!tpl.name.toLowerCase().includes(subCategory) && !(tpl as any).type?.includes(subCategory)) return false;
+      }
+      return true;
+  });
 
   return (
-    <>
-        <div className="flex gap-2 mb-3 mt-1 px-1 flex-wrap">
+    <div className="flex flex-col h-full">
+        {/* Template Search Bar */}
+        <div className="px-1 mb-2">
+            <div className="relative">
+                <i className="fa-solid fa-search absolute left-2 top-2 text-gray-500 text-[10px]"></i>
+                <input 
+                    type="text" 
+                    placeholder={`Search ${templateMode} templates...`}
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full bg-[#1e293b] border border-gray-700 rounded text-[10px] pl-6 pr-2 py-1.5 focus:border-red-500 outline-none text-white" 
+                />
+            </div>
+        </div>
+        <div className="grid grid-cols-4 gap-1 mb-2 mt-1 px-1">
+            <button 
+                onClick={() => setTemplateMode('favorites')} 
+                className={`w-full py-1.5 text-[9px] font-bold rounded border truncate px-1 ${templateMode === 'favorites' ? 'bg-pink-600/20 text-pink-500 border-pink-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
+            >
+                <i className="fa-solid fa-heart mr-1"></i> Faves
+            </button>
             <button 
                 onClick={() => setTemplateMode('smart')} 
-                className={`flex-1 min-w-[70px] py-1.5 text-[11px] font-bold rounded border ${templateMode === 'smart' ? 'bg-yellow-600/20 text-yellow-500 border-yellow-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
+                className={`w-full py-1.5 text-[9px] font-bold rounded border truncate px-1 ${templateMode === 'smart' ? 'bg-yellow-600/20 text-yellow-500 border-yellow-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
             >
                 <i className="fa-solid fa-wand-magic-sparkles mr-1"></i> Smart
             </button>
             <button 
                 onClick={() => setTemplateMode('text')} 
-                className={`flex-1 min-w-[70px] py-1.5 text-[11px] font-bold rounded border ${templateMode === 'text' ? 'bg-red-600/20 text-red-500 border-red-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
+                className={`w-full py-1.5 text-[9px] font-bold rounded border truncate px-1 ${templateMode === 'text' ? 'bg-red-600/20 text-red-500 border-red-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
             >
                 <i className="fa-solid fa-font mr-1"></i> Texts
             </button>
             <button 
                 onClick={() => setTemplateMode('image')} 
-                className={`flex-1 min-w-[70px] py-1.5 text-[11px] font-bold rounded border ${templateMode === 'image' ? 'bg-green-600/20 text-green-500 border-green-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
+                className={`w-full py-1.5 text-[9px] font-bold rounded border truncate px-1 ${templateMode === 'image' ? 'bg-green-600/20 text-green-500 border-green-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
             >
                 <i className="fa-solid fa-image mr-1"></i> Images
             </button>
             <button 
                 onClick={() => setTemplateMode('frame')} 
-                className={`flex-1 min-w-[70px] py-1.5 text-[11px] font-bold rounded border ${templateMode === 'frame' ? 'bg-purple-600/20 text-purple-500 border-purple-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
+                className={`w-full py-1.5 text-[9px] font-bold rounded border truncate px-1 ${templateMode === 'frame' ? 'bg-purple-600/20 text-purple-500 border-purple-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
             >
                 <i className="fa-solid fa-mobile-screen mr-1"></i> Frames
             </button>
             <button 
                 onClick={() => setTemplateMode('sfx')} 
-                className={`flex-1 min-w-[80px] py-1.5 text-[11px] font-bold rounded border ${templateMode === 'sfx' ? 'bg-blue-600/20 text-blue-500 border-blue-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
+                className={`w-full py-1.5 text-[9px] font-bold rounded border truncate px-1 ${templateMode === 'sfx' ? 'bg-blue-600/20 text-blue-500 border-blue-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
             >
                 <i className="fa-solid fa-bolt mr-1"></i> SFX
             </button>
+            <button 
+                onClick={() => setTemplateMode('lut')} 
+                className={`w-full py-1.5 text-[9px] font-bold rounded border truncate px-1 ${templateMode === 'lut' ? 'bg-cyan-600/20 text-cyan-500 border-cyan-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
+            >
+                <i className="fa-solid fa-palette mr-1"></i> LUTs
+            </button>
+            <button 
+                onClick={() => setTemplateMode('generator')} 
+                className={`w-full py-1.5 text-[9px] font-bold rounded border truncate px-1 ${templateMode === 'generator' ? 'bg-orange-600/20 text-orange-500 border-orange-500/50' : 'bg-[#1e293b] text-gray-400 border-gray-700 hover:text-gray-200'}`}
+            >
+                <i className="fa-solid fa-layer-group mr-1"></i> Generators
+            </button>
         </div>
-        <div className={`grid gap-2 ${gridCols === 2 ? 'grid-cols-2' : gridCols === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
-            {(templateMode === 'smart' ? smartTemplates : templateMode === 'text' ? textTemplates : templateMode === 'image' ? imageTemplates : templateMode === 'frame' ? framesTemplates : sfxTemplates).flatMap((tpl, idx, arr) => {
+
+        {/* Sub-categories */}
+        {getSubCategories().length > 1 && (
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide px-1 mb-3 pb-1 border-b border-gray-800">
+                {getSubCategories().map(cat => (
+                    <button 
+                        key={cat}
+                        onClick={() => setSubCategory(cat)}
+                        className={`text-[9px] px-2 py-1 rounded-full whitespace-nowrap capitalize border ${subCategory === cat ? 'bg-gray-700 text-white border-gray-500' : 'bg-transparent text-gray-500 border-gray-700 hover:text-gray-300'}`}
+                    >
+                        {cat}
+                    </button>
+                ))}
+            </div>
+        )}
+
+        <div className={`grid gap-2 pb-10 ${gridCols === 2 ? 'grid-cols-2' : gridCols === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+            {filteredList.flatMap((tpl, idx, arr) => {
+                const isFav = favorites.has(tpl.id);
                 const card = (
             <div 
                 key={tpl.id}
-                className={`bg-[#0f172a] rounded overflow-hidden border cursor-grab active:cursor-grabbing flex flex-col group transition-all duration-300 ${
+                className={`relative bg-[#0f172a] rounded overflow-hidden border cursor-grab active:cursor-grabbing flex flex-col group transition-all duration-300 ${
                     tpl.type === 'overlay'
                         ? 'border-pink-600/40 hover:border-pink-500 shadow-[0_0_12px_rgba(236,72,153,0.15)]'
                         : 'border-gray-700 hover:border-red-500'
@@ -77,7 +159,22 @@ export function TemplatesTab({ handleAssetDrag, gridCols }: { handleAssetDrag: a
                             };
                             loop();
                         }
-                    } 
+                    }
+                    // Phase 67: LUT Live Preview Hover
+                    if (tpl.type === 'lut' && (window as any).app) {
+                        const app = (window as any).app;
+                        const mainVid = app.tracks.find((t: any) => t.type === 'main')?.clips[0];
+                        if (mainVid && tpl.templateData?.properties) {
+                            // Backup original
+                            if (!app.originalLutBackup) app.originalLutBackup = { ...mainVid.properties };
+                            // Apply LUT
+                            Object.entries(tpl.templateData.properties).forEach(([k, v]) => {
+                                if (!mainVid.properties) mainVid.properties = {};
+                                mainVid.properties[k] = v;
+                            });
+                            app.requestRedraw();
+                        }
+                    }
                 }}
                 onMouseLeave={() => { 
                     if (tpl.type === 'audio') {
@@ -87,6 +184,21 @@ export function TemplatesTab({ handleAssetDrag, gridCols }: { handleAssetDrag: a
                         }
                     } else if ((window as any).app) { 
                         (window as any).app.hoveredTemplate = null; 
+                        
+                        if ((window as any).app.hoverAnimFrame) {
+                            cancelAnimationFrame((window as any).app.hoverAnimFrame);
+                            (window as any).app.hoverAnimFrame = null;
+                        }
+
+                        // Phase 67: Restore LUT Live Preview
+                        if (tpl.type === 'lut' && (window as any).app.originalLutBackup) {
+                            const mainVid = (window as any).app.tracks.find((t: any) => t.type === 'main')?.clips[0];
+                            if (mainVid) {
+                                mainVid.properties = { ...(window as any).app.originalLutBackup };
+                            }
+                            (window as any).app.originalLutBackup = null;
+                        }
+
                         (window as any).app.requestRedraw(); 
                     } 
                 }}
@@ -249,7 +361,18 @@ export function TemplatesTab({ handleAssetDrag, gridCols }: { handleAssetDrag: a
                     </div>
                 )}
                 <div className="p-2 flex flex-col gap-0.5 bg-[#151c2e]">
-                    <div className="text-[10px] text-gray-200 font-bold truncate">{tpl.name}</div>
+                    <div className="text-[10px] text-gray-200 font-bold truncate pr-4">{tpl.name}</div>
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const next = new Set(favorites);
+                            if (isFav) next.delete(tpl.id); else next.add(tpl.id);
+                            setFavorites(next);
+                        }}
+                        className={`absolute bottom-2 right-2 text-[10px] z-50 ${isFav ? 'text-pink-500' : 'text-gray-600 hover:text-pink-400'} transition-colors`}
+                    >
+                        <i className="fa-solid fa-heart"></i>
+                    </button>
                     {tpl.type === 'smart' ? (
                         <div className="text-[7px] text-gray-400 line-clamp-2 leading-tight mt-0.5">
                             {tpl.templateData?.description}
@@ -277,7 +400,7 @@ export function TemplatesTab({ handleAssetDrag, gridCols }: { handleAssetDrag: a
                 }
                 return [card];
             })}
+        </div>
     </div>
-    </>
   );
 }

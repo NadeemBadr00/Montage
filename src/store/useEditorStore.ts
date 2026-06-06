@@ -88,7 +88,29 @@ interface EditorState {
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
-  assetsList: [],
+  assetsList: [
+    {
+        id: 'asset_dummy_1',
+        name: 'Cinematic B-Roll.mp4',
+        type: 'video',
+        src: 'https://cdn.pixabay.com/video/2020/05/11/38600-418465063_tiny.mp4',
+        createdAt: Date.now() - 100000
+    },
+    {
+        id: 'asset_dummy_2',
+        name: 'Cyberpunk Aesthetic.jpg',
+        type: 'image',
+        src: 'https://images.pexels.com/photos/311012/pexels-photo-311012.jpeg?auto=compress&cs=tinysrgb&w=200',
+        createdAt: Date.now() - 50000
+    },
+    {
+        id: 'asset_dummy_3',
+        name: 'Background Music.mp3',
+        type: 'audio',
+        src: 'https://cdn.pixabay.com/audio/2022/10/25/audio_291122a275.mp3',
+        createdAt: Date.now() - 10000
+    }
+  ],
   tracks: [],
   settings: null,
   
@@ -192,6 +214,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return { assetsList: [...state.assetsList, asset] };
     });
   },
+  removeAsset: (id) => set((state) => ({ assetsList: state.assetsList.filter(a => a.id !== id) })),
+  removeAssets: (ids) => set((state) => ({ assetsList: state.assetsList.filter(a => !ids.includes(a.id)) })),
+  
   addTrack: (track) => {
     get().addLog(`🛤️ تم إضافة تراك جديد: ${track.type}`);
     set((state) => {
