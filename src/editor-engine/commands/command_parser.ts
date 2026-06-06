@@ -251,6 +251,81 @@ export function parseCommand(cmdString: string): any {
     const advanced = parseAdvancedCommand(cmd);
     if (advanced) return advanced;
 
+    // ─────────────────────────────────────────────────────────────
+    // New Feature Commands
+    // ─────────────────────────────────────────────────────────────
+
+    // Beat Detection: /beatdetect
+    if (cmd === 'beatdetect' || cmd === 'beat') return { type: 'BEAT_DETECT' };
+    
+    // Beat Sync: /beatsync (cut at every beat on main track)
+    if (cmd === 'beatsync' || cmd.startsWith('beatsync ')) {
+        const trackName = cmd.split(' ')[1]?.toUpperCase() || null;
+        return { type: 'BEAT_SYNC', trackName };
+    }
+    
+    // Clear beats: /clearbeats
+    if (cmd === 'clearbeats' || cmd === 'clearbeats') return { type: 'CLEAR_BEATS' };
+
+    // Version History: /saveversion [name]
+    if (cmd.startsWith('saveversion') || cmd.startsWith('savevers')) {
+        const name = cmd.trim().replace(/^saveversion\s*/i, '').trim() || undefined;
+        return { type: 'SAVE_VERSION', name };
+    }
+    
+    // List versions: /versions
+    if (cmd === 'versions' || cmd === 'listversions' || cmd === 'history') return { type: 'LIST_VERSIONS' };
+    
+    // Restore version: /restore 1 or /restore 2
+    if (cmd.startsWith('restore ')) {
+        const idx = parseInt(cmd.split(' ')[1]);
+        return { type: 'RESTORE_VERSION', index: isNaN(idx) ? 1 : idx };
+    }
+
+    // Delete version: /deleteversion 1 or /deleteversion all
+    if (cmd.startsWith('deleteversion ') || cmd.startsWith('delversion ')) {
+        const parts = cmd.split(' ');
+        const idx = parts[1] === 'all' ? 'all' : parseInt(parts[1]);
+        return { type: 'DELETE_VERSION', index: idx };
+    }
+
+    // Reverse clip: /reverse
+    if (cmd === 'reverse' || cmd === 'rev') return { type: 'REVERSE_CLIP' };
+
+    // Set clip speed: /speed 0.5 or /speed 2
+    if (cmd.startsWith('speed ') || cmd.startsWith('spd ')) {
+        const s = parseFloat(cmd.split(' ')[1]);
+        if (!isNaN(s)) return { type: 'SET_SPEED', speed: s };
+    }
+
+    // Speed ramp: /speedramp 0.5 2  (slow → fast)
+    if (cmd.startsWith('speedramp ')) {
+        const parts = cmd.split(' ');
+        const s1 = parseFloat(parts[1]);
+        const s2 = parseFloat(parts[2]);
+        return { type: 'SPEED_RAMP_V2', startSpeed: s1 || 0.5, endSpeed: s2 || 2.0 };
+    }
+
+    // Auto Captions: /captions [lang] [style]
+    if (cmd === 'captions' || cmd === 'autocaptions' || cmd === 'caption') {
+        return { type: 'AUTO_CAPTION', lang: 'ar', style: 'tiktok' };
+    }
+    if (cmd.startsWith('captions ') || cmd.startsWith('caption ')) {
+        const parts = cmd.split(' ');
+        return { type: 'AUTO_CAPTION', lang: parts[1] || 'ar', style: parts[2] || 'tiktok' };
+    }
+
+    // Load font: /loadfont (opens file picker)
+    if (cmd === 'loadfont' || cmd === 'font') return { type: 'LOAD_FONT', url: null, name: null };
+    
+    // List fonts: /fonts
+    if (cmd === 'fonts' || cmd === 'listfonts') return { type: 'LIST_FONTS' };
+    
+    // Apply font to selection: /applyfont Cairo
+    if (cmd.startsWith('applyfont ')) {
+        const fontName = cmd.trim().replace(/^applyfont\s*/i, '').trim();
+        return { type: 'APPLY_FONT', fontName };
+    }
+
     return null;
 }
-

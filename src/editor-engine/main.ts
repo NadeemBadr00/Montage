@@ -40,6 +40,14 @@ import './features/command_center/actions-phase61-70';
 import './features/command_center/actions-phase71-80';
 import './features/command_center/actions-phase81-100';
 
+// New Features: Beat Detection, Version History, Custom Fonts, Reverse Clip, Auto Captions
+import './features/beat_detection';
+import './features/version_history';
+import './features/custom_fonts';
+import './features/reverse_clip';
+import './features/auto_captions';
+
+
 // 5. Setup AI modules
 import './ai/gemini_chat';
 import './ai/gemini_plan';

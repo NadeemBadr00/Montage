@@ -11,10 +11,11 @@ import { Bubble,
          TypingIndicator,
          AutocompleteDropdown} from '../panels/right-panel-chat-bubble';
 import { AutoMontageBar }      from '../panels/right-panel-automontage';
+import { VersionHistoryPanel }  from './VersionHistoryPanel';
 
 // ─── Main RightPanel Component ────────────────────────────────────────────────
 export default function RightPanel() {
-  const [activeTab, setActiveTab] = useState<'ai' | 'cmd'>('ai');
+  const [activeTab, setActiveTab] = useState<'ai' | 'cmd' | 'history'>('ai');
   const [showTTSModal, setShowTTSModal] = useState(false);
 
   // ── Shared state ──────────────────────────────────────────────────────────
@@ -273,10 +274,13 @@ export default function RightPanel() {
         {/* Tabs */}
         <div className="flex border-b border-gray-800 bg-[#0a0f1d] text-[11px] font-bold flex-shrink-0">
           <button id="tab-ai" className={`flex-1 py-2 text-center transition-all ${activeTab === 'ai' ? 'text-purple-400 bg-[#0f172a] border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300'}`} onClick={() => setActiveTab('ai')}>
-            <i className="fa-solid fa-wand-magic-sparkles mr-1" />AI4Montage Assistant
+            <i className="fa-solid fa-wand-magic-sparkles mr-1" />AI4Montage
           </button>
           <button id="tab-cmd" className={`flex-1 py-2 text-center transition-all ${activeTab === 'cmd' ? 'text-green-400 bg-[#0f172a] border-b-2 border-green-500' : 'text-gray-500 hover:text-gray-300'}`} onClick={() => setActiveTab('cmd')}>
-            <i className="fa-solid fa-terminal mr-1" />CMD Center
+            <i className="fa-solid fa-terminal mr-1" />CMD
+          </button>
+          <button id="tab-history" className={`flex-1 py-2 text-center transition-all ${activeTab === 'history' ? 'text-amber-400 bg-[#0f172a] border-b-2 border-amber-500' : 'text-gray-500 hover:text-gray-300'}`} onClick={() => setActiveTab('history')}>
+            <i className="fa-solid fa-clock-rotate-left mr-1" />History
           </button>
         </div>
 
@@ -316,6 +320,28 @@ export default function RightPanel() {
 
                 <input type="file" id="ai-panel-plan-upload" accept=".json" className="hidden" onChange={e => { const plan = (window as any).geminiPlan; if (plan && e.target) plan.handlePlanUpload(e.target as HTMLInputElement); }} />
                 <input type="file" id="header-plan-upload" accept=".json" className="hidden" onChange={e => { const plan = (window as any).geminiPlan; if (plan && e.target) plan.handlePlanUpload(e.target as HTMLInputElement); }} />
+
+                {/* Beat Detection Button */}
+                <button
+                  id="ai-beat-btn"
+                  onClick={() => { const app = (window as any).app; if (app?.executeBeatDetection) app.executeBeatDetection(); }}
+                  title="كشف البيتات ومزامنة التايم لاين"
+                  className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-amber-500/40 text-amber-400 hover:text-amber-300 transition-all group"
+                >
+                  <i className="fa-solid fa-music text-sm group-hover:scale-110 transition-transform" />
+                  <span className="text-[8px] text-gray-500 group-hover:text-gray-400">Beats</span>
+                </button>
+
+                {/* Auto Captions */}
+                <button
+                  id="ai-captions-btn"
+                  onClick={() => { const app = (window as any).app; if (app?.executeAutoCaption) app.executeAutoCaption({ language: 'ar', style: 'tiktok' }); }}
+                  title="توليد ترجمة تلقائية من الصوت"
+                  className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-green-500/40 text-green-400 hover:text-green-300 transition-all group"
+                >
+                  <i className="fa-solid fa-subtitles text-sm group-hover:scale-110 transition-transform" />
+                  <span className="text-[8px] text-gray-500 group-hover:text-gray-400">Captions</span>
+                </button>
               </div>
 
               <AutoMontageBar />
@@ -452,6 +478,22 @@ export default function RightPanel() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* ════ HISTORY TAB ════ */}
+          {activeTab === 'history' && (
+            <div className="flex flex-col h-full p-3 bg-[#080d1a]">
+              <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+                <div className="w-6 h-6 bg-amber-600/20 border border-amber-500/30 rounded flex items-center justify-center">
+                  <i className="fa-solid fa-clock-rotate-left text-[10px] text-amber-400"></i>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-white">سجل الإصدارات</p>
+                  <p className="text-[9px] text-gray-500">احفظ واستعد نقاط تفتيش التايم لاين</p>
+                </div>
+              </div>
+              <VersionHistoryPanel />
             </div>
           )}
         </div>

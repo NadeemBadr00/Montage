@@ -438,6 +438,34 @@ export const injectActionsCore = () => {
             case 'ZOOM_TO_FACE':       if (this.executeZoomToFace) this.executeZoomToFace(); break;
             case 'MULTI_LANG_CAPTIONS':if (this.executeMultiLangCaptions) this.executeMultiLangCaptions(parsed.lang); break;
 
+            // ═══ New Features: Beat Detection, Version History, Custom Fonts, Reverse, Speed ═══
+            case 'BEAT_SYNC':          if (this.executeBeatSync) this.executeBeatSync(parsed.trackName); break;
+            case 'CLEAR_BEATS':        if (this.executeClearBeats) this.executeClearBeats(); break;
+            case 'SAVE_VERSION':       if (this.saveVersion) this.saveVersion(parsed.name); break;
+            case 'LIST_VERSIONS':      if (this.listVersions) this.listVersions(); break;
+            case 'RESTORE_VERSION':    if (this.restoreVersion) this.restoreVersion(parsed.index); break;
+            case 'DELETE_VERSION':     if (this.deleteVersion) this.deleteVersion(parsed.index || 'all'); break;
+            case 'SET_SPEED':          if (this.executeSetClipSpeed) this.executeSetClipSpeed(parsed.speed); break;
+            case 'SPEED_RAMP_V2':      if (this.executeSpeedRamp) this.executeSpeedRamp(parsed.startSpeed, parsed.endSpeed); break;
+            case 'AUTO_CAPTION':       if (this.executeAutoCaption) this.executeAutoCaption({ language: parsed.lang || 'ar', style: parsed.style || 'tiktok' }); break;
+            case 'LOAD_FONT':
+                if (parsed.url) {
+                    if (this.loadCustomFont) this.loadCustomFont(parsed.url, parsed.name);
+                } else {
+                    // Open file picker
+                    const fontInput = document.createElement('input');
+                    fontInput.type = 'file';
+                    fontInput.accept = '.ttf,.otf,.woff,.woff2';
+                    fontInput.onchange = (e: any) => {
+                        const file = e.target.files?.[0];
+                        if (file && this.loadCustomFont) this.loadCustomFont(file);
+                    };
+                    fontInput.click();
+                }
+                break;
+            case 'LIST_FONTS':          if (this.listCustomFonts) this.listCustomFonts(); break;
+            case 'APPLY_FONT':         if (this.applyFontToSelected) this.applyFontToSelected(parsed.fontName); break;
+
             default:
                 this.log("❌ Unknown Command Type");
 
