@@ -32,26 +32,40 @@ export default function TransitionsPicker({ onClose }: { onClose?: () => void })
 
   const applyToSelected = () => {
     if (!app) return;
-    const ids = Array.from(app.selectedClipIds || new Set());
+    const ids = Array.from(app.selectedClipIds || new Set()) as string[];
+
     if (ids.length === 0) {
-      // apply to all cuts in main track
-      const mainTrack = app.tracks?.find((t: any) => t.type === 'main' || t.type === 'video');
-      if (mainTrack && app.addSmartTransition) {
-        mainTrack.clips.forEach((clip: any) => {
-          app.addSmartTransition(mainTrack.id, clip.start + clip.duration, 'center', { type: selected, duration });
-        });
-      }
+      // Apply to all cut points in all tracks
+      app.tracks?.forEach((track: any) => {
+        if (track.type !== 'audio') {
+          track.clips.forEach((clip: any) => {
+            const cutTime = clip.start + clip.duration;
+            app.addTransition?.(track.id, cutTime, selected);
+          });
+        }
+      });
     } else {
+      // Apply at the end of each selected clip
       ids.forEach((clipId: any) => {
         const track = app.tracks?.find((t: any) => t.clips.some((c: any) => c.id === clipId));
         if (!track) return;
         const clip = track.clips.find((c: any) => c.id === clipId);
-        if (clip && app.addSmartTransition) {
-          app.addSmartTransition(track.id, clip.start + clip.duration, 'center', { type: selected, duration });
+        if (clip) {
+          const cutTime = clip.start + clip.duration;
+          // Store custom duration in the transition
+          const existingMethod = app.addTransition;
+          if (existingMethod) {
+            app.addTransition(track.id, cutTime, selected);
+            // Patch duration on the last added transition
+            const lastTrans = track.transitions?.[track.transitions.length - 1];
+            if (lastTrans) lastTrans.duration = duration;
+          }
         }
       });
     }
-    app.saveState?.(); app.renderAll?.(); app.commitStateToReact?.();
+    app.saveState?.();
+    app.renderAll?.();
+    app.commitStateToReact?.();
   };
 
   const filtered = TRANSITIONS.filter(t => t.name.toLowerCase().includes(search.toLowerCase()));
