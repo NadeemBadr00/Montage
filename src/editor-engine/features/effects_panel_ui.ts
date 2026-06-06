@@ -53,25 +53,31 @@ window.EditorApp.prototype.updateEffectControls = function() {
     // ✅ Smart group detection: a video+audio pair shares the same groupId.
     // When the user clicks the video clip, both get selected (size=2).
     // Instead of showing "No Selection", find the primary (non-audio) clip.
-    let clipId = null;
+    let isMixedSelection = false;
+    let mixedSelectedClips = [];
+
     if (this.selectedClipIds.size === 1) {
         clipId = Array.from(this.selectedClipIds)[0];
     } else if (this.selectedClipIds.size > 1) {
-        // Check if all selected clips belong to the same group
         const allSelected = Array.from(this.selectedClipIds)
             .map(id => this.findClipById(id))
             .filter(Boolean);
         const groupIds = [...new Set(allSelected.map(c => c.groupId).filter(Boolean))];
-        if (groupIds.length === 1) {
+        if (groupIds.length === 1 && groupIds[0]) {
             // Single group selected → prefer video, then image, then first non-audio
             const primary = allSelected.find(c => c.type === 'video')
                          || allSelected.find(c => c.type === 'image')
                          || allSelected.find(c => c.type !== 'audio');
             if (primary) clipId = primary.id;
+        } else {
+            // MIXED SELECTION: multiple clips selected that are not in the same group
+            isMixedSelection = true;
+            mixedSelectedClips = allSelected;
+            clipId = allSelected[0]?.id; // Use the first one as anchor for `app.updateProProperty` (which affects all selected)
         }
     }
 
-    if (!clipId) {
+    if (!clipId && !isMixedSelection) {
         panel.innerHTML = '<div class="text-gray-500 text-center py-4 text-xs">No Selection</div>';
         return;
     }
@@ -80,7 +86,7 @@ window.EditorApp.prototype.updateEffectControls = function() {
     
     // Check if it's a transition
     const transInfo = this.findTransitionById ? this.findTransitionById(clipId) : null;
-    if (transInfo) {
+    if (transInfo && !isMixedSelection) {
         panel.innerHTML = '';
         if (this.renderTransitionEffectControls) {
             this.renderTransitionEffectControls(panel, transInfo.trans, transInfo.track.id);
@@ -91,7 +97,7 @@ window.EditorApp.prototype.updateEffectControls = function() {
     const clip = this.findClipById(clipId);
     if (!clip) return;
     if(window.app)window.app.ensureProProperties(clip); 
-    panel.innerHTML = ''; 
+    panel.innerHTML = '';
 
     const W = (this.canvas && this.canvas.width) ? this.canvas.width : 1920;
     const H = (this.canvas && this.canvas.height) ? this.canvas.height : 1080;
@@ -143,6 +149,39 @@ window.EditorApp.prototype.updateEffectControls = function() {
         </div>`;
     };
 
+    if (isMixedSelection) {
+        const typesCount = mixedSelectedClips.reduce((acc, c) => {
+            acc[c.type] = (acc[c.type] || 0) + 1;
+            return acc;
+        }, {});
+        
+        const typeLabels = Object.entries(typesCount).map(([t, count]) => `${count} ${t}`).join(', ');
+        
+        panel.innerHTML = `
+        <div class="mb-4 bg-[#0a0f1d] rounded-lg border border-purple-500/40">
+            <div class="flex flex-col gap-1 mb-4 text-gray-200 bg-purple-900/20 p-3 rounded-t text-center">
+                <i class="fa-solid fa-object-group text-[16px] text-purple-400 mb-1"></i>
+                <span class="text-sm font-bold uppercase tracking-wider text-purple-100">Mixed Selection</span>
+                <span class="text-[9px] text-purple-300/70">${mixedSelectedClips.length} Clips Selected (${typeLabels})</span>
+            </div>
+            <div class="px-3 pb-3">
+                <p class="text-[9px] text-gray-500 mb-4 text-center leading-relaxed">
+                    You have selected multiple elements of different types. Only common properties can be adjusted together.
+                </p>
+                <div class="bg-[#050811] p-2 rounded border border-gray-800 mb-4">
+                    ${createDualControl('Opacity', 'properties', 'opacity', 0, 100, '%')}
+                    ${createDualControl('Master Scale', 'properties', 'scale', 10, 500, '%')}
+                </div>
+                
+                <button onclick="app.groupSelectedClips()" class="w-full bg-purple-600/80 hover:bg-purple-500 text-white text-[10px] font-bold py-2 rounded shadow-lg shadow-purple-500/20 transition-all border border-purple-400/50">
+                    <i class="fa-solid fa-link mr-1"></i> Group & Sync
+                </button>
+            </div>
+        </div>
+        `;
+        return; // Stop rendering individual clip properties
+    }
+
     const createSelect = (label, objName, prop, options) => {
         const val = clip[objName][prop];
         const opts = options.map(o => `<option value="${o.val}" ${val === o.val ? 'selected' : ''}>${o.label}</option>`).join('');
@@ -156,8 +195,40 @@ window.EditorApp.prototype.updateEffectControls = function() {
         </div>`;
     };
 
-    // --- STANDARD CONTROLS (UPDATED) ---
-    let transformHTML = `
+    // --- STANDARD CONTROLS (SMART DYNAMIC LAYOUT) ---
+    let transformHTML = '';
+    
+    if (clip.type === 'audio') {
+        transformHTML = `
+        <div class="mb-4 bg-[#0a0f1d] rounded-lg border border-cyan-900/40">
+            <div class="flex items-center justify-between mb-4 text-gray-200 bg-cyan-900/20 p-2 rounded-t">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-music text-[9px] text-cyan-400"></i>
+                    <span class="text-xs font-bold uppercase tracking-wider text-cyan-100">Audio Controls</span>
+                </div>
+            </div>
+            <div class="px-2 pb-2">
+                ${createDualControl('Volume', 'properties', 'volume', 0, 200, '%')}
+                ${createDualControl('Pan (L/R)', 'properties', 'pan', -100, 100, '%')}
+                ${createDualControl('Pitch', 'properties', 'pitch', -12, 12, 'st')}
+                ${createDualControl('Speed', 'properties', 'playbackRate', 0.1, 5.0, 'x', 0.1)}
+                
+                <div class="mt-4 pt-3 border-t border-gray-800">
+                    <span class="text-[9px] text-gray-500 uppercase font-bold block mb-2">Enhancements</span>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-[10px] text-gray-400">AI Voice Enhance</label>
+                        <input type="checkbox" ${clip.properties.aiVoiceEnhance ? 'checked' : ''} onchange="app.updateProProperty('${clipId}', 'properties', 'aiVoiceEnhance', this.checked)">
+                    </div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-[10px] text-gray-400">Auto Ducking</label>
+                        <input type="checkbox" ${clip.properties.autoDucking ? 'checked' : ''} onchange="app.updateProProperty('${clipId}', 'properties', 'autoDucking', this.checked)">
+                    </div>
+                    ${createDualControl('De-Noise', 'properties', 'deNoiseAmount', 0, 100, '%')}
+                </div>
+            </div>
+        </div>`;
+    } else {
+        transformHTML = `
         <div class="mb-4 bg-[#0a0f1d] rounded-lg">
             <div class="flex items-center gap-2 mb-4 text-gray-200 bg-[#1e293b]/50 p-2 rounded border border-gray-800">
                 <i class="fa-solid fa-chevron-down text-[9px] text-red-500"></i>
@@ -172,10 +243,11 @@ window.EditorApp.prototype.updateEffectControls = function() {
             ${createDualControl('Pos Y', 'properties', 'positionY', -limitH, limitH, 'px')}
             ${createDualControl('Rotation', 'properties', 'rotation', -360, 360, '°')}
             ${createDualControl('Opacity', 'properties', 'opacity', 0, 100, '%')}
-            ${(clip.type === 'video' || clip.type === 'audio') ? createDualControl('Volume', 'properties', 'volume', 0, 100, '%') : ''}
+            ${(clip.type === 'video') ? createDualControl('Volume', 'properties', 'volume', 0, 200, '%') : ''}
             </div>
         </div>
     `;
+    }
     panel.insertAdjacentHTML('beforeend', transformHTML);
     
     let applyButtons = '';
@@ -291,6 +363,14 @@ window.EditorApp.prototype.updateEffectControls = function() {
                 ${createDualControl('Stroke Width', 'textStyle', 'strokeWidth', 0, 20, 'px')}
                 ${createDualControl('Padding', 'textStyle', 'padding', 0, 100, 'px')}
                 ${createDualControl('Shadow', 'textStyle', 'shadowBlur', 0, 50, 'px')}
+                
+                <div class="mt-4 pt-3 border-t border-gray-800">
+                    <span class="text-[9px] text-purple-400 uppercase font-bold block mb-2">Pro Masking</span>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-[10px] text-gray-400">Fill with Video (Knockout)</label>
+                        <input type="checkbox" ${clip.properties.knockoutMask ? 'checked' : ''} onchange="app.updateProProperty('${clipId}', 'properties', 'knockoutMask', this.checked)">
+                    </div>
+                </div>
             </div>
         </div>`;
         panel.insertAdjacentHTML('beforeend', textHTML);

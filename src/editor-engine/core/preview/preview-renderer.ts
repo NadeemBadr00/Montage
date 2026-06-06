@@ -508,7 +508,19 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
                 clip.textStyle.activeWordIndex = currentWordIndex;
             }
 
+            if (clip.properties?.knockoutMask) {
+                // Phase 59: Knockout Text Mask. 
+                // By drawing text with 'destination-in', all existing pixels (like the video drawn before) 
+                // are ONLY kept where the text is opaque. It clips the video to the text shape!
+                ctx.globalCompositeOperation = 'destination-in';
+            }
+
             drawAdvancedText(ctx, clip, w, h);
+            
+            if (clip.properties?.knockoutMask) {
+                ctx.globalCompositeOperation = 'source-over'; // Reset
+            }
+
             ctx.restore();
         }
     }

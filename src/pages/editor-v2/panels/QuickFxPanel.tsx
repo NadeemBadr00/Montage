@@ -134,13 +134,22 @@ const FX_CATS = [
 ];
 
 /* ─── One-Click Fix Presets ───────────────────────────────────── */
-const FIX_PRESETS = [
+
+const VIDEO_PRESETS = [
   {
-    id: 'auto-levels', label: 'Auto Levels', icon: 'fa-sliders', color: '#a78bfa',
-    apply: () => { applyProp('brightness', 110); applyProp('contrast', 115); applyProp('saturation', 105); }
+    id: 'auto-relight', label: 'Auto Relight', icon: 'fa-lightbulb', color: '#fbbf24',
+    apply: () => { applyProp('relightIntensity', 80); applyProp('brightness', 110); applyProp('shadows', 20); }
   },
   {
-    id: 'auto-color', label: 'Auto Color', icon: 'fa-palette', color: '#34d399',
+    id: 'color-match', label: 'Color Match', icon: 'fa-wand-magic-sparkles', color: '#a78bfa',
+    apply: () => { applyProp('colorMatchActive', true); runCmd('color match'); }
+  },
+  {
+    id: 'denoise', label: 'Denoise (AI)', icon: 'fa-broom', color: '#34d399',
+    apply: () => { applyProp('denoiseAmount', 50); applyProp('sharpness', 110); }
+  },
+  {
+    id: 'auto-color', label: 'Auto Color', icon: 'fa-palette', color: '#22d3ee',
     apply: () => { applyProp('saturation', 120); applyProp('colorTemp', 5); applyProp('contrast', 108); }
   },
   {
@@ -148,69 +157,53 @@ const FIX_PRESETS = [
     apply: () => { runCmd('filter cinematic'); applyProp('contrast', 130); applyProp('saturation', 70); }
   },
   {
-    id: 'sunrise', label: 'Sunrise', icon: 'fa-cloud-sun', color: '#fbbf24',
-    apply: () => { applyProp('colorTemp', 25); applyProp('brightness', 115); applyProp('saturation', 120); }
-  },
-  {
-    id: 'night', label: 'Night', icon: 'fa-moon', color: '#6366f1',
-    apply: () => { applyProp('brightness', 85); applyProp('colorTemp', -20); applyProp('contrast', 125); }
-  },
-  {
-    id: 'normalize', label: 'Normalize Audio', icon: 'fa-volume-high', color: '#22d3ee',
-    apply: () => { applyProp('volume', 100); runCmd('normalize'); }
-  },
-  {
     id: 'film-grain', label: 'Film Grain', icon: 'fa-spray-can', color: '#9ca3af',
     apply: () => { runCmd('grain'); applyProp('contrast', 110); }
-  },
-  {
-    id: 'vivid-pop', label: 'Vivid Pop', icon: 'fa-sun', color: '#f59e0b',
-    apply: () => { applyProp('saturation', 170); applyProp('contrast', 115); applyProp('brightness', 105); }
   },
 ];
 
 /* ─── Smart Presets per Clip Type ────────────────────────────── */
 const AUDIO_PRESETS = [
-  { id: 'podcast',    label: 'Podcast',     icon: 'fa-microphone',    color: '#6366f1',
+  { id: 'voice-enhance', label: 'AI Voice Enhance', icon: 'fa-wand-magic-sparkles', color: '#6366f1',
+    apply: () => { applyProp('aiVoiceEnhance', true); applyProp('deNoise', true); applyProp('eqMid', 5); } },
+  { id: 'de-esser', label: 'De-Esser', icon: 'fa-scissors', color: '#f472b6',
+    apply: () => { applyProp('deEsserAmount', 60); applyProp('eqHigh', -4); } },
+  { id: 'auto-ducking', label: 'Auto Ducking', icon: 'fa-water', color: '#22d3ee',
+    apply: () => { applyProp('autoDucking', true); applyProp('duckThreshold', -25); } },
+  { id: 'podcast',    label: 'Podcast EQ',     icon: 'fa-microphone',    color: '#8b5cf6',
     apply: () => { applyProp('eqMid', 3); applyProp('compThreshold', -20); applyProp('compRatio', 3); applyProp('deNoise', true); } },
-  { id: 'music-mix',  label: 'Music Mix',   icon: 'fa-music',         color: '#8b5cf6',
-    apply: () => { applyProp('eqBass', 3); applyProp('eqAir', 2); applyProp('stereoWidth', 130); } },
   { id: 'cine-sound', label: 'Cine Sound',  icon: 'fa-film',          color: '#a78bfa',
     apply: () => { applyProp('reverbWet', 20); applyProp('reverbSize', 60); applyProp('eqBass', -2); } },
-  { id: 'voiceover',  label: 'Voice Over',  icon: 'fa-microphone-lines',  color: '#22d3ee',
-    apply: () => { applyProp('compThreshold', -30); applyProp('compRatio', 5); applyProp('eqMid', 5); applyProp('deReverb', true); } },
-  { id: 'bass-heavy', label: 'Bass Heavy',  icon: 'fa-volume-high',   color: '#34d399',
-    apply: () => { applyProp('eqSub', 6); applyProp('eqBass', 4); applyProp('eqHigh', -2); } },
   { id: 'lofi',       label: 'Lo-Fi',       icon: 'fa-record-vinyl',  color: '#fbbf24',
     apply: () => { applyProp('eqAir', -6); applyProp('eqBass', 3); runCmd('vinyl crackle'); } },
 ];
 
 const IMAGE_PRESETS = [
-  { id: 'photo-enh', label: 'Photo Enhance', icon: 'fa-camera',       color: '#34d399',
-    apply: () => { applyProp('sharpness', 130); applyProp('clarity', 30); applyProp('brightness', 105); applyProp('saturation', 110); } },
+  { id: '3d-photo', label: '3D Parallax', icon: 'fa-cube', color: '#f59e0b',
+    apply: () => { applyProp('parallax3D', true); applyProp('parallaxDepth', 50); runCmd('3d photo'); } },
+  { id: 'auto-cutout', label: 'Auto Cutout', icon: 'fa-scissors', color: '#ec4899',
+    apply: () => { applyProp('removeBg', true); runCmd('remove bg'); } },
+  { id: 'upscale', label: 'AI Upscale', icon: 'fa-expand', color: '#3b82f6',
+    apply: () => { applyProp('aiUpscale', true); runCmd('upscale image'); } },
   { id: 'portrait',  label: 'Portrait',      icon: 'fa-user',         color: '#f472b6',
     apply: () => { applyProp('bgBlur', 60); applyProp('sharpness', 120); applyProp('brightness', 108); applyProp('saturation', 105); } },
-  { id: 'landscape', label: 'Landscape',     icon: 'fa-mountain',     color: '#6ee7b7',
-    apply: () => { applyProp('saturation', 120); applyProp('clarity', 40); applyProp('contrast', 110); applyProp('brightness', 103); } },
   { id: 'product',   label: 'Product Shot',  icon: 'fa-box',          color: '#a78bfa',
     apply: () => { applyProp('sharpness', 150); applyProp('contrast', 115); applyProp('saturation', 100); applyProp('bgBlur', 0); } },
-  { id: 'social-img',label: 'Social Media',  icon: 'fa-share-nodes',  color: '#f59e0b',
-    apply: () => { applyProp('saturation', 140); applyProp('contrast', 120); applyProp('brightness', 110); applyProp('vignetteStrength', 20); } },
   { id: 'bw-photo',  label: 'B&W Photo',     icon: 'fa-circle-half-stroke', color: '#94a3b8',
     apply: () => { applyProp('saturation', 0); applyProp('contrast', 120); applyProp('sharpness', 110); } },
 ];
 
 const TEXT_PRESETS = [
+  { id: 'curved-text', label: 'Curved Text',  icon: 'fa-archway',      color: '#ec4899',
+    apply: () => { applyTextStyle('isCurved', true); applyTextStyle('curveRadius', 150); } },
+  { id: 'tracking',   label: 'Tracking (+)',    icon: 'fa-text-width', color: '#10b981',
+    apply: () => { applyTextStyle('letterSpacing', 10); } },
+  { id: 'auto-resize',   label: 'Auto Resize', icon: 'fa-compress',         color: '#3b82f6',
+    apply: () => { applyTextStyle('autoFit', true); } },
   { id: 'title-card', label: 'Title Card',  icon: 'fa-heading',      color: '#818cf8',
     apply: () => { applyTextStyle('fontSize', 72); applyTextStyle('fontWeight', 'bold'); applyTextStyle('entryAnim', 'fade'); applyTextStyle('glowBlur', 15); } },
   { id: 'subtitle',   label: 'Subtitle',    icon: 'fa-closed-captioning', color: '#94a3b8',
     apply: () => { applyTextStyle('fontSize', 28); applyTextStyle('backgroundColor', '#00000099'); applyTextStyle('textAlign', 'center'); } },
-  { id: 'lower3rd',   label: 'Lower Third', icon: 'fa-bars',         color: '#22d3ee',
-    apply: () => { applyTextStyle('fontSize', 24); applyTextStyle('fontWeight', 'bold'); applyTextStyle('entryAnim', 'slideup'); } },
-  { id: 'credits',    label: 'Credits',     icon: 'fa-list',         color: '#6ee7b7',
-    apply: () => { applyTextStyle('fontSize', 18); applyTextStyle('textAlign', 'center'); applyTextStyle('entryAnim', 'fade'); applyTextStyle('lineHeight', 2); } },
-  { id: 'watermark',  label: 'Watermark',   icon: 'fa-copyright',    color: '#6b7280',
-    apply: () => { applyProp('opacity', 40); applyTextStyle('fontSize', 20); } },
   { id: 'meme',       label: 'Meme Text',   icon: 'fa-face-laugh',   color: '#fde68a',
     apply: () => { applyTextStyle('fontSize', 48); applyTextStyle('fontWeight', 'bold'); applyTextStyle('color', '#ffffff'); applyTextStyle('outlineWidth', 3); } },
 ];
@@ -293,7 +286,7 @@ export function QuickFxPanel() {
   const smartPresets = clipType === 'audio' ? AUDIO_PRESETS
     : clipType === 'image' ? IMAGE_PRESETS
     : clipType === 'text' ? TEXT_PRESETS
-    : FIX_PRESETS;
+    : VIDEO_PRESETS;
 
   const smartPresetLabel = clipType === 'audio' ? '🎵 Audio Presets'
     : clipType === 'image' ? '🖼️ Image Presets'
@@ -445,6 +438,22 @@ export function QuickFxPanel() {
                   <div key={fx.id} className="relative group">
                     <button
                       onClick={() => applyFx(fx)}
+                      onMouseEnter={() => {
+                          const canvas = document.getElementById('main-canvas');
+                          if (canvas && fx.cat === 'visual') {
+                              let filter = '';
+                              if (fx.id === 'bw') filter = 'grayscale(100%)';
+                              if (fx.id === 'cinematic') filter = 'contrast(120%) saturate(80%) sepia(20%)';
+                              if (fx.id === 'vintage') filter = 'sepia(80%) contrast(110%)';
+                              if (fx.id === 'vivid') filter = 'saturate(200%) contrast(110%)';
+                              if (fx.id === 'blur') filter = 'blur(10px)';
+                              if (filter) canvas.style.filter = filter;
+                          }
+                      }}
+                      onMouseLeave={() => {
+                          const canvas = document.getElementById('main-canvas');
+                          if (canvas) canvas.style.filter = 'none';
+                      }}
                       className={`w-full flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${
                         isActive
                           ? 'bg-gradient-to-b from-[#1a2040] to-[#0f172a] border-pink-500/60 shadow-[0_0_8px_rgba(236,72,153,0.3)]'
