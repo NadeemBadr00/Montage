@@ -608,7 +608,8 @@
         function updateProgress(p, phaseText) {
             window.currentProgress = p;
             if (phaseText) window.currentPhase = phaseText;
-            document.getElementById('progressText').innerText = Math.round(p) + '%';
+            const progressEl = document.getElementById('progressText');
+            if (progressEl) progressEl.innerText = Math.round(p) + '%';
             window.opener?.postMessage({ type: 'progress', progress: p, phase: window.currentPhase }, '*');
         }
 
