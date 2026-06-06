@@ -1,6 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useEditorStore } from '../../../store/useEditorStore';
 
+/* ─── Phase 15: Clip Note Editor ──────────────────────────────────── */
+const ClipNoteEditor = ({ clip, app, onClose }: any) => {
+  const [note, setNote] = useState((clip as any).note || '');
+  const save = () => {
+    (clip as any).note = note.trim() || undefined;
+    app?.saveState?.(); app?.commitStateToReact?.();
+  };
+  return (
+    <div className="px-3 py-2" onMouseDown={e => e.stopPropagation()}>
+      <textarea
+        className="w-full text-[11px] bg-white/5 border border-white/10 rounded p-2 text-gray-300 resize-none outline-none focus:border-indigo-500/50 placeholder-gray-600"
+        rows={2} placeholder="Add a note..."
+        value={note}
+        onChange={e => setNote(e.target.value)}
+        onBlur={save}
+      />
+      <div className="flex gap-1 mt-1">
+        <button className="flex-1 py-0.5 text-[9px] bg-indigo-600/80 hover:bg-indigo-500 text-white rounded transition-colors" onClick={() => { save(); onClose(); }}>Save</button>
+        {note && <button className="px-2 py-0.5 text-[9px] bg-red-600/60 hover:bg-red-500 text-white rounded transition-colors" onClick={() => { setNote(''); (clip as any).note = undefined; app?.commitStateToReact?.(); }}>Clear</button>}
+      </div>
+    </div>
+  );
+};
+
 /* ─── helpers ──────────────────────────────────────────────────── */
 const Divider = () => <div className="h-px bg-white/10 my-1 mx-2" />;
 
@@ -104,7 +128,15 @@ export default function TimelineContextMenu() {
   const cutAtPlayhead = () => { if (clip && track) app.performSplit(clip, track, { simulated: true }); };
   const rippleDelete = () => { if (app.rippleDelete) app.rippleDelete(); };
   const setSpeed = (v: number) => {
-    if (clip) { clip.playbackSpeed = v; app.saveState?.(); app.commitStateToReact?.(); }
+    if (clip) { 
+      if (!clip.properties) clip.properties = {};
+      const origDur = clip.properties._originalDuration || clip.duration;
+      clip.properties._originalDuration = origDur;
+      app.updateClipSpeedAndDuration?.(clip.id, v, origDur / v);
+    }
+  };
+  const setClipLabel = (color: string) => {
+    if (clip) { (clip as any).labelColor = color; app.saveState?.(); app.commitStateToReact?.(); }
   };
   const reverseClip = () => {
     if (clip) { clip.reversed = !clip.reversed; app.saveState?.(); app.requestRedraw?.(); app.commitStateToReact?.(); }
@@ -150,6 +182,22 @@ export default function TimelineContextMenu() {
             <span className="text-[11px] text-gray-300 font-semibold truncate max-w-[170px]">
               {clip.name || clip.text?.slice(0, 30) || clip.type?.toUpperCase()}
             </span>
+          </div>
+
+          {/* Phase 13: Color Label strip */}
+          <div className="px-3 py-1.5 border-b border-white/10 flex items-center gap-1.5">
+            <span className="text-[9px] text-gray-600 flex-shrink-0">Label:</span>
+            {['#6366f1','#3b82f6','#10b981','#f59e0b','#ef4444','#a855f7','#ec4899','#06b6d4','#ffffff','#374151'].map(c => (
+              <div key={c}
+                className={`w-4 h-4 rounded-full cursor-pointer hover:scale-125 transition-transform border-2 ${(clip as any).labelColor === c ? 'border-white' : 'border-transparent'}`}
+                style={{ background: c }}
+                onMouseDown={e => { e.preventDefault(); run(() => setClipLabel(c)); }}
+              />
+            ))}
+            <div className="w-4 h-4 rounded-full cursor-pointer hover:scale-125 transition-transform border border-dashed border-gray-500 flex items-center justify-center"
+              title="Reset" onMouseDown={e => { e.preventDefault(); run(() => { delete (clip as any).labelColor; app.commitStateToReact?.(); }); }}>
+              <i className="fa-solid fa-xmark text-[7px] text-gray-500" />
+            </div>
           </div>
 
           {/* ── VIDEO ── */}
@@ -377,6 +425,11 @@ export default function TimelineContextMenu() {
             <Divider />
             <MenuItem icon="fa-trash" label="Delete" danger onClick={() => run(deleteClip)} />
           </>}
+
+          {/* Phase 15: Note / Comment for any clip */}
+          <Divider />
+          <SectionLabel icon="fa-note-sticky" label="Note" />
+          <ClipNoteEditor clip={clip} app={app} onClose={close} />
         </>
       ) : (
         /* ── BACKGROUND (empty track) ── */
@@ -386,7 +439,7 @@ export default function TimelineContextMenu() {
           <MenuItem icon="fa-square" label="Add Black Matte" onClick={() => run(() => app.addSolidClip?.(contextMenu.trackId, contextMenu.time, '#000000'))} />
           <MenuItem icon="fa-sun" label="Add White Solid" onClick={() => run(() => app.addSolidClip?.(contextMenu.trackId, contextMenu.time, '#ffffff'))} />
           <Divider />
-          <MenuItem icon="fa-paste" label="Paste" shortcut="Ctrl+V" onClick={() => run(() => console.log('paste'))} />
+          <MenuItem icon="fa-paste" label="Paste" shortcut="Ctrl+V" onClick={() => run(() => app.pasteCopiedClip?.())} />
           <Divider />
           <MenuItem icon="fa-flag" label="Add Marker Here" onClick={() => run(() => {
             if (!app.markers) app.markers = [];

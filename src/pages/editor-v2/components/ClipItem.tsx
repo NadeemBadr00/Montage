@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Clip } from '../../../types/editor.types';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useMediaThumbnail } from '../panels/useMediaThumbnail';
+import { ClipSpeedBadge, ClipFadeOverlay } from './ClipOverlays';
 
 interface ClipItemProps {
   clip: Clip;
@@ -421,7 +422,9 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
         zIndex: dragOffsetY !== 0 ? 99 : (isSelected ? 70 : 60),
         pointerEvents: dragOffsetY !== 0 ? 'none' : 'auto',
         cursor: edgeHover ? 'col-resize' : (isDragging ? 'grabbing' : 'grab'),
-        background: `linear-gradient(180deg, ${clipColor}22 0%, ${clipColor}08 100%)`,
+        background: (clip as any).labelColor
+          ? `linear-gradient(180deg, ${(clip as any).labelColor}35 0%, ${(clip as any).labelColor}15 100%)`
+          : `linear-gradient(180deg, ${clipColor}22 0%, ${clipColor}08 100%)`,
         boxShadow: isSelected ? `0 0 0 2px ${clipColor}90, 0 4px 12px rgba(0,0,0,0.5)` : '0 2px 8px rgba(0,0,0,0.4)',
       }}
       onMouseDown={handleClipDrag}
@@ -441,6 +444,20 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
       {/* Color label strip at top */}
       <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-md z-20 flex-shrink-0"
            style={{ background: clipColor, opacity: 0.9 }} />
+
+      {/* Phase 14: Group indicator */}
+      {(clip as any).groupId && width > 40 && (
+        <div className="absolute top-1 right-1 z-20 pointer-events-none">
+          <i className="fa-solid fa-link text-[7px] text-white/50" />
+        </div>
+      )}
+
+      {/* Phase 14: Note indicator */}
+      {(clip as any).note && width > 50 && (
+        <div className="absolute top-1 right-4 z-20 pointer-events-none" title={(clip as any).note}>
+          <i className="fa-solid fa-note-sticky text-[7px] text-yellow-400/70" />
+        </div>
+      )}
 
       {/* Lock indicator */}
       {isLocked && (
@@ -500,6 +517,10 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
              />
           )}
       </div>
+
+      {/* Phase 12: Speed & Fade overlays */}
+      <ClipSpeedBadge clip={clip} width={width} />
+      <ClipFadeOverlay clip={clip} width={width} />
 
       {/* Clip content area */}
       <div className="relative flex items-center gap-1 px-2 flex-1 min-h-0 z-10 mt-[3px]">

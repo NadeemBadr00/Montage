@@ -1,9 +1,11 @@
 import React from 'react';
 import TimelineTracks from './TimelineTracks';
-import Playhead from './Playhead';
+import PlayheadEnhanced from './PlayheadEnhanced';
 import TimelineMarkers from './TimelineMarkers';
 import TimelineMiniMap from './TimelineMiniMap';
 import UndoHistoryPanel from './UndoHistoryPanel';
+import TimelineRuler from './TimelineRuler';
+import TransitionsPicker from './TransitionsPicker';
 import { useEditorStore } from '../../../store/useEditorStore';
 
 export default function Timeline() {
@@ -16,6 +18,7 @@ export default function Timeline() {
   const isMagneticMode = useEditorStore(state => state.isMagneticMode);
   const setMagneticMode = useEditorStore(state => state.setMagneticMode);
   const [localZoom, setLocalZoom] = React.useState(Math.round(zoomLevel).toString());
+  const [showTransitions, setShowTransitions] = React.useState(false);
 
   // Matches engine formula in timeline.ts → calculateVisibleWindow
   // 300px padding so clips at the end have breathing room
@@ -31,6 +34,34 @@ export default function Timeline() {
     setZoomPercentage(val);
   };
 
+  // Phase 11: Ctrl+Wheel = Zoom, Shift+Wheel = Horizontal scroll
+  React.useEffect(() => {
+    const el = document.getElementById('timeline-scroll-area');
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        // Anchor zoom to mouse X position
+        const rect = el.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left + el.scrollLeft;
+        const curPPS = useEditorStore.getState().pixelsPerSecond;
+        const delta = e.deltaY > 0 ? -10 : 10;
+        const newZoom = Math.max(5, Math.min(500, useEditorStore.getState().zoomLevel + delta));
+        useEditorStore.getState().setZoomPercentage(newZoom);
+        // Keep mouse anchor point stable
+        const newPPS = useEditorStore.getState().pixelsPerSecond;
+        if (curPPS > 0) {
+          const ratio = newPPS / curPPS;
+          el.scrollLeft = mouseX * ratio - (e.clientX - rect.left);
+        }
+      } else if (e.shiftKey) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
   return (
     <div id="timeline-panel" className="editor-panel glow-border-red flex-grow flex flex-col overflow-hidden min-w-0">
       {/* Timeline Header (Toolbar) */}
@@ -120,6 +151,29 @@ export default function Timeline() {
           <i className="fa-solid fa-flag text-[11px]" />
         </button>
 
+        {/* Phase 19: Transitions picker toggle */}
+        <button
+          className={`toolbar-btn rounded text-[9px] px-1.5 gap-0.5 w-auto transition-colors ${showTransitions ? 'bg-indigo-600 text-white' : 'bg-gray-800 hover:bg-gray-700 text-indigo-400'}`}
+          title="Transitions"
+          onClick={() => setShowTransitions(v => !v)}
+        >
+          <i className="fa-solid fa-film text-[10px]" />
+          <span>FX</span>
+        </button>
+
+        {/* Copy/Paste */}
+        <div className="flex bg-gray-900 rounded border border-gray-700/60">
+          <button className="toolbar-btn" title="Select All (Ctrl+A)" onClick={() => (window as any).app?.selectAllClips?.()}>
+            <i className="fa-solid fa-object-group text-[10px] text-gray-400" />
+          </button>
+          <button className="toolbar-btn border-l border-gray-700" title="Copy (Ctrl+C)" onClick={() => (window as any).app?.copySelectedClip?.()}>
+            <i className="fa-solid fa-copy text-[10px] text-gray-400" />
+          </button>
+          <button className="toolbar-btn border-l border-gray-700" title="Paste (Ctrl+V)" onClick={() => (window as any).app?.pasteCopiedClip?.()}>
+            <i className="fa-solid fa-paste text-[10px] text-gray-400" />
+          </button>
+        </div>
+
         {/* Spacer */}
         <div className="flex-1" />
 
@@ -165,6 +219,13 @@ export default function Timeline() {
         </div>
       </div>
 
+      {/* Phase 19: Transitions Panel (collapsible) */}
+      {showTransitions && (
+        <div className="border-b border-white/10 bg-[#0a0f1d]" style={{ height: '260px', flexShrink: 0 }}>
+          <TransitionsPicker onClose={() => setShowTransitions(false)} />
+        </div>
+      )}
+
       {/* Timeline Scroll Area */}
       <div className="flex-grow relative overflow-y-auto overflow-x-auto timeline-container custom-scrollbar" id="timeline-scroll-area" dir="ltr">
         <div className="relative min-h-full" id="timeline-content" style={{ width: `${timelineContentWidth}px` }}>
@@ -197,24 +258,8 @@ export default function Timeline() {
                     window.addEventListener('mouseup', onMouseUp);
                 }}
             ></div>
-            <div
-              className="time-ruler relative flex-grow flex items-end overflow-hidden cursor-pointer"
-              id="timeline-ruler"
-              onDoubleClick={(e) => {
-                // Double-click on ruler → add marker
-                const app = (window as any).app;
-                if (!app) return;
-                const rulerEl = e.currentTarget;
-                const rect = rulerEl.getBoundingClientRect();
-                const scrollArea = document.getElementById('timeline-scroll-area');
-                const scrollLeft = scrollArea?.scrollLeft || 0;
-                const pps = useEditorStore.getState().pixelsPerSecond;
-                const time = Math.max(0, (e.clientX - rect.left + scrollLeft) / pps);
-                if (!app.markers) app.markers = [];
-                app.markers.push({ id: 'mk_' + Date.now(), time, label: 'Marker', color: '#f59e0b', type: 'Chapter' });
-                app.commitStateToReact?.();
-              }}
-            />
+            {/* Improved Ruler (Phase 17) */}
+            <TimelineRuler />
           </div>
           
           {/* Markers Layer */}
@@ -227,8 +272,8 @@ export default function Timeline() {
             <TimelineTracks />
           </div>
           
-          {/* Playhead rendered last to guarantee top z-index */}
-          <Playhead />
+          {/* Playhead with tooltip (Phase 18) */}
+          <PlayheadEnhanced />
           
         </div>
       </div>

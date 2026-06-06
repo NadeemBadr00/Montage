@@ -334,3 +334,39 @@ input[type="number"] {
 .hide-arrows {
   -moz-appearance: textfield;
 }
+
+/* ─── PHASE 11-20 Timeline Enhancements ──────────────────── */
+
+/* Smooth Ctrl+Scroll zoom transition */
+#timeline-scroll-area { scroll-behavior: auto; }
+
+/* Enhanced Playhead */
+#playhead-line { transition: left 0.04s linear; will-change: left; }
+
+/* Ruler canvas */
+#timeline-ruler-container canvas { image-rendering: pixelated; }
+
+/* Transitions Picker */
+.transitions-panel { animation: slideDown 0.2s ease-out; }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Clip speed badge pulse for slow-mo */
+@keyframes slowPulse { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+
+/* Clip note indicator glow */
+.fa-note-sticky { animation: noteGlow 2s ease-in-out infinite; }
+@keyframes noteGlow { 0%, 100% { filter: drop-shadow(0 0 2px rgba(251,191,36,0)); } 50% { filter: drop-shadow(0 0 4px rgba(251,191,36,0.6)); } }
+
+/* Group link icon */
+.fa-link { opacity: 0.5; }
+
+/* Context menu max height scroll */
+.context-menu-scroll { max-height: 80vh; overflow-y: auto; }
+
+/* Toolbar active FX button pulse */
+.toolbar-btn.fx-active { animation: fxPulse 1.5s ease-in-out infinite; }
+@keyframes fxPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } 50% { box-shadow: 0 0 8px 2px rgba(99,102,241,0.4); } }
+
+/* Mini-map hover hint */
+#timeline-scroll-area::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.4); }
+#timeline-scroll-area::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.6); }
