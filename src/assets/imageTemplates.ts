@@ -1,4 +1,4 @@
-import { Asset } from '../types/editor.types';
+﻿import { Asset } from '../types/editor.types';
 
 export const imageTemplates: Asset[] = [
 
@@ -6,450 +6,450 @@ export const imageTemplates: Asset[] = [
         "id": "img_realfree_0",
         "name": "Real Dog 1",
         "type": "image",
-        "src": "/images/real_free_dog_0.png",
+        "src": "/images/real_free_dog_0.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_0.png",
+        "thumbnail": "/images/real_free_dog_0.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_1",
         "name": "Real Dog 2",
         "type": "image",
-        "src": "/images/real_free_dog_1.png",
+        "src": "/images/real_free_dog_1.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_1.png",
+        "thumbnail": "/images/real_free_dog_1.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_2",
         "name": "Real Dog 3",
         "type": "image",
-        "src": "/images/real_free_dog_2.png",
+        "src": "/images/real_free_dog_2.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_2.png",
+        "thumbnail": "/images/real_free_dog_2.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_3",
         "name": "Real Dog 4",
         "type": "image",
-        "src": "/images/real_free_dog_3.png",
+        "src": "/images/real_free_dog_3.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_3.png",
+        "thumbnail": "/images/real_free_dog_3.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_4",
         "name": "Real Dog 5",
         "type": "image",
-        "src": "/images/real_free_dog_4.png",
+        "src": "/images/real_free_dog_4.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_4.png",
+        "thumbnail": "/images/real_free_dog_4.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_5",
         "name": "Real Dog 6",
         "type": "image",
-        "src": "/images/real_free_dog_5.png",
+        "src": "/images/real_free_dog_5.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_5.png",
+        "thumbnail": "/images/real_free_dog_5.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_6",
         "name": "Real Dog 7",
         "type": "image",
-        "src": "/images/real_free_dog_6.png",
+        "src": "/images/real_free_dog_6.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_6.png",
+        "thumbnail": "/images/real_free_dog_6.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_7",
         "name": "Real Dog 8",
         "type": "image",
-        "src": "/images/real_free_dog_7.png",
+        "src": "/images/real_free_dog_7.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_7.png",
+        "thumbnail": "/images/real_free_dog_7.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_8",
         "name": "Real Dog 9",
         "type": "image",
-        "src": "/images/real_free_dog_8.png",
+        "src": "/images/real_free_dog_8.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_8.png",
+        "thumbnail": "/images/real_free_dog_8.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_9",
         "name": "Real Dog 10",
         "type": "image",
-        "src": "/images/real_free_dog_9.png",
+        "src": "/images/real_free_dog_9.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_9.png",
+        "thumbnail": "/images/real_free_dog_9.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_10",
         "name": "Real Dog 11",
         "type": "image",
-        "src": "/images/real_free_dog_10.png",
+        "src": "/images/real_free_dog_10.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_10.png",
+        "thumbnail": "/images/real_free_dog_10.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_11",
         "name": "Real Dog 12",
         "type": "image",
-        "src": "/images/real_free_dog_11.png",
+        "src": "/images/real_free_dog_11.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_11.png",
+        "thumbnail": "/images/real_free_dog_11.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_12",
         "name": "Real Dog 13",
         "type": "image",
-        "src": "/images/real_free_dog_12.png",
+        "src": "/images/real_free_dog_12.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_12.png",
+        "thumbnail": "/images/real_free_dog_12.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_13",
         "name": "Real Dog 14",
         "type": "image",
-        "src": "/images/real_free_dog_13.png",
+        "src": "/images/real_free_dog_13.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_13.png",
+        "thumbnail": "/images/real_free_dog_13.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_14",
         "name": "Real Dog 15",
         "type": "image",
-        "src": "/images/real_free_dog_14.png",
+        "src": "/images/real_free_dog_14.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_dog_14.png",
+        "thumbnail": "/images/real_free_dog_14.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_15",
         "name": "Real Cat 1",
         "type": "image",
-        "src": "/images/real_free_cat_0.png",
+        "src": "/images/real_free_cat_0.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_0.png",
+        "thumbnail": "/images/real_free_cat_0.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_16",
         "name": "Real Cat 2",
         "type": "image",
-        "src": "/images/real_free_cat_1.png",
+        "src": "/images/real_free_cat_1.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_1.png",
+        "thumbnail": "/images/real_free_cat_1.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_17",
         "name": "Real Cat 3",
         "type": "image",
-        "src": "/images/real_free_cat_2.png",
+        "src": "/images/real_free_cat_2.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_2.png",
+        "thumbnail": "/images/real_free_cat_2.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_18",
         "name": "Real Cat 4",
         "type": "image",
-        "src": "/images/real_free_cat_3.png",
+        "src": "/images/real_free_cat_3.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_3.png",
+        "thumbnail": "/images/real_free_cat_3.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_19",
         "name": "Real Cat 5",
         "type": "image",
-        "src": "/images/real_free_cat_4.png",
+        "src": "/images/real_free_cat_4.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_4.png",
+        "thumbnail": "/images/real_free_cat_4.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_20",
         "name": "Real Cat 6",
         "type": "image",
-        "src": "/images/real_free_cat_5.png",
+        "src": "/images/real_free_cat_5.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_5.png",
+        "thumbnail": "/images/real_free_cat_5.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_21",
         "name": "Real Cat 7",
         "type": "image",
-        "src": "/images/real_free_cat_6.png",
+        "src": "/images/real_free_cat_6.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_6.png",
+        "thumbnail": "/images/real_free_cat_6.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_22",
         "name": "Real Cat 8",
         "type": "image",
-        "src": "/images/real_free_cat_7.png",
+        "src": "/images/real_free_cat_7.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_7.png",
+        "thumbnail": "/images/real_free_cat_7.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_23",
         "name": "Real Cat 9",
         "type": "image",
-        "src": "/images/real_free_cat_8.png",
+        "src": "/images/real_free_cat_8.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_8.png",
+        "thumbnail": "/images/real_free_cat_8.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_24",
         "name": "Real Cat 10",
         "type": "image",
-        "src": "/images/real_free_cat_9.png",
+        "src": "/images/real_free_cat_9.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_9.png",
+        "thumbnail": "/images/real_free_cat_9.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_25",
         "name": "Real Cat 11",
         "type": "image",
-        "src": "/images/real_free_cat_10.png",
+        "src": "/images/real_free_cat_10.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_10.png",
+        "thumbnail": "/images/real_free_cat_10.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_26",
         "name": "Real Cat 12",
         "type": "image",
-        "src": "/images/real_free_cat_11.png",
+        "src": "/images/real_free_cat_11.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_11.png",
+        "thumbnail": "/images/real_free_cat_11.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_27",
         "name": "Real Cat 13",
         "type": "image",
-        "src": "/images/real_free_cat_12.png",
+        "src": "/images/real_free_cat_12.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_12.png",
+        "thumbnail": "/images/real_free_cat_12.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_28",
         "name": "Real Cat 14",
         "type": "image",
-        "src": "/images/real_free_cat_13.png",
+        "src": "/images/real_free_cat_13.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_13.png",
+        "thumbnail": "/images/real_free_cat_13.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_29",
         "name": "Real Cat 15",
         "type": "image",
-        "src": "/images/real_free_cat_14.png",
+        "src": "/images/real_free_cat_14.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_cat_14.png",
+        "thumbnail": "/images/real_free_cat_14.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_30",
         "name": "Real Bear 1",
         "type": "image",
-        "src": "/images/real_free_bear_0.png",
+        "src": "/images/real_free_bear_0.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_bear_0.png",
+        "thumbnail": "/images/real_free_bear_0.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_31",
         "name": "Real Bear 2",
         "type": "image",
-        "src": "/images/real_free_bear_1.png",
+        "src": "/images/real_free_bear_1.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_bear_1.png",
+        "thumbnail": "/images/real_free_bear_1.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_32",
         "name": "Real Bear 3",
         "type": "image",
-        "src": "/images/real_free_bear_2.png",
+        "src": "/images/real_free_bear_2.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_bear_2.png",
+        "thumbnail": "/images/real_free_bear_2.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_33",
         "name": "Real Bear 4",
         "type": "image",
-        "src": "/images/real_free_bear_3.png",
+        "src": "/images/real_free_bear_3.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_bear_3.png",
+        "thumbnail": "/images/real_free_bear_3.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_34",
         "name": "Real Bear 5",
         "type": "image",
-        "src": "/images/real_free_bear_4.png",
+        "src": "/images/real_free_bear_4.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_bear_4.png",
+        "thumbnail": "/images/real_free_bear_4.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_35",
         "name": "Real Bear 6",
         "type": "image",
-        "src": "/images/real_free_bear_5.png",
+        "src": "/images/real_free_bear_5.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_bear_5.png",
+        "thumbnail": "/images/real_free_bear_5.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_36",
         "name": "Real Bear 7",
         "type": "image",
-        "src": "/images/real_free_bear_6.png",
+        "src": "/images/real_free_bear_6.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_bear_6.png",
+        "thumbnail": "/images/real_free_bear_6.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_37",
         "name": "Real Bear 8",
         "type": "image",
-        "src": "/images/real_free_bear_7.png",
+        "src": "/images/real_free_bear_7.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_bear_7.png",
+        "thumbnail": "/images/real_free_bear_7.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_38",
         "name": "Real Bear 9",
         "type": "image",
-        "src": "/images/real_free_bear_8.png",
+        "src": "/images/real_free_bear_8.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_bear_8.png",
+        "thumbnail": "/images/real_free_bear_8.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_39",
         "name": "Real Bear 10",
         "type": "image",
-        "src": "/images/real_free_bear_9.png",
+        "src": "/images/real_free_bear_9.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_bear_9.png",
+        "thumbnail": "/images/real_free_bear_9.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_40",
         "name": "Real Fox 1",
         "type": "image",
-        "src": "/images/real_free_fox_0.png",
+        "src": "/images/real_free_fox_0.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_fox_0.png",
+        "thumbnail": "/images/real_free_fox_0.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_41",
         "name": "Real Fox 2",
         "type": "image",
-        "src": "/images/real_free_fox_1.png",
+        "src": "/images/real_free_fox_1.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_fox_1.png",
+        "thumbnail": "/images/real_free_fox_1.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_42",
         "name": "Real Fox 3",
         "type": "image",
-        "src": "/images/real_free_fox_2.png",
+        "src": "/images/real_free_fox_2.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_fox_2.png",
+        "thumbnail": "/images/real_free_fox_2.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_43",
         "name": "Real Fox 4",
         "type": "image",
-        "src": "/images/real_free_fox_3.png",
+        "src": "/images/real_free_fox_3.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_fox_3.png",
+        "thumbnail": "/images/real_free_fox_3.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_44",
         "name": "Real Fox 5",
         "type": "image",
-        "src": "/images/real_free_fox_4.png",
+        "src": "/images/real_free_fox_4.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_fox_4.png",
+        "thumbnail": "/images/real_free_fox_4.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_45",
         "name": "Real Fox 6",
         "type": "image",
-        "src": "/images/real_free_fox_5.png",
+        "src": "/images/real_free_fox_5.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_fox_5.png",
+        "thumbnail": "/images/real_free_fox_5.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_46",
         "name": "Real Fox 7",
         "type": "image",
-        "src": "/images/real_free_fox_6.png",
+        "src": "/images/real_free_fox_6.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_fox_6.png",
+        "thumbnail": "/images/real_free_fox_6.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_47",
         "name": "Real Fox 8",
         "type": "image",
-        "src": "/images/real_free_fox_7.png",
+        "src": "/images/real_free_fox_7.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_fox_7.png",
+        "thumbnail": "/images/real_free_fox_7.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_48",
         "name": "Real Fox 9",
         "type": "image",
-        "src": "/images/real_free_fox_8.png",
+        "src": "/images/real_free_fox_8.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_fox_8.png",
+        "thumbnail": "/images/real_free_fox_8.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realfree_49",
         "name": "Real Fox 10",
         "type": "image",
-        "src": "/images/real_free_fox_9.png",
+        "src": "/images/real_free_fox_9.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_fox_9.png",
+        "thumbnail": "/images/real_free_fox_9.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
 
@@ -457,135 +457,135 @@ export const imageTemplates: Asset[] = [
         "id": "img_realhuman_0",
         "name": "Real Human 1",
         "type": "image",
-        "src": "/images/real_free_human_0.png",
+        "src": "/images/real_free_human_0.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_0.png",
+        "thumbnail": "/images/real_free_human_0.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_1",
         "name": "Real Human 2",
         "type": "image",
-        "src": "/images/real_free_human_1.png",
+        "src": "/images/real_free_human_1.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_1.png",
+        "thumbnail": "/images/real_free_human_1.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_2",
         "name": "Real Human 3",
         "type": "image",
-        "src": "/images/real_free_human_2.png",
+        "src": "/images/real_free_human_2.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_2.png",
+        "thumbnail": "/images/real_free_human_2.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_3",
         "name": "Real Human 4",
         "type": "image",
-        "src": "/images/real_free_human_3.png",
+        "src": "/images/real_free_human_3.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_3.png",
+        "thumbnail": "/images/real_free_human_3.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_4",
         "name": "Real Human 5",
         "type": "image",
-        "src": "/images/real_free_human_4.png",
+        "src": "/images/real_free_human_4.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_4.png",
+        "thumbnail": "/images/real_free_human_4.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_5",
         "name": "Real Human 6",
         "type": "image",
-        "src": "/images/real_free_human_5.png",
+        "src": "/images/real_free_human_5.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_5.png",
+        "thumbnail": "/images/real_free_human_5.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_6",
         "name": "Real Human 7",
         "type": "image",
-        "src": "/images/real_free_human_6.png",
+        "src": "/images/real_free_human_6.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_6.png",
+        "thumbnail": "/images/real_free_human_6.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_7",
         "name": "Real Human 8",
         "type": "image",
-        "src": "/images/real_free_human_7.png",
+        "src": "/images/real_free_human_7.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_7.png",
+        "thumbnail": "/images/real_free_human_7.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_8",
         "name": "Real Human 9",
         "type": "image",
-        "src": "/images/real_free_human_8.png",
+        "src": "/images/real_free_human_8.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_8.png",
+        "thumbnail": "/images/real_free_human_8.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_9",
         "name": "Real Human 10",
         "type": "image",
-        "src": "/images/real_free_human_9.png",
+        "src": "/images/real_free_human_9.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_9.png",
+        "thumbnail": "/images/real_free_human_9.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_10",
         "name": "Real Human 11",
         "type": "image",
-        "src": "/images/real_free_human_10.png",
+        "src": "/images/real_free_human_10.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_10.png",
+        "thumbnail": "/images/real_free_human_10.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_11",
         "name": "Real Human 12",
         "type": "image",
-        "src": "/images/real_free_human_11.png",
+        "src": "/images/real_free_human_11.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_11.png",
+        "thumbnail": "/images/real_free_human_11.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_12",
         "name": "Real Human 13",
         "type": "image",
-        "src": "/images/real_free_human_12.png",
+        "src": "/images/real_free_human_12.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_12.png",
+        "thumbnail": "/images/real_free_human_12.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_13",
         "name": "Real Human 14",
         "type": "image",
-        "src": "/images/real_free_human_13.png",
+        "src": "/images/real_free_human_13.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_13.png",
+        "thumbnail": "/images/real_free_human_13.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_realhuman_14",
         "name": "Real Human 15",
         "type": "image",
-        "src": "/images/real_free_human_14.png",
+        "src": "/images/real_free_human_14.webp",
         "duration": 5.0,
-        "thumbnail": "/images/real_free_human_14.png",
+        "thumbnail": "/images/real_free_human_14.webp",
         "templateData": { "properties": { "scale": 60, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
 
@@ -1271,54 +1271,54 @@ export const imageTemplates: Asset[] = [
         "id": "img_living_0",
         "name": "3D Gamer Guy",
         "type": "image",
-        "src": "/images/human_gamer_1779588738487.png",
+        "src": "/images/human_gamer_1779588738487.webp",
         "duration": 5.0,
-        "thumbnail": "/images/human_gamer_1779588738487.png",
+        "thumbnail": "/images/human_gamer_1779588738487.webp",
         "templateData": { "properties": { "scale": 40, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_living_1",
         "name": "3D Businesswoman",
         "type": "image",
-        "src": "/images/human_businesswoman_1779588753390.png",
+        "src": "/images/human_businesswoman_1779588753390.webp",
         "duration": 5.0,
-        "thumbnail": "/images/human_businesswoman_1779588753390.png",
+        "thumbnail": "/images/human_businesswoman_1779588753390.webp",
         "templateData": { "properties": { "scale": 40, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_living_2",
         "name": "3D Surprised Guy",
         "type": "image",
-        "src": "/images/human_surprised_1779588768133.png",
+        "src": "/images/human_surprised_1779588768133.webp",
         "duration": 5.0,
-        "thumbnail": "/images/human_surprised_1779588768133.png",
+        "thumbnail": "/images/human_surprised_1779588768133.webp",
         "templateData": { "properties": { "scale": 40, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_living_3",
         "name": "3D Cute Ninja",
         "type": "image",
-        "src": "/images/human_ninja_1779588782017.png",
+        "src": "/images/human_ninja_1779588782017.webp",
         "duration": 5.0,
-        "thumbnail": "/images/human_ninja_1779588782017.png",
+        "thumbnail": "/images/human_ninja_1779588782017.webp",
         "templateData": { "properties": { "scale": 40, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_living_4",
         "name": "3D Hacker",
         "type": "image",
-        "src": "/images/human_hacker_1779588795596.png",
+        "src": "/images/human_hacker_1779588795596.webp",
         "duration": 5.0,
-        "thumbnail": "/images/human_hacker_1779588795596.png",
+        "thumbnail": "/images/human_hacker_1779588795596.webp",
         "templateData": { "properties": { "scale": 40, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_living_5",
         "name": "3D Surprised Cat",
         "type": "image",
-        "src": "/images/animal_cat_1779588807280.png",
+        "src": "/images/animal_cat_1779588807280.webp",
         "duration": 5.0,
-        "thumbnail": "/images/animal_cat_1779588807280.png",
+        "thumbnail": "/images/animal_cat_1779588807280.webp",
         "templateData": { "properties": { "scale": 40, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
 
@@ -1326,90 +1326,90 @@ export const imageTemplates: Asset[] = [
         "id": "img_rocket_1",
         "name": "3D Neon Rocket",
         "type": "image",
-        "src": "/images/3d_rocket_1779588427467.png",
+        "src": "/images/3d_rocket_1779588427467.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_rocket_1779588427467.png",
+        "thumbnail": "/images/3d_rocket_1779588427467.webp",
         "templateData": { "properties": { "scale": 30, "positionX": -300, "positionY": -200, "rotation": 15 } }
     },
     {
         "id": "img_trophy_1",
         "name": "3D Golden Trophy",
         "type": "image",
-        "src": "/images/3d_trophy_1779588440410.png",
+        "src": "/images/3d_trophy_1779588440410.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_trophy_1779588440410.png",
+        "thumbnail": "/images/3d_trophy_1779588440410.webp",
         "templateData": { "properties": { "scale": 35, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_diamond_1",
         "name": "3D Blue Diamond",
         "type": "image",
-        "src": "/images/3d_diamond_1779588453359.png",
+        "src": "/images/3d_diamond_1779588453359.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_diamond_1779588453359.png",
+        "thumbnail": "/images/3d_diamond_1779588453359.webp",
         "templateData": { "properties": { "scale": 20, "positionX": 300, "positionY": -300, "rotation": 0 } }
     },
     {
         "id": "img_padlock_1",
         "name": "3D Padlock",
         "type": "image",
-        "src": "/images/3d_padlock_1779588468370.png",
+        "src": "/images/3d_padlock_1779588468370.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_padlock_1779588468370.png",
+        "thumbnail": "/images/3d_padlock_1779588468370.webp",
         "templateData": { "properties": { "scale": 25, "positionX": -300, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_coins_1",
         "name": "3D Coins Stack",
         "type": "image",
-        "src": "/images/3d_coins_1779588482732.png",
+        "src": "/images/3d_coins_1779588482732.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_coins_1779588482732.png",
+        "thumbnail": "/images/3d_coins_1779588482732.webp",
         "templateData": { "properties": { "scale": 30, "positionX": 200, "positionY": 200, "rotation": 0 } }
     },
     {
         "id": "img_magnet_1",
         "name": "3D Magnet",
         "type": "image",
-        "src": "/images/3d_magnet_1779588494975.png",
+        "src": "/images/3d_magnet_1779588494975.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_magnet_1779588494975.png",
+        "thumbnail": "/images/3d_magnet_1779588494975.webp",
         "templateData": { "properties": { "scale": 25, "positionX": 0, "positionY": -300, "rotation": -20 } }
     },
     {
         "id": "img_lightbulb_1",
         "name": "3D Idea Lightbulb",
         "type": "image",
-        "src": "/images/3d_lightbulb_1779588507849.png",
+        "src": "/images/3d_lightbulb_1779588507849.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_lightbulb_1779588507849.png",
+        "thumbnail": "/images/3d_lightbulb_1779588507849.webp",
         "templateData": { "properties": { "scale": 25, "positionX": 200, "positionY": -300, "rotation": 10 } }
     },
     {
         "id": "img_magicwand_1",
         "name": "3D Magic Wand",
         "type": "image",
-        "src": "/images/3d_magic_wand_1779588522900.png",
+        "src": "/images/3d_magic_wand_1779588522900.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_magic_wand_1779588522900.png",
+        "thumbnail": "/images/3d_magic_wand_1779588522900.webp",
         "templateData": { "properties": { "scale": 30, "positionX": -200, "positionY": -200, "rotation": 45 } }
     },
     {
         "id": "img_bomb_1",
         "name": "3D Cartoon Bomb",
         "type": "image",
-        "src": "/images/3d_bomb_1779588535261.png",
+        "src": "/images/3d_bomb_1779588535261.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_bomb_1779588535261.png",
+        "thumbnail": "/images/3d_bomb_1779588535261.webp",
         "templateData": { "properties": { "scale": 25, "positionX": 0, "positionY": 0, "rotation": 0 } }
     },
     {
         "id": "img_battery_1",
         "name": "3D Full Battery",
         "type": "image",
-        "src": "/images/3d_battery_1779588552067.png",
+        "src": "/images/3d_battery_1779588552067.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_battery_1779588552067.png",
+        "thumbnail": "/images/3d_battery_1779588552067.webp",
         "templateData": { "properties": { "scale": 30, "positionX": 300, "positionY": 0, "rotation": 0 } }
     },
 
@@ -1417,9 +1417,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_yt_0",
         "name": "3D YouTube Subscribe",
         "type": "image",
-        "src": "/images/youtube_subscribe.png",
+        "src": "/images/youtube_subscribe.webp",
         "duration": 5.0,
-        "thumbnail": "/images/youtube_subscribe.png",
+        "thumbnail": "/images/youtube_subscribe.webp",
         "templateData": {
             "properties": {
                 "scale": 30,
@@ -1433,9 +1433,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_like_1",
         "name": "3D Like Button",
         "type": "image",
-        "src": "/images/like_button.png",
+        "src": "/images/like_button.webp",
         "duration": 5.0,
-        "thumbnail": "/images/like_button.png",
+        "thumbnail": "/images/like_button.webp",
         "templateData": {
             "properties": {
                 "scale": 20,
@@ -1449,9 +1449,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_ctrl_2",
         "name": "Neon Gaming Controller",
         "type": "image",
-        "src": "/images/gaming_controller.png",
+        "src": "/images/gaming_controller.webp",
         "duration": 5.0,
-        "thumbnail": "/images/gaming_controller.png",
+        "thumbnail": "/images/gaming_controller.webp",
         "templateData": {
             "properties": {
                 "scale": 50,
@@ -1465,9 +1465,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_arrow_3",
         "name": "Neon Arrow Right",
         "type": "image",
-        "src": "/images/neon_arrow.png",
+        "src": "/images/neon_arrow.webp",
         "duration": 5.0,
-        "thumbnail": "/images/neon_arrow.png",
+        "thumbnail": "/images/neon_arrow.webp",
         "templateData": {
             "properties": {
                 "scale": 25,
@@ -1481,9 +1481,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_star_4",
         "name": "Golden Star",
         "type": "image",
-        "src": "/images/golden_star.png",
+        "src": "/images/golden_star.webp",
         "duration": 5.0,
-        "thumbnail": "/images/golden_star.png",
+        "thumbnail": "/images/golden_star.webp",
         "templateData": {
             "properties": {
                 "scale": 20,
@@ -1497,9 +1497,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_bubble_5",
         "name": "Comic Speech Bubble",
         "type": "image",
-        "src": "/images/speech_bubble.png",
+        "src": "/images/speech_bubble.webp",
         "duration": 5.0,
-        "thumbnail": "/images/speech_bubble.png",
+        "thumbnail": "/images/speech_bubble.webp",
         "templateData": {
             "properties": {
                 "scale": 40,
@@ -1513,9 +1513,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_gift_6",
         "name": "3D Gift Box",
         "type": "image",
-        "src": "/images/3d_gift_box_1779588058182.png",
+        "src": "/images/3d_gift_box_1779588058182.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_gift_box_1779588058182.png",
+        "thumbnail": "/images/3d_gift_box_1779588058182.webp",
         "templateData": {
             "properties": {
                 "scale": 30,
@@ -1529,9 +1529,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_crown_7",
         "name": "3D Golden Crown",
         "type": "image",
-        "src": "/images/3d_crown_1779588072253.png",
+        "src": "/images/3d_crown_1779588072253.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_crown_1779588072253.png",
+        "thumbnail": "/images/3d_crown_1779588072253.webp",
         "templateData": {
             "properties": {
                 "scale": 25,
@@ -1545,9 +1545,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_mega_8",
         "name": "3D Megaphone",
         "type": "image",
-        "src": "/images/3d_megaphone_1779588085402.png",
+        "src": "/images/3d_megaphone_1779588085402.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_megaphone_1779588085402.png",
+        "thumbnail": "/images/3d_megaphone_1779588085402.webp",
         "templateData": {
             "properties": {
                 "scale": 20,
@@ -1561,9 +1561,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_shield_9",
         "name": "Security Shield",
         "type": "image",
-        "src": "/images/3d_shield_1779588104233.png",
+        "src": "/images/3d_shield_1779588104233.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_shield_1779588104233.png",
+        "thumbnail": "/images/3d_shield_1779588104233.webp",
         "templateData": {
             "properties": {
                 "scale": 25,
@@ -1577,9 +1577,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_heart_10",
         "name": "Glowing Red Heart",
         "type": "image",
-        "src": "/images/3d_heart_1779588115849.png",
+        "src": "/images/3d_heart_1779588115849.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_heart_1779588115849.png",
+        "thumbnail": "/images/3d_heart_1779588115849.webp",
         "templateData": {
             "properties": {
                 "scale": 20,
@@ -1593,9 +1593,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_bell_11",
         "name": "Notification Bell",
         "type": "image",
-        "src": "/images/3d_bell_1779588127628.png",
+        "src": "/images/3d_bell_1779588127628.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_bell_1779588127628.png",
+        "thumbnail": "/images/3d_bell_1779588127628.webp",
         "templateData": {
             "properties": {
                 "scale": 20,
@@ -1609,9 +1609,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_warn_12",
         "name": "Neon Warning",
         "type": "image",
-        "src": "/images/3d_warning_1779588145684.png",
+        "src": "/images/3d_warning_1779588145684.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_warning_1779588145684.png",
+        "thumbnail": "/images/3d_warning_1779588145684.webp",
         "templateData": {
             "properties": {
                 "scale": 35,
@@ -1625,9 +1625,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_target_13",
         "name": "Archery Target",
         "type": "image",
-        "src": "/images/3d_target_1779588156909.png",
+        "src": "/images/3d_target_1779588156909.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_target_1779588156909.png",
+        "thumbnail": "/images/3d_target_1779588156909.webp",
         "templateData": {
             "properties": {
                 "scale": 30,
@@ -1641,9 +1641,9 @@ export const imageTemplates: Asset[] = [
         "id": "img_camera_14",
         "name": "Vintage Camera",
         "type": "image",
-        "src": "/images/3d_camera_1779588172096.png",
+        "src": "/images/3d_camera_1779588172096.webp",
         "duration": 5.0,
-        "thumbnail": "/images/3d_camera_1779588172096.png",
+        "thumbnail": "/images/3d_camera_1779588172096.webp",
         "templateData": {
             "properties": {
                 "scale": 30,

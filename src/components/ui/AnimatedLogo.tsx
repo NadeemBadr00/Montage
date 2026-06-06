@@ -9,7 +9,7 @@ interface AnimatedLogoProps {
 }
 
 // Use a single static frame — no jarring frame switching
-const LOGO_SRC = '/logo_frame_1.png';
+const LOGO_SRC = '/logo_frame_1.webp';
 
 export function AnimatedLogo({ src, size = 'md', className = '' }: AnimatedLogoProps) {
   const [isHovering, setIsHovering] = useState(false);

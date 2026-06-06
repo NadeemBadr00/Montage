@@ -219,16 +219,53 @@ export default function AssetsPanel() {
                         (window as any).app.resolveCollisions(targetTrack.id, newClip);
                       }
                       if (asset.type === 'video') {
-                          const audioTrack = (window as any).app.tracks.find((t: any) => t.type === 'audio');
+                          const app = (window as any).app;
+                          const allAudioTracks: any[] = app.tracks.filter((t: any) => t.type === 'audio');
+                          
+                          // Helper: does this audio track have any clip overlapping [dropStart, dropEnd)?
+                          const hasCollisionAt = (track: any, start: number, end: number) =>
+                              track.clips.some((c: any) => c.start < end && (c.start + c.duration) > start);
+
+                          // 1. Find first audio track with NO collision at drop range
+                          let audioTrack = allAudioTracks.find(
+                              (t: any) => !hasCollisionAt(t, currentDropTime, currentDropTime + duration)
+                          );
+
+                          // 2. If all existing audio tracks are occupied → create a new one
+                          if (!audioTrack) {
+                              const existingNames = allAudioTracks.map((t: any) => t.name);
+                              let newTrackNum = allAudioTracks.length + 1;
+                              let newTrackName = `A${newTrackNum}: Audio ${newTrackNum}`;
+                              while (existingNames.includes(newTrackName)) {
+                                  newTrackNum++;
+                                  newTrackName = `A${newTrackNum}: Audio ${newTrackNum}`;
+                              }
+                              // Use a lower track id so it appears at the bottom
+                              const minId = Math.min(...app.tracks.map((t: any) => t.id), 0) - 1;
+                              if (app.addNewTrack) {
+                                  app.addNewTrack('audio');
+                                  audioTrack = app.tracks.find((t: any) => t.type === 'audio' && !allAudioTracks.includes(t));
+                              }
+                          }
+
                           if (audioTrack) {
-                              const audioClip = new (window as any).Clip(`c_${Date.now()}_audio`, `${asset.name} (Audio)`, currentDropTime, duration, 'audio', asset.src);
+                              const audioClip = new (window as any).Clip(
+                                  `c_${Date.now()}_audio`,
+                                  `${asset.name} (Audio)`,
+                                  currentDropTime,
+                                  duration,
+                                  'audio',
+                                  asset.src
+                              );
                               audioClip.groupId = groupId;
                               audioTrack.addClip(audioClip);
-                              if ((window as any).app.resolveCollisions) {
-                                (window as any).app.resolveCollisions(audioTrack.id, audioClip);
+                              // resolve collisions on whichever track the audio landed on
+                              if (app.resolveCollisions) {
+                                  app.resolveCollisions(audioTrack.id, audioClip);
                               }
                           }
                       }
+
                       if ((window as any).app.renderTracks) (window as any).app.renderTracks();
                       if ((window as any).app.saveState) (window as any).app.saveState();
                       (window as any).app.requestRedraw();
@@ -250,6 +287,24 @@ export default function AssetsPanel() {
                       asset.transitionType || 'cross_dissolve'
                   );
               }
+          } else if (asset.type === 'overlay') {
+              // ✅ SOCIAL OVERLAY: create a special image clip with overlay data
+              addClipWithDuration(asset.duration || 30);
+              // After clip is created, find it and enable the social overlay
+              setTimeout(() => {
+                  const app = (window as any).app;
+                  if (!app?.enableSocialOverlay) return;
+                  const targetTrack = app.tracks.find((t: any) => t.id === currentTargetTrackId);
+                  if (!targetTrack) return;
+                  // find the most recently added clip in this track at the drop time
+                  const added = [...targetTrack.clips]
+                      .filter((c: any) => Math.abs(c.start - currentDropTime) < 0.5)
+                      .sort((a: any, b: any) => b.start - a.start)[0];
+                  if (added) {
+                      const platform = asset.templateData?.effects?.socialOverlay?.platform || 'tiktok';
+                      app.enableSocialOverlay(added.id, platform);
+                  }
+              }, 100);
           } else if (asset.duration) {
               addClipWithDuration(asset.duration);
           } else if (durationCache.current.has(asset.id)) {
@@ -388,10 +443,15 @@ export default function AssetsPanel() {
                     </button>
                 </div>
                 <div className={`grid gap-2 ${gridCols === 2 ? 'grid-cols-2' : gridCols === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
-                    {(templateMode === 'text' ? textTemplates : templateMode === 'image' ? imageTemplates : templateMode === 'frame' ? framesTemplates : sfxTemplates).map(tpl => (
+                    {(templateMode === 'text' ? textTemplates : templateMode === 'image' ? imageTemplates : templateMode === 'frame' ? framesTemplates : sfxTemplates).flatMap((tpl, idx, arr) => {
+                        const card = (
                     <div 
-                        key={tpl.id} 
-                        className="bg-[#0f172a] rounded overflow-hidden border border-gray-700 hover:border-red-500 cursor-grab active:cursor-grabbing flex flex-col group transition-all duration-300"
+                        key={tpl.id}
+                        className={`bg-[#0f172a] rounded overflow-hidden border cursor-grab active:cursor-grabbing flex flex-col group transition-all duration-300 ${
+                            tpl.type === 'overlay'
+                                ? 'border-pink-600/40 hover:border-pink-500 shadow-[0_0_12px_rgba(236,72,153,0.15)]'
+                                : 'border-gray-700 hover:border-red-500'
+                        }`}
                         onMouseDown={(e) => handleAssetDrag(e, tpl)}
                         onMouseEnter={() => { 
                             if (tpl.type === 'audio') {
@@ -475,6 +535,43 @@ export default function AssetsPanel() {
                                     {tpl.duration}s
                                 </div>
                             </div>
+                        ) : tpl.type === 'overlay' ? (
+                            <div className="w-full aspect-video flex items-center justify-center relative overflow-hidden bg-black/90">
+                                {/* Background thumbnail */}
+                                {tpl.thumbnail && <img src={tpl.thumbnail} alt={tpl.name} className="absolute inset-0 w-full h-full object-cover opacity-25 pointer-events-none" />}
+                                {/* Dark gradient overlay */}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+                                {/* Live badge */}
+                                <div className="absolute top-1.5 right-1.5 z-20 pointer-events-none">
+                                    <div className={`text-[7px] font-black px-1.5 py-0.5 rounded text-white shadow-lg ${
+                                        tpl.id.includes('tiktok') ? 'bg-[#fe2c55]' :
+                                        tpl.id.includes('instagram') ? 'bg-gradient-to-r from-purple-600 to-pink-500' :
+                                        'bg-[#ff0000]'
+                                    }`}>● LIVE</div>
+                                </div>
+                                {/* Fake comment bubbles */}
+                                <div className="absolute bottom-0 left-0 right-0 p-1.5 pointer-events-none space-y-0.5">
+                                    {[{u:'Ahmed_Pro',t:'🔥🔥🔥',c:'#fe2c55'},{u:'Sara_M',t:'❤️ جامد',c:'#ffa502'},{u:'user123',t:'👏👏👏',c:'#2ed573'}].map((c,i) => (
+                                        <div key={i} className="flex items-center gap-1 opacity-90">
+                                            <div className="bg-black/60 text-[6px] rounded-full px-1.5 py-0.5 flex items-center gap-1 backdrop-blur-sm">
+                                                <span style={{color: c.c}} className="font-bold">{c.u}</span>
+                                                <span className="text-white">{c.t}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* Stats mock on right */}
+                                <div className="absolute top-5 right-1.5 flex flex-col gap-0.5 pointer-events-none">
+                                    <div className="text-[6px] text-white/80 font-bold">👁 12.5K</div>
+                                    <div className="text-[6px] text-[#fe2c55] font-bold">❤️ 48.2K</div>
+                                </div>
+                                {/* Overlay indicator */}
+                                <div className="absolute bottom-1 left-1 z-20 pointer-events-none">
+                                    <div className="text-[6px] bg-pink-600/80 text-white px-1 py-0.5 rounded font-bold backdrop-blur-sm">
+                                        💬 OVERLAY
+                                    </div>
+                                </div>
+                            </div>
                         ) : tpl.type === 'image' ? (
                             <div className="w-full aspect-video flex items-center justify-center relative overflow-hidden bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAOklEQVQYV2NkYGAwYkAD////Z8SRAaYIE2RYgDCAUgwjO4xXGHE6n2QzGGkG49bA0EGGp+x4Mh22CQBM5A81T+uOBAAAAABJRU5ErkJggg==')]">
                                 <div className="absolute inset-0 bg-black/60 z-0"></div>
@@ -518,11 +615,26 @@ export default function AssetsPanel() {
                         <div className="p-2 flex flex-col gap-0.5 bg-[#151c2e]">
                             <div className="text-[10px] text-gray-200 font-bold truncate">{tpl.name}</div>
                             <div className="text-[7px] text-gray-500 uppercase flex gap-1">
-                                {tpl.templateData?.properties?.positionY < -200 ? 'Top' : tpl.templateData?.properties?.positionY > 200 ? 'Bottom' : 'Center'}
+                                {tpl.type === 'overlay' ? <span className="text-pink-500/80">💬 Live Comments + Stats</span> : (tpl.templateData?.properties?.positionY < -200 ? 'Top' : tpl.templateData?.properties?.positionY > 200 ? 'Bottom' : 'Center')}
                             </div>
                         </div>
-                    </div>
-                ))}
+                        </div>
+                        );
+                        if (templateMode === 'frame' && tpl.type === 'overlay' && arr[idx-1]?.type !== 'overlay') {
+                            const divider = (
+                                <div key={`overlay-hdr-${idx}`} className="col-span-full flex items-center gap-2 pt-2 pb-1">
+                                    <div className="h-px flex-1 bg-gradient-to-r from-pink-600/40 to-transparent"></div>
+                                    <span className="text-[9px] font-black text-pink-500 uppercase tracking-widest flex items-center gap-1.5">
+                                        <i className="fa-solid fa-comments text-[8px]"></i>
+                                        Social Media Overlay
+                                    </span>
+                                    <div className="h-px flex-1 bg-gradient-to-l from-pink-600/40 to-transparent"></div>
+                                </div>
+                            );
+                            return [divider, card];
+                        }
+                        return [card];
+                    })}
             </div>
             </>
         )}

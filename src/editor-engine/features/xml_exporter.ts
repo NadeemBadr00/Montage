@@ -11,7 +11,7 @@
  */
 
 window.EditorApp.prototype.downloadXML = async function() {
-    this.log("⏳ Exporting Project 43 to XML (Premiere Pro Optimized)...");
+    this.log("⏳ Exporting AI4Montage to XML (Premiere Pro Optimized)...");
     
     // إعدادات السيكونس الأساسية
     const FPS = 30;
@@ -478,7 +478,7 @@ window.EditorApp.prototype.downloadXML = async function() {
     // 💾 6. التنزيل
     // =========================================================
     
-    let readmeContent = "Project 43 - XML Export\n";
+    let readmeContent = "AI4Montage - XML Export\n";
     usedFiles.forEach((usages, filename) => { readmeContent += `📄 ${filename}\n`; });
 
     const exportModalContent = document.querySelector('#export-modal > div');

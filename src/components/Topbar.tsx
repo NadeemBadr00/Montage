@@ -13,7 +13,7 @@ export default function Topbar({ userData }: TopbarProps) {
     <div className="topbar fade-in">
       {/* Brand */}
       <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#fff', fontSize: '1.4rem', fontWeight: 900, letterSpacing: '-0.5px', textDecoration: 'none' }}>
-        <AnimatedLogo src="/ai4montage_logo.png" size="sm" />
+        <AnimatedLogo src="/ai4montage_logo.webp" size="sm" />
         <span style={{ textShadow: '0 2px 10px rgba(34,211,238,0.2)' }}>AI4Montage</span>
       </Link>
       <div className="tb-greeting">

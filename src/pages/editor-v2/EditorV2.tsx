@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import Timeline from './components/Timeline';
@@ -30,48 +30,79 @@ import '../../editor-engine/main';
 export default function EditorV2() {
   const { userData } = useAuth();
   const { id } = useParams();
+  const [autoSaveLabel, setAutoSaveLabel] = useState<'saved'|'saving'|null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout>|null>(null);
+
+  // Patch AutoSave to show indicator in UI
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const AS = (window as any).AutoSave;
+      if (!AS) return;
+      if (!AS.__patched) {
+        const origPersist = AS.persist.bind(AS);
+        AS.persist = async (key: string, json: string) => {
+          setAutoSaveLabel('saving');
+          await origPersist(key, json);
+          setAutoSaveLabel('saved');
+          if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+          autoSaveTimerRef.current = setTimeout(() => setAutoSaveLabel(null), 3000);
+        };
+        AS.__patched = true;
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const initEngine = async () => {
-      // 1. Init Editor App 
+      // 1. Init Editor App
       if ((window as any).EditorApp && !(window as any).app) {
         try { (window as any).app = new (window as any).EditorApp(); }
         catch (e) { console.error(e); }
       }
 
-      // 2. Read settings from localStorage 
-      if (!id) {
-        window.location.href = '/startup';
-        return;
-      }
-      
+      // 2. Read settings from localStorage
+      if (!id) { window.location.href = '/startup'; return; }
+
       const raw = localStorage.getItem(`${id}_settings`);
-      if (!raw) {
-        // No settings -> redirect back to startup
-        window.location.href = '/startup';
-        return;
-      }
+      if (!raw) { window.location.href = '/startup'; return; }
 
       const settings = JSON.parse(raw);
-      console.log("Starting Engine with settings:", settings);
+      console.log('Starting Engine with settings:', settings);
 
-      // 3. Read video file from IndexedDB (FileStore is always available via import)
+      // ── KEY FIX: detect project change and force re-init ──────────────────
+      const lastId = (window as any).__activeProjectId;
+      if (lastId && lastId !== id) {
+        // New project — reset engine so it loads fresh
+        console.log(`Project changed ${lastId} → ${id}. Re-initializing engine.`);
+        if ((window as any).app) {
+          try { (window as any).app.destroy?.(); } catch {}
+          (window as any).app = null;
+        }
+        (window as any).__pendingVideoFile  = null;
+        (window as any).__pendingExtraFiles = [];
+        // Re-create the app
+        if ((window as any).EditorApp) {
+          try { (window as any).app = new (window as any).EditorApp(); }
+          catch (e) { console.error(e); }
+        }
+      }
+      (window as any).__activeProjectId = id;
+      // ─────────────────────────────────────────────────────────────────────
+
+      // 3. Read video file from IndexedDB
       let videoFile: File | null = null;
       try {
         const fs = (window as any).FileStore;
-        if (fs) {
-          videoFile = await fs.load(`${id}_video`) || null;
-        }
-        // Fallback: use the in-memory reference from Startup (same session, no refresh)
-        if (!videoFile && (window as any).__pendingVideoFile) {
+        if (fs) videoFile = await fs.load(`${id}_video`) || null;
+        if (!videoFile && (window as any).__pendingVideoFile)
           videoFile = (window as any).__pendingVideoFile;
-        }
       } catch(e) {
         console.error('IndexedDB read failed:', e);
         videoFile = (window as any).__pendingVideoFile || null;
       }
 
-      // 4. Start the engine using initProject (which sets up tracks)
+      // 4. Start the engine
       if ((window as any).app) {
         if (!(window as any).app.isInitialized) {
           (window as any).app.initProject(videoFile, settings.mode, settings.autoTranscribe);
@@ -133,6 +164,81 @@ export default function EditorV2() {
             console.error('[EditorV2] Failed to load extra files:', e);
           }
         }, 1500); // بعد تهيئة الـ engine بـ 1.5 ثانية
+
+        // ── 7. AUTO-RESTORE: reload saved timeline state from IndexedDB ──────
+        setTimeout(async () => {
+          try {
+            const AutoSave = (window as any).AutoSave;
+            if (!AutoSave) return;
+
+            const savedJson = await AutoSave.load(`${id}_tracks_state`);
+            if (!savedJson) {
+              console.log('[AutoRestore] No saved state found — starting fresh.');
+              return;
+            }
+
+            const app = (window as any).app;
+            if (!app || !app.restoreState) return;
+
+            // Build a map: file key → object URL for re-linking clip srcs
+            const fs = (window as any).FileStore;
+            const fileUrlMap: Record<string, string> = {};
+
+            if (fs) {
+              // Main video
+              const vFile = await fs.load(`${id}_video`).catch(() => null);
+              if (vFile) fileUrlMap['__main_video__'] = URL.createObjectURL(vFile);
+
+              // Extra files
+              const extraCount = parseInt(localStorage.getItem(`${id}_extra_count`) || '0', 10);
+              for (let i = 0; i < extraCount; i++) {
+                try {
+                  const f = await fs.load(`${id}_extra_${i}`);
+                  if (f) fileUrlMap[`__extra_${i}__`] = URL.createObjectURL(f);
+                } catch (_) {}
+              }
+            }
+
+            // Parse saved JSON and re-link srcs
+            let parsed: any[] = [];
+            try { parsed = JSON.parse(savedJson); } catch { return; }
+
+            // Re-link: any clip src that is an expired blob:// gets replaced
+            // by the fresh object URL from the re-opened file.
+            // Strategy: for video clips, use the main video url;
+            //           for extra clips, match by index ordering.
+            let extraIdx = 0;
+            parsed.forEach((track: any) => {
+              track.clips?.forEach((clip: any) => {
+                if (!clip.src) return;
+                // Text and subtitle clips: src IS the text content — keep as-is
+                if (clip.type === 'text' || clip.type === 'subtitle') return;
+                // If src is a blob URL (will be dead after refresh), re-link
+                if (clip.src.startsWith('blob:')) {
+                  if (clip.type === 'video' && track.type !== 'audio') {
+                    clip.src = fileUrlMap['__main_video__'] || clip.src;
+                  } else if (clip.type === 'audio' && fileUrlMap['__main_video__']) {
+                    // Audio extracted from the same video
+                    clip.src = fileUrlMap['__main_video__'] || clip.src;
+                  } else {
+                    // Extra asset — assign by order
+                    const key = `__extra_${extraIdx}__`;
+                    if (fileUrlMap[key]) { clip.src = fileUrlMap[key]; extraIdx++; }
+                  }
+                }
+              });
+            });
+
+            // Feed back to the engine
+            // Temporarily replace tracks with the saved snapshot
+            app.restoreState(JSON.stringify(parsed));
+            app.log('♻️ تم استعادة التعديلات السابقة تلقائياً');
+            console.log(`[AutoRestore] ✅ Restored ${parsed.length} tracks for project ${id}`);
+          } catch (e) {
+            console.warn('[AutoRestore] Failed to restore state:', e);
+          }
+        }, 2500); // Run AFTER extra files are loaded (step 6 at 1500ms)
+        // ─────────────────────────────────────────────────────────────────────
       }
     };
 
@@ -151,7 +257,7 @@ export default function EditorV2() {
             <i className="fa-solid fa-brain text-xs text-red-500"></i>
           </div>
           <h1 className="text-[13px] font-bold tracking-wide text-gray-200">
-            Project 43 <span className="bg-blue-600 text-white text-[9px] rounded px-1 ml-1 font-mono">AI ULTRA</span>
+            AI4Montage <span className="bg-red-600 text-white text-[9px] rounded px-1 ml-1 font-mono">AI ULTRA</span>
           </h1>
         </div>
         
@@ -210,6 +316,36 @@ export default function EditorV2() {
             onClick={() => (window as any).app?.downloadXML()}
           >
             <i className="fa-solid fa-file-code"></i> XML Export
+          </button>
+
+          {/* AutoSave indicator */}
+          {autoSaveLabel && (
+            <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${
+              autoSaveLabel === 'saving'
+                ? 'bg-yellow-600/20 text-yellow-400 border-yellow-600/40'
+                : 'bg-green-600/20 text-green-400 border-green-600/40'
+            }`}>
+              <div className={`w-1.5 h-1.5 rounded-full ${
+                autoSaveLabel === 'saving' ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'
+              }`}></div>
+              {autoSaveLabel === 'saving' ? 'جاري الحفظ...' : '✓ محفوظ'}
+            </div>
+          )}
+
+          {/* Reset to original button */}
+          <button
+            title="مسح التعديلات والرجوع للمشروع الأصلي"
+            className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-red-400 bg-[#1e293b] px-2 py-1 rounded border border-gray-700 hover:border-red-600/50 transition-all"
+            onClick={async () => {
+              if (!confirm('هتمسح كل التعديلات وترجع للمشروع الأصلي. مش هتقدر ترجع تاني. متأكد؟')) return;
+              const AS = (window as any).AutoSave;
+              if (AS && id) {
+                await AS.delete(`${id}_tracks_state`);
+              }
+              window.location.reload();
+            }}
+          >
+            <i className="fa-solid fa-rotate-left text-[9px]"></i> Reset
           </button>
           
           <button 

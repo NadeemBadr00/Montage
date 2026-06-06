@@ -52,9 +52,21 @@ window.EditorApp.prototype.updateEffectControls = function() {
     }
 
     const panelArea = document.getElementById('pro-features-area');
-    if (!panelArea || this.selectedClipIds.size !== 1) return;
+    if (!panelArea) return;
+    // ✅ Smart group: handle video+audio groupId pair
+    let clipId = null;
+    if (this.selectedClipIds.size === 1) {
+        clipId = Array.from(this.selectedClipIds)[0];
+    } else if (this.selectedClipIds.size > 1) {
+        const allSel = Array.from(this.selectedClipIds).map(id => this.tracks.flatMap(t => t.clips).find(c => c.id === id)).filter(Boolean);
+        const grpIds = [...new Set(allSel.map(c => c.groupId).filter(Boolean))];
+        if (grpIds.length === 1) {
+            const p = allSel.find(c => c.type === 'video') || allSel.find(c => c.type !== 'audio');
+            if (p) clipId = p.id;
+        }
+    }
+    if (!clipId) return;
 
-    const clipId = Array.from(this.selectedClipIds)[0];
     const clip = this.tracks.flatMap(t => t.clips).find(c => c.id === clipId);
     if (!clip) return;
 

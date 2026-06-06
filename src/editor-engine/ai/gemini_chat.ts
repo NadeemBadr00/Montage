@@ -82,18 +82,24 @@ class GeminiChat {
                     const msg = String(error?.message || error);
                     lastGlobalErr = msg;
                     console.warn(`[Chat] Key ...${currentKey.slice(-4)} Model ${modelName} failed: ${msg}`);
-                    
+
+                    // ✅ Immediately ban keys that are permanently broken (suspended/exhausted)
+                    const isSuspended = msg.includes('CONSUMER_SUSPENDED') || msg.includes('403');
+                    const isExhausted = msg.includes('limit: 0') || msg.includes('quota') && msg.includes('day');
+                    if (isSuspended || isExhausted) {
+                        BrainInstance.banKey(currentKey);
+                    }
+
                     if (msg.startsWith('BLOCKED:')) {
                         if (window.app?.log) window.app.log(`🚫 [المساعد/Chat] تم حجب الرد أمنياً (Safety Filter)`);
                         throw error; // Safety block is terminal
                     }
-                    
+
                     // If it's a 400 Bad Request payload error (e.g. invalid prompt), switching keys won't help.
-                    // But if it's 429 or 403, we should try the next key.
                     if (msg.includes('400') && !msg.includes('API key')) {
                         throw new Error(`❌ Bad Request Error: ${msg}`);
                     }
-                    
+
                     // Otherwise, continue to the next key
                 }
             }
@@ -343,7 +349,30 @@ ${JSON.stringify(state)}
             }
         } catch(e) {
             console.error(e);
-            this.pushMessage('error', 'حدث خطأ في الاتصال بالذكاء الاصطناعي.');
+            const errMsg = String(e?.message || e);
+            const isExhausted = errMsg.includes('Keys Exhausted');
+            if (isExhausted) {
+                // Check if user has a personal key set
+                const hasUserKey = !!(document.getElementById('ai4montage-api-key')?.value?.trim()
+                                   || document.getElementById('gemini-api-key')?.value?.trim());
+                if (!hasUserKey) {
+                    this.pushMessage('ai',
+                        '⚠️ **انتهى رصيد مفاتيح AI المدمجة.**\n\n' +
+                        'لمتابعة الاستخدام، أضف **مفتاحك الشخصي** من Google AI Studio:\n' +
+                        '1️⃣ افتح [aistudio.google.com](https://aistudio.google.com/apikey)\n' +
+                        '2️⃣ أنشئ مفتاح API مجاني\n' +
+                        '3️⃣ الصقه في حقل **🔑 Personal API Key** في الإعدادات\n\n' +
+                        '_المفتاح الشخصي لا يُرسَل لأي خادم — يبقى في متصفحك فقط._'
+                    );
+                    // Auto-show the API key input if it exists
+                    const keySection = document.getElementById('api-key-section') || document.getElementById('ai-settings-section');
+                    if (keySection) keySection.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    this.pushMessage('error', '⚠️ مفتاح API الشخصي الخاص بك أيضاً وصل الحد الأقصى. حاول لاحقاً أو استخدم مفتاحاً آخر.');
+                }
+            } else {
+                this.pushMessage('error', 'حدث خطأ في الاتصال بالذكاء الاصطناعي. تحقق من اتصالك بالإنترنت وأعد المحاولة.');
+            }
         } finally {
             this.setThinking(false);
         }

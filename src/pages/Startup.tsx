@@ -1,13 +1,15 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
 import {
-  UploadCloud, FileVideo, Image, Music, AlertCircle, Wand2,
-  Sliders, Check, X, Zap, Brain, ArrowLeft, Sparkles, FolderOpen, Trash2
+  UploadCloud, FileVideo, Image as ImageIcon, Music, AlertCircle, Wand2,
+  Scissors, X, ArrowLeft, User, Film, ImagePlay, AudioLines, MousePointer2
 } from 'lucide-react';
-import { AnimatedLogo } from '../components/ui/AnimatedLogo';
 import { useFileStore } from '../hooks/useFileStore';
+import { useAuth } from '../hooks/useAuth';
+
+
 
 // ─── Particle burst ──────────────────────────────────────────────────────────
 function useParticleBurst() {
@@ -45,38 +47,132 @@ function useParticleBurst() {
   return burst;
 }
 
-// ─── Suggestion Chips ────────────────────────────────────────────────────────
-const CHIPS = [
-  { label: 'Cinematic', category: 'style' },
-  { label: 'Slow Motion', category: 'effect' },
-  { label: 'Energetic', category: 'style' },
-  { label: 'Color Grade', category: 'style' },
-  { label: 'Epic Music', category: 'audio' },
-  { label: 'Zoom In', category: 'camera' },
-  { label: 'Vintage', category: 'style' },
-  { label: 'Social Media', category: 'camera' },
-];
-const CHIP_COLORS: Record<string, string> = {
-  camera: '#22d3ee', style: '#d946ef', effect: '#818cf8', audio: '#34d399',
-};
-
-// ─── File type helper ────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────
 function getFileIcon(file: File) {
   if (file.type.startsWith('video/')) return <FileVideo className="w-4 h-4 text-cyan-400" />;
-  if (file.type.startsWith('image/')) return <Image className="w-4 h-4 text-fuchsia-400" />;
+  if (file.type.startsWith('image/')) return <ImageIcon className="w-4 h-4 text-fuchsia-400" />;
   if (file.type.startsWith('audio/')) return <Music className="w-4 h-4 text-green-400" />;
   return <FileVideo className="w-4 h-4 text-slate-400" />;
-}
-function getFileColor(file: File) {
-  if (file.type.startsWith('video/')) return 'border-cyan-500/40 bg-cyan-500/10';
-  if (file.type.startsWith('image/')) return 'border-fuchsia-500/40 bg-fuchsia-500/10';
-  if (file.type.startsWith('audio/')) return 'border-green-500/40 bg-green-500/10';
-  return 'border-slate-500/40 bg-slate-500/10';
 }
 function formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+// ─── Animated Logo with Typewriter ───────────────────────────────────────────
+function AnimatedLogo() {
+  const [hovered,   setHovered]   = useState(false);
+  const [displayed, setDisplayed] = useState('');
+  const FULL_TEXT = 'AI4Montage';
+
+  useEffect(() => {
+    if (!hovered) { setDisplayed(''); return; }
+    let i = 0;
+    setDisplayed('');
+    const iv = setInterval(() => {
+      i++;
+      setDisplayed(FULL_TEXT.slice(0, i));
+      if (i >= FULL_TEXT.length) clearInterval(iv);
+    }, 60);
+    return () => clearInterval(iv);
+  }, [hovered]);
+
+  return (
+    <div
+      className="flex items-center gap-2 cursor-pointer select-none"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Icon — spins 360° on hover */}
+      <div
+        className="w-10 h-10 flex-shrink-0"
+        style={{
+          transition: 'transform 0.55s cubic-bezier(0.34,1.56,0.64,1)',
+          transform: hovered ? 'rotate(360deg) scale(1.18)' : 'rotate(0deg) scale(1)',
+        }}
+      >
+        <img src="/ai4montage_logo.png" alt="AI4Montage" className="w-full h-full object-contain" />
+      </div>
+
+      {/* Typewriter text container */}
+      <div
+        style={{
+          width: hovered ? `${FULL_TEXT.length * 9.8}px` : '0px',
+          opacity: hovered ? 1 : 0,
+          overflow: 'hidden',
+          transition: 'width 0.1s, opacity 0.2s',
+        }}
+      >
+        <span className="text-white font-bold text-sm tracking-widest whitespace-nowrap font-mono">
+          {displayed}
+          {displayed.length < FULL_TEXT.length && (
+            <span style={{ animation: 'blink 0.7s step-end infinite', color: '#ef4444' }}>|</span>
+          )}
+        </span>
+      </div>
+
+      <style>{`@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }`}</style>
+    </div>
+  );
+}
+
+// ─── User Avatar — uses existing useAuth hook ─────────────────────────────
+function UserAvatar() {
+  const { userData } = useAuth();
+  const photo = userData?.photo || '';
+  const name  = userData?.name  || '';
+
+  return (
+    <div className="flex items-center gap-2.5 mr-1">
+      {name && (
+        <span className="text-slate-300 text-xs font-medium hidden sm:block max-w-[120px] truncate">{name}</span>
+      )}
+      <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-slate-500 flex-shrink-0 bg-slate-800">
+        {photo
+          ? <img
+              src={photo}
+              alt={name}
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                const el = e.target as HTMLImageElement;
+                el.onerror = null;
+                el.src = '/ai4montage_logo.png';
+                el.className = 'w-full h-full object-contain p-1';
+              }}
+            />
+          : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-300">
+              {name ? name[0].toUpperCase() : '?'}
+            </div>
+        }
+      </div>
+    </div>
+  );
+}
+
+// ─── Horizontal Format Badges (Bottom Bar) ──────────────────────────────────
+const HorizontalBadges = () => (
+  <div className="flex items-center gap-4 flex-wrap" dir="ltr">
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg" style={{ background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)' }}>
+      <Film className="w-3.5 h-3.5 text-cyan-400" />
+      <div className="flex items-center gap-1">
+        {['MP4', 'MOV', 'WebM'].map(f => <span key={f} className="text-cyan-300 text-[10px] font-medium px-1">{f}</span>)}
+      </div>
+    </div>
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg" style={{ background: 'rgba(217,70,239,0.1)', border: '1px solid rgba(217,70,239,0.2)' }}>
+      <ImagePlay className="w-3.5 h-3.5 text-fuchsia-400" />
+      <div className="flex items-center gap-1">
+        {['PNG', 'JPG', 'WebP'].map(f => <span key={f} className="text-fuchsia-300 text-[10px] font-medium px-1">{f}</span>)}
+      </div>
+    </div>
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)' }}>
+      <AudioLines className="w-3.5 h-3.5 text-emerald-400" />
+      <div className="flex items-center gap-1">
+        {['MP3', 'WAV', 'AAC'].map(f => <span key={f} className="text-emerald-300 text-[10px] font-medium px-1">{f}</span>)}
+      </div>
+    </div>
+  </div>
+);
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function Startup() {
@@ -86,11 +182,9 @@ export default function Startup() {
 
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState('');
-  const [prompt, setPrompt] = useState('');
-  const [activeChips, setActiveChips] = useState<string[]>([]);
+  const [prompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // ─── Dropzone: قبول صور + فيديوهات + صوت ───────────────────────────────
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
       'video/*': ['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v'],
@@ -99,389 +193,357 @@ export default function Startup() {
     },
     maxFiles: 50,
     onDrop: (accepted, rejected) => {
-      if (accepted.length > 0) {
-        setFiles(prev => {
-          const existingNames = new Set(prev.map(f => f.name));
-          const newFiles = accepted.filter(f => !existingNames.has(f.name));
-          return [...prev, ...newFiles];
-        });
-        setError('');
-      }
       if (rejected.length > 0) {
-        setError('بعض الملفات غير مدعومة. استخدم MP4, MOV, JPG, PNG, MP3 فقط.');
+        setError(`${rejected.length} ملف غير مدعوم أو تجاوز الحد`);
+        setTimeout(() => setError(''), 3000);
       }
-    }
+      setFiles(prev => [...prev, ...accepted].slice(0, 50));
+    },
   });
 
-  const removeFile = (idx: number) => setFiles(prev => prev.filter((_, i) => i !== idx));
-  const clearAll = () => setFiles([]);
+  const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+  const removeFile = (i: number) => setFiles(prev => prev.filter((_, idx) => idx !== i));
+  const clearAll   = () => setFiles([]);
 
-  const toggleChip = (label: string) => {
-    setActiveChips(prev => prev.includes(label) ? prev.filter(c => c !== label) : [...prev, label]);
-    if (!activeChips.includes(label)) {
-      setPrompt(p => p ? `${p}, ${label.toLowerCase()}` : label.toLowerCase());
-    }
-  };
 
-  // إحصائيات الملفات
-  const videoFiles = files.filter(f => f.type.startsWith('video/'));
-  const imageFiles = files.filter(f => f.type.startsWith('image/'));
-  const audioFiles = files.filter(f => f.type.startsWith('audio/'));
-  const totalSize = files.reduce((s, f) => s + f.size, 0);
-
-  // ─── Start Project ────────────────────────────────────────────────────────
-  const startProject = async (mode: 'manual' | 'sandwich') => {
-    if (files.length === 0) { setError('ارفع ملفاً واحداً على الأقل قبل البدء.'); return; }
-    if (videoFiles.length === 0 && mode === 'sandwich') {
-      setError('Sandwich AI Mode يحتاج فيديو واحد على الأقل.');
+  const startProject = async (mode: 'sandwich' | 'manual') => {
+    if (files.length === 0) {
+      setError('ارفع ملف واحد على الأقل لتبدأ');
+      setTimeout(() => setError(''), 3000);
       return;
     }
     setIsLoading(true);
-    setError('');
-
     try {
-      const projectId = 'proj_' + Math.random().toString(36).slice(2, 10);
+      const projectId = `proj_${Date.now()}`;
 
-      // 1. حفظ الـ settings
-      const settings = {
+      // Save all files to IndexedDB
+      await Promise.all(
+        files.map((file, i) => fileStore.save(`${projectId}_${i}`, file))
+      );
+
+      // Save primary video as projectId_video (what EditorV2 loads)
+      const videoFile = files.find(f => f.type.startsWith('video/')) || files[0];
+      if (videoFile) await fileStore.save(`${projectId}_video`, videoFile);
+
+      // Save settings under the key EditorV2 reads: ${projectId}_settings
+      localStorage.setItem(`${projectId}_settings`, JSON.stringify({
         mode,
-        autoTranscribe: mode === 'sandwich',
-        hasSRT: false,
-        prompt: prompt.trim() || null,
+        autoTranscribe: false,
         fileCount: files.length,
-      };
-      localStorage.setItem(`${projectId}_settings`, JSON.stringify(settings));
+        createdAt: Date.now(),
+      }));
 
-      // 1.5. حفظ في سجل المشاريع
-      const projectsStr = localStorage.getItem('ai4montage_projects');
-      const projects = projectsStr ? JSON.parse(projectsStr) : [];
-      projects.push({
-        id: projectId,
-        name: `Project ${projects.length + 1}`,
-        date: new Date().toISOString(),
-        mode,
-        fileCount: files.length
-      });
-      localStorage.setItem('ai4montage_projects', JSON.stringify(projects));
+      // Also save current project info
+      localStorage.setItem('p43_current_project', JSON.stringify({
+        id: projectId, mode,
+        createdAt: Date.now(), fileCount: files.length,
+      }));
 
-
-      // 2. حفظ كل الملفات في IndexedDB
-      // الفيديو الأول هو الـ main video للـ engine
-      const mainVideo = videoFiles[0] || null;
-      if (mainVideo) {
-        await fileStore.save(`${projectId}_video`, mainVideo);
+      // Clear old engine state so EditorV2 re-initializes cleanly
+      if ((window as any).app) {
+        try { (window as any).app.destroy?.(); } catch {}
+        (window as any).app = null;
       }
+      (window as any).__activeProjectId   = null;
+      (window as any).__pendingVideoFile  = null;
+      (window as any).__pendingExtraFiles = [];
 
-      // حفظ كل الملفات الإضافية بمفاتيح منفصلة
-      const extraFiles = mainVideo ? files.filter(f => f !== mainVideo) : files;
-      for (let i = 0; i < extraFiles.length; i++) {
-        await fileStore.save(`${projectId}_extra_${i}`, extraFiles[i]);
-      }
-      // حفظ عدد الملفات الإضافية
-      localStorage.setItem(`${projectId}_extra_count`, String(extraFiles.length));
+      navigate(`/editor/${projectId}?mode=${mode}`);
 
-      // 3. Refs للـ engine
-      (window as any).__pendingVideoFile = mainVideo;
-      (window as any).__pendingMode = mode;
-      (window as any).__pendingExtraFiles = extraFiles;
-
-      navigate(`/editor/${projectId}`);
     } catch (err) {
-      console.error('Failed to start project:', err);
-      setError('حدث خطأ أثناء حفظ الملفات، حاول مرة أخرى.');
+      console.error('Save error:', err);
+      setError('حدث خطأ في حفظ الملفات. حاول مرة أخرى.');
       setIsLoading(false);
     }
   };
 
   return (
-    <>
-      <canvas
-        id="particle-canvas"
-        className="fixed inset-0 z-50 pointer-events-none"
+    <div className="min-h-screen flex flex-col font-sans" dir="ltr" style={{ background: '#111319', color: '#e2e8f0' }}>
+      
+      {/* Particle Canvas */}
+      <canvas id="particle-canvas" className="fixed inset-0 pointer-events-none z-50"
         style={{ width: '100vw', height: '100vh' }}
-        width={typeof window !== 'undefined' ? window.innerWidth : 1920}
-        height={typeof window !== 'undefined' ? window.innerHeight : 1080}
-      />
+        ref={c => { if (c) { c.width = window.innerWidth; c.height = window.innerHeight; } }} />
 
-      <div className="min-h-screen font-sans" dir="ltr" style={{ background: 'radial-gradient(ellipse at 60% 0%, #0f1a2e 0%, #050810 50%, #000000 100%)' }}>
+      {/* Global Background Glows */}
+      <div className="fixed inset-0 pointer-events-none -z-10"
+        style={{
+          background: 'radial-gradient(circle at 85% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%), radial-gradient(circle at 15% 50%, rgba(34, 211, 238, 0.04) 0%, transparent 40%)'
+        }} />
 
-        {/* Background orbs */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <motion.div className="absolute rounded-full blur-3xl"
-            style={{ width: 600, height: 600, background: 'radial-gradient(circle, rgba(34,211,238,0.12) 0%, transparent 70%)', top: '-200px', right: '-100px' }}
-            animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
-            transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }} />
-          <motion.div className="absolute rounded-full blur-3xl"
-            style={{ width: 400, height: 400, background: 'radial-gradient(circle, rgba(217,70,239,0.12) 0%, transparent 70%)', bottom: '10%', left: '5%' }}
-            animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.7, 0.4] }}
-            transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 2 }} />
+      {/* ─── Top Navigation ─── */}
+      <nav className="h-14 flex items-center justify-between px-8 border-b z-40"
+        style={{ background: 'rgba(17, 19, 25, 0.95)', backdropFilter: 'blur(16px)', borderColor: 'rgba(255,255,255,0.07)' }}>
+
+        {/* LEFT: Back + Breadcrumb */}
+        <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
+          <Link to="/" className="hover:text-white flex items-center gap-1.5 transition-colors group">
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+            <span>Back to Home</span>
+          </Link>
+          <div className="w-px h-4 bg-slate-700" />
+          <Link to="/projects" className="hover:text-white transition-colors">
+            My Projects
+          </Link>
+          <span className="text-slate-600">/</span>
+          <span className="text-slate-400" dir="rtl">مشاريعي</span>
         </div>
 
-        {/* Nav */}
-        <nav className="relative z-20 px-6 py-5 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3 group" style={{ textDecoration: 'none' }}>
-            <AnimatedLogo size="sm" />
-            <span className="text-white font-black text-xl tracking-tight group-hover:text-cyan-400 transition-colors">AI4Montage</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link to="/projects" className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-white rounded-xl transition-colors border border-slate-700/50 text-sm font-medium" style={{ textDecoration: 'none' }}>
-              <FolderOpen className="w-4 h-4 text-cyan-400" /> <span dir="rtl">مشاريعي</span>
-            </Link>
-            <Link to="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium" style={{ textDecoration: 'none' }}>
-              <ArrowLeft className="w-4 h-4" /> Back to Home
-            </Link>
-          </div>
-        </nav>
+        {/* RIGHT: Logo + name | name + photo */}
+        <div className="flex items-center gap-4 flex-shrink-0">
+          {/* AI4Montage Animated Logo */}
+          <AnimatedLogo />
 
-        {/* Main layout */}
-        <div className="relative z-10 min-h-[calc(100vh-80px)] flex flex-col lg:flex-row items-stretch gap-0 max-w-7xl mx-auto px-4 pb-10">
+          {/* Divider */}
+          <div className="w-px h-5 bg-slate-700" />
 
-          {/* LEFT: Visual */}
-          <motion.div
-            initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full lg:w-1/2 flex flex-col items-center justify-center py-10 lg:py-0 lg:pr-10"
-          >
-            <div className="relative w-full max-w-md">
-              <motion.div className="absolute inset-0 rounded-[2.5rem] blur-3xl"
-                style={{ background: 'conic-gradient(from 0deg, rgba(217,70,239,0.4), rgba(34,211,238,0.4), rgba(99,102,241,0.4), rgba(217,70,239,0.4))' }}
-                animate={{ rotate: 360 }} transition={{ duration: 10, repeat: Infinity, ease: 'linear' }} />
-              <motion.video src="/vidMotion1.mp4" autoPlay loop muted playsInline
-                className="relative z-10 w-full rounded-[2rem] shadow-2xl border border-white/10 object-cover"
-                animate={{ y: [-6, 6, -6] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }} />
-              <motion.div className="absolute -top-4 -right-4 z-20 px-4 py-2 rounded-2xl border border-yellow-500/40 bg-yellow-500/10 backdrop-blur-xl"
-                animate={{ y: [-3, 3, -3] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}>
-                <span className="text-cyan-400 text-sm font-black">✦ AI4Montage</span>
-              </motion.div>
-              <motion.div className="absolute -bottom-4 -left-4 z-20 px-4 py-3 rounded-2xl border border-cyan-500/30 bg-slate-900/80 backdrop-blur-xl"
-                animate={{ y: [3, -3, 3] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1 }}>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-slate-300 text-xs font-bold">Edge AI — Running Locally</span>
+          {/* User: Name THEN Photo (photo on far right edge) */}
+          <UserAvatar />
+        </div>
+      </nav>
+
+      {/* ─── Main Content ─── */}
+      <main className="flex-1 flex flex-col lg:flex-row px-8 py-6 gap-6 overflow-hidden max-w-[1600px] mx-auto w-full">
+        
+        {/* LEFT COLUMN: Media Hub */}
+        <div className="flex-[1.8] flex flex-col min-w-0">
+          <h1 className="text-[22px] font-bold text-white mb-4 tracking-wide">Media Hub</h1>
+          
+          <div className="flex-1 flex flex-col xl:flex-row gap-4">
+            
+            {/* ══ CARD 1: Upload Assets ══ */}
+            <div className="flex-[0.8] flex flex-col">
+              <h2 className="text-sm font-semibold text-slate-200 mb-3">1. Upload Your Media Assets</h2>
+              
+              <div className="flex-1 rounded-[20px] p-6 flex flex-col relative"
+                style={{ background: '#1c1e26', border: '1px solid rgba(255,255,255,0.06)' }}>
+                
+                {/* Dropzone */}
+                <div {...getRootProps()} className="relative cursor-pointer group mb-6 flex-1 min-h-[220px]">
+                  <input {...getInputProps()} />
+                  <div className="absolute inset-0 rounded-[16px] flex flex-col items-center justify-center transition-all"
+                    style={{
+                      border: isDragActive ? '2px dashed rgba(34,211,238,0.5)' : files.length > 0 ? '2px dashed rgba(217,70,239,0.3)' : '2px dashed rgba(255,255,255,0.1)',
+                      background: isDragActive ? 'rgba(34,211,238,0.03)' : 'rgba(255,255,255,0.01)',
+                    }}>
+                    
+                    {/* Upload Icon - transparent PNG */}
+                    <div className="w-56 h-56 mb-4 flex-shrink-0">
+                      <img src="/upload_icon.png" alt="Upload" className="w-full h-full object-contain drop-shadow-2xl" />
+                    </div>
+
+                    <h4 className="text-white font-medium text-sm mb-1.5">Drag files here or click to select</h4>
+                    <p className="text-slate-400 text-xs" dir="rtl">اسحب ملفاتك أو اضغط للاختيار</p>
+                  </div>
                 </div>
-              </motion.div>
-            </div>
 
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.6 }} className="text-center mt-10 max-w-md">
-              <h1 className="text-4xl font-black text-white tracking-tight leading-tight mb-3">
-                Start Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500">AI Project</span>
-              </h1>
-              <p className="text-slate-400 text-base leading-relaxed" dir="rtl">
-                ارفع مشروعك كاملاً — فيديوهات وصور وصوت. الـ AI بيحللهم كلهم ويمنتجهم تلقائياً.
-              </p>
+                {/* Divider */}
+                <div className="flex items-center gap-4 mb-5">
+                  <div className="flex-1 h-px bg-white/5" />
+                  <span className="text-slate-400 text-[11px] font-semibold uppercase tracking-widest">Asset Type</span>
+                  <div className="flex-1 h-px bg-white/5" />
+                </div>
 
-              {/* Stats badges */}
-              <div className="flex items-center justify-center gap-3 mt-5 flex-wrap">
-                {[
-                  { icon: '🎬', label: 'فيديو', color: '#22d3ee', accept: 'MP4, MOV, WebM' },
-                  { icon: '🖼️', label: 'صور', color: '#d946ef', accept: 'JPG, PNG, WebP' },
-                  { icon: '🎵', label: 'صوت', color: '#34d399', accept: 'MP3, WAV, AAC' },
-                ].map(b => (
-                  <div key={b.label} className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold border"
-                    style={{ borderColor: `${b.color}40`, background: `${b.color}15`, color: b.color }}>
-                    <span>{b.icon}</span>
-                    <div className="text-left">
-                      <div>{b.label}</div>
-                      <div className="opacity-60 font-normal">{b.accept}</div>
+                {/* Vertical Asset Types */}
+                <div className="flex flex-col gap-3 pl-2" dir="ltr">
+                  {/* Video */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-cyan-500/10 border border-cyan-500/20">
+                      <Film className="w-3.5 h-3.5 text-cyan-400" />
                     </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          </motion.div>
-
-          <div className="hidden lg:block w-px bg-gradient-to-b from-transparent via-white/10 to-transparent my-8" />
-
-          {/* RIGHT: Upload Panel */}
-          <motion.div
-            initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
-            className="w-full lg:w-1/2 flex flex-col justify-center py-10 lg:py-0 lg:pl-10"
-          >
-            <div className="bg-slate-900/60 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 shadow-2xl space-y-5">
-
-              {/* Step 1: Upload */}
-              <div dir="rtl" className="text-right">
-                <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">Step 1</p>
-                <h2 className="text-2xl font-black text-white" dir="ltr" style={{ textAlign: 'right' }}>Upload Your Project</h2>
-                <p className="text-slate-500 text-sm mt-1">فيديوهات + صور + صوت — كلهم مع بعض</p>
-              </div>
-
-              {/* Dropzone */}
-              <div {...getRootProps()} className="relative overflow-hidden rounded-2xl cursor-pointer group">
-                <input {...getInputProps()} />
-                <motion.div
-                  animate={isDragActive ? { scale: 1.02 } : { scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                  className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all duration-300
-                    ${isDragActive ? 'border-cyan-400 bg-cyan-900/20' : files.length > 0 ? 'border-fuchsia-500/50 bg-fuchsia-900/10' : 'border-slate-700 hover:border-fuchsia-500/50 hover:bg-slate-800/30'}`}
-                >
-                  <AnimatePresence>
-                    {isDragActive && (
-                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="absolute inset-0 rounded-2xl"
-                        style={{ background: 'radial-gradient(ellipse at center, rgba(34,211,238,0.15) 0%, transparent 70%)' }} />
-                    )}
-                  </AnimatePresence>
-
-                  <div className="flex flex-col items-center gap-3">
-                    <motion.div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center group-hover:bg-slate-700 group-hover:border-fuchsia-500/40 transition-all"
-                      animate={{ y: [0, -4, 0] }} transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}>
-                      <FolderOpen className="w-7 h-7 text-slate-300 group-hover:text-fuchsia-400 transition-colors" />
-                    </motion.div>
-                    <div>
-                      <h4 className="text-white font-bold text-sm mb-0.5">
-                        {isDragActive ? 'اسحب هنا...' : 'اسحب ملفاتك أو اضغط للاختيار'}
-                      </h4>
-                      <p className="text-slate-500 text-xs">فيديو + صور + صوت — حتى 50 ملف</p>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-
-              {/* File list */}
-              <AnimatePresence>
-                {files.length > 0 && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
-                    {/* Stats bar */}
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3 text-xs text-slate-400">
-                        {videoFiles.length > 0 && <span className="text-cyan-400 font-bold">🎬 {videoFiles.length} فيديو</span>}
-                        {imageFiles.length > 0 && <span className="text-fuchsia-400 font-bold">🖼️ {imageFiles.length} صورة</span>}
-                        {audioFiles.length > 0 && <span className="text-green-400 font-bold">🎵 {audioFiles.length} صوت</span>}
-                        <span className="text-slate-500">({formatSize(totalSize)})</span>
-                      </div>
-                      <button onClick={clearAll} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors">
-                        <Trash2 className="w-3 h-3" /> مسح الكل
-                      </button>
-                    </div>
-
-                    {/* File list scrollable */}
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' }}>
-                      {files.map((f, i) => (
-                        <motion.div key={`${f.name}-${i}`}
-                          initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.03 }}
-                          className={`flex items-center gap-3 px-3 py-2 rounded-xl border ${getFileColor(f)}`}
-                        >
-                          <div className="flex-shrink-0">{getFileIcon(f)}</div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-xs font-bold truncate">{f.name}</p>
-                            <p className="text-slate-500 text-[10px]">{formatSize(f.size)}</p>
-                          </div>
-                          <button onClick={() => removeFile(i)}
-                            className="flex-shrink-0 w-5 h-5 rounded-md bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400 hover:bg-red-500/30 transition-colors">
-                            <X className="w-3 h-3" />
-                          </button>
-                        </motion.div>
+                    <div className="flex gap-2">
+                      {['MP4', 'MOV', 'WebM'].map(f => (
+                        <span key={f} className="px-2.5 py-1 rounded-full text-[10px] font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/20">{f}</span>
                       ))}
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Error */}
-              <AnimatePresence>
-                {error && (
-                  <motion.p initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                    className="flex items-center gap-2 text-red-400 text-sm font-medium bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
-                  </motion.p>
-                )}
-              </AnimatePresence>
-
-              {/* Step 2: Prompt */}
-              <div dir="rtl" className="text-right">
-                <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-3">Step 2 — وصف رؤيتك (اختياري)</p>
-                <div className="relative">
-                  <Sparkles className="absolute right-4 top-3.5 w-4 h-4 text-fuchsia-400" />
-                  <textarea value={prompt} onChange={e => setPrompt(e.target.value)}
-                    placeholder="احكيلي الستايل اللي عايزه... (سينمائي، طاقة عالية، وثائقي...)"
-                    rows={2}
-                    className="w-full bg-slate-800/60 border border-slate-700 rounded-2xl pr-10 pl-4 py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-fuchsia-500/60 focus:bg-slate-800 transition-all resize-none" />
-                </div>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {CHIPS.map(chip => {
-                    const isActive = activeChips.includes(chip.label);
-                    const color = CHIP_COLORS[chip.category];
-                    return (
-                      <motion.button key={chip.label} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                        onClick={() => toggleChip(chip.label)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border"
-                        style={{ background: isActive ? `${color}20` : 'rgba(30,41,59,0.6)', borderColor: isActive ? `${color}60` : 'rgba(71,85,105,0.5)', color: isActive ? color : '#94a3b8' }}>
-                        {isActive && <Check className="w-3 h-3" />} {chip.label}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Step 3: Mode */}
-              <div dir="rtl" className="text-right">
-                <p className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-3">Step 3 — اختر الوضع</p>
-                <div className="space-y-3">
-
-                  {/* Sandwich AI Mode */}
-                  <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-                    onClick={(e) => { if (!isLoading) { burst(e); startProject('sandwich'); } }}
-                    disabled={isLoading}
-                    className="w-full relative group overflow-hidden rounded-2xl"
-                  >
-                    <div className="absolute inset-0 rounded-2xl p-[1.5px]">
-                      <motion.div className="absolute inset-0 rounded-2xl"
-                        style={{ background: 'conic-gradient(from 0deg, #22d3ee, #d946ef, #818cf8, #22d3ee)' }}
-                        animate={{ rotate: 360 }} transition={{ duration: 4, repeat: Infinity, ease: 'linear' }} />
+                  </div>
+                  {/* Image */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-fuchsia-500/10 border border-fuchsia-500/20">
+                      <ImagePlay className="w-3.5 h-3.5 text-fuchsia-400" />
                     </div>
-                    <div className="relative m-[1.5px] bg-slate-900 rounded-[14px] p-5 flex items-center justify-between group-hover:bg-slate-800/80 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-fuchsia-500/30 to-cyan-500/30 border border-fuchsia-500/40 flex items-center justify-center">
-                          {isLoading
-                            ? <svg className="w-6 h-6 text-fuchsia-400 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                            : <Wand2 className="w-6 h-6 text-fuchsia-400" />
-                          }
-                        </div>
-                        <div className="text-right flex-1">
-                          <h3 className="text-white font-black text-lg flex items-center gap-2 justify-start flex-row-reverse">
-                            {isLoading ? 'جاري الحفظ...' : <>
-                              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-400">AI Mode</span> Sandwich
-                              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30">Recommended</span>
-                            </>}
-                          </h3>
-                          <p className="text-slate-400 text-sm">
-                            {isLoading ? `حفظ ${files.length} ملف...` : 'AI يحلل ويمنتج كل ملفاتك تلقائياً'}
-                          </p>
-                        </div>
+                    <div className="flex gap-2">
+                      {['PNG', 'JPG', 'WebP'].map(f => (
+                        <span key={f} className="px-2.5 py-1 rounded-full text-[10px] font-bold text-fuchsia-300 bg-fuchsia-500/10 border border-fuchsia-500/20">{f}</span>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Audio */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20">
+                      <AudioLines className="w-3.5 h-3.5 text-emerald-400" />
+                    </div>
+                    <div className="flex gap-2">
+                      {['MP3', 'WAV', 'AAC'].map(f => (
+                        <span key={f} className="px-2.5 py-1 rounded-full text-[10px] font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20">{f}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* File List */}
+                <AnimatePresence>
+                  {files.length > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute inset-x-6 bottom-6 bg-[#16181f] border border-white/10 rounded-xl p-3 shadow-2xl z-10">
+                      <div className="flex justify-between items-center mb-2 px-1">
+                        <span className="text-xs font-semibold text-slate-300">{files.length} files <span className="text-slate-500">({formatSize(totalSize)})</span></span>
+                        <button onClick={clearAll} className="text-xs text-red-400 hover:underline">Clear</button>
                       </div>
-                      <motion.div className="text-slate-500 group-hover:text-cyan-400 transition-colors"
-                        animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}>
-                        <Zap className="w-5 h-5" />
-                      </motion.div>
-                    </div>
-                  </motion.button>
-
-                  {/* Manual Mode */}
-                  <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
-                    onClick={(e) => { if (!isLoading) { burst(e); startProject('manual'); } }}
-                    disabled={isLoading}
-                    className="w-full flex items-center gap-4 p-5 rounded-2xl border border-slate-700/50 bg-slate-800/30 hover:bg-slate-800/60 hover:border-slate-600 transition-all group"
-                  >
-                    <Brain className="w-5 h-5 text-slate-600 group-hover:text-slate-400 transition-colors" />
-                    <div className="text-right flex-1">
-                      <h3 className="text-slate-300 font-bold group-hover:text-white transition-colors">Manual Mode</h3>
-                      <p className="text-slate-500 text-sm">تحكم كامل في التايم لاين بدون AI</p>
-                    </div>
-                    <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500 group-hover:text-indigo-400 group-hover:border-indigo-500/40 transition-colors">
-                      <Sliders className="w-6 h-6" />
-                    </div>
-                  </motion.button>
-                </div>
+                      <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                        {files.map((f, i) => (
+                          <div key={i} className="flex items-center gap-2.5 px-2 py-1.5 rounded-md bg-white/5 border border-white/5">
+                            {getFileIcon(f)}
+                            <p className="flex-1 text-[11px] font-medium text-slate-300 truncate">{f.name}</p>
+                            <button onClick={() => removeFile(i)} className="text-slate-500 hover:text-red-400"><X className="w-3 h-3" /></button>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                {error && <div className="mt-4 text-xs font-medium text-red-400 text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20">{error}</div>}
               </div>
-
             </div>
-          </motion.div>
+
+            {/* ══ CARD 2: Choose Workflow ══ */}
+            <div className="flex-[1.2] flex flex-col">
+              <h2 className="text-sm font-semibold text-slate-200 mb-3">2. Choose Your Workflow</h2>
+
+              <div className="flex-1 flex flex-col sm:flex-row gap-4">
+
+                {/* ── MODE A: PRO-AUTOMATE ── */}
+                <button
+                  onClick={(e) => { if (!isLoading) { burst(e); startProject('sandwich'); } }}
+                  disabled={isLoading}
+                  className="flex-1 rounded-[20px] p-6 flex flex-col items-center relative overflow-hidden group transition-all"
+                  style={{ background: '#1c1e26', border: '1px solid rgba(255,255,255,0.06)' }}>
+
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                    style={{ border: '1px solid rgba(217,70,239,0.5)', borderRadius: '20px', boxShadow: 'inset 0 0 30px rgba(217,70,239,0.05)' }} />
+
+                  {/* Recommended Badge */}
+                  <div className="mb-4">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold text-[#eab308] bg-[#eab308]/10 border border-[#eab308]/20">
+                      ⭐ Recommended
+                    </span>
+                  </div>
+
+                  <h3 className="text-[#eab308] font-black text-sm mb-1 uppercase tracking-wide">PRO-AUTOMATE AI STACK</h3>
+                  <p className="text-slate-500 text-[11px] font-medium mb-6">(AI "Sandwich")</p>
+
+                  {/* Sandwich Layers - transparent PNG */}
+                  <div className="w-full h-56 mb-6 flex-shrink-0">
+                    <img src="/sandwich_layers.png" alt="AI Stack Layers" className="w-full h-full object-contain drop-shadow-2xl" />
+                  </div>
+
+                  <div className="mt-auto text-center px-2">
+                    <h4 className="text-slate-300 font-bold text-xs mb-1.5">AI Layer - BG Removal</h4>
+                    <p className="text-slate-500 text-[10px] leading-relaxed" dir="rtl">
+                      طبقة الذكاء الاصطناعي - إزالة الخلفية.
+                      <br/>
+                      يمزج المستقبليات، الفيديو والمسار الاصطناعي على الأحداث، على المتداخل على الخلفية.
+                    </p>
+                  </div>
+                </button>
+
+                {/* ── MODE B: MANUAL ── */}
+                <button
+                  onClick={(e) => { if (!isLoading) { burst(e); startProject('manual'); } }}
+                  disabled={isLoading}
+                  className="flex-1 rounded-[20px] p-6 flex flex-col items-center relative overflow-hidden group transition-all"
+                  style={{ background: '#1c1e26', border: '1px solid rgba(255,255,255,0.06)' }}>
+
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                    style={{ border: '1px solid rgba(99,102,241,0.5)', borderRadius: '20px', boxShadow: 'inset 0 0 30px rgba(99,102,241,0.05)' }} />
+
+                  <div className="h-[26px] mb-4" />
+
+                  <h3 className="text-slate-200 group-hover:text-white transition-colors font-black text-sm mb-1 uppercase tracking-wide">
+                    FINE-CONTROL MANUAL
+                  </h3>
+                  <div className="h-[26px] mb-6" />
+
+                  {/* Timeline Icon - transparent PNG */}
+                  <div className="w-full h-56 mb-6 flex-shrink-0">
+                    <img src="/manual_timeline.png" alt="Timeline" className="w-full h-full object-contain drop-shadow-2xl" />
+                  </div>
+
+                  <div className="mt-auto text-center px-2">
+                    <h4 className="text-slate-300 font-bold text-xs mb-1.5">Timeline Precision Editing</h4>
+                    <p className="text-slate-500 text-[10px] leading-relaxed" dir="rtl">
+                      تحرير الإطارات بدقة.
+                      <br/>
+                      تحرير المسار الإطارات - تحرير الاصطناعي المعاري للستشفيات، وبدقة المونتاج الفيديو التفاعلية.
+                    </p>
+                  </div>
+                </button>
+
+              </div>
+            </div>
+
+          </div>
         </div>
-      </div>
-    </>
+
+        {/* RIGHT COLUMN: AI4Montage Editor Hero */}
+        <div className="flex-1 lg:flex-none lg:w-[400px] xl:w-[460px] flex flex-col items-start justify-start flex-shrink-0">
+
+          {/* Title */}
+          <h2 className="text-[38px] xl:text-[46px] font-black text-white tracking-widest uppercase mb-5 leading-none"
+            style={{ textShadow: '0 0 40px rgba(255,255,255,0.12)' }}>
+            AI4MONTAGE
+          </h2>
+
+          {/* Editor image with perspective tilt */}
+          <div className="w-full relative">
+            {/* Ambient glow */}
+            <div className="absolute -inset-6 -z-10 rounded-3xl blur-3xl opacity-50"
+              style={{ background: 'radial-gradient(ellipse at 60% 50%, rgba(239,68,68,0.35), rgba(99,102,241,0.3), transparent 70%)' }} />
+
+            {/* Perspective frame */}
+            <div style={{
+              transform: 'perspective(1200px) rotateY(-14deg) rotateX(6deg)',
+              transformStyle: 'preserve-3d',
+              transition: 'transform 0.5s ease',
+              borderRadius: '14px',
+              overflow: 'hidden',
+              boxShadow: '-24px 24px 70px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.08)',
+            }}
+              onMouseEnter={e => (e.currentTarget.style.transform = 'perspective(1200px) rotateY(-6deg) rotateX(3deg) scale(1.02)')}
+              onMouseLeave={e => (e.currentTarget.style.transform = 'perspective(1200px) rotateY(-14deg) rotateX(6deg)')}>
+              <img
+                src="/ai4montage_editor_mockup.png"
+                alt="AI4Montage Editor"
+                className="w-full block"
+              />
+              {/* Color overlay for blending */}
+              <div className="absolute inset-0 pointer-events-none"
+                style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.06) 0%, transparent 40%, rgba(99,102,241,0.06) 100%)' }} />
+              {/* Left edge depth shadow */}
+              <div className="absolute inset-y-0 left-0 w-10 pointer-events-none"
+                style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.5), transparent)' }} />
+              {/* Bottom fade */}
+              <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none"
+                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.4), transparent)' }} />
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      {/* ─── Bottom Bar ─── */}
+      <footer className="h-[52px] flex items-center justify-between px-8 border-t z-40"
+        style={{ background: '#1c1e26', borderColor: 'rgba(255,255,255,0.05)' }}>
+        <div className="flex items-center gap-2">
+          <span className="text-white font-bold text-[13px]">Start Your AI Project</span>
+          <span className="text-slate-400 text-[13px]">— Edge AI Processing Enabled</span>
+        </div>
+        
+        <div className="flex items-center gap-8">
+          <HorizontalBadges />
+          <p className="text-slate-400 text-[11px] font-medium" dir="rtl">ارفع فيديوهاتك وصورك وصوتك...</p>
+        </div>
+      </footer>
+
+    </div>
   );
 }

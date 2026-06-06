@@ -24,104 +24,79 @@ function CanvasSettingsDropdown() {
 
   const handleApply = (ar: string, res: string, cw: number, ch: number) => {
       setCanvasSettings(ar, res, cw, ch);
-      
-      // Update engine immediately
-      if ((window as any).app) {
-          const app = (window as any).app;
-          let newW = cw;
-          let newH = ch;
-          
-          let primaryVideoW = 0;
-          let primaryVideoH = 0;
-          
-          if (window.app && window.app.tracks) {
-              let firstClip = null;
-              let earliest = Infinity;
-              window.app.tracks.forEach((t: any) => {
-                  if (t.type === 'video' || t.type === 'main' || t.type === 'overlay') {
-                      t.clips.forEach((c: any) => {
-                          if ((c.type === 'video' || c.type === 'image') && c.start < earliest) {
-                              earliest = c.start;
-                              firstClip = c;
-                          }
-                      });
-                  }
-              });
-              
-              if (firstClip) {
-                  const source = window.app.getSourceElement(firstClip);
-                  if (source && (source.videoWidth || source.naturalWidth)) {
-                      primaryVideoW = source.videoWidth || source.naturalWidth;
-                      primaryVideoH = source.videoHeight || source.naturalHeight;
-                  }
-              }
-          }
 
-          if (ar === 'original' && res === 'original') {
-              if (primaryVideoW && primaryVideoH) {
-                  newW = primaryVideoW;
-                  newH = primaryVideoH;
-              } else {
-                  // Safe fallback if no clips on timeline yet
-                  newW = 1080;
-                  newH = 1920;
+      if (!(window as any).app) return;
+      const app = (window as any).app;
+
+      // Get native video dimensions
+      let vidW = 1920, vidH = 1080;
+      if (window.app?.tracks) {
+        let earliest = Infinity, firstClip: any = null;
+        window.app.tracks.forEach((t: any) => {
+          if (t.type === 'video' || t.type === 'main' || t.type === 'overlay') {
+            t.clips.forEach((c: any) => {
+              if ((c.type === 'video' || c.type === 'image') && c.start < earliest) {
+                earliest = c.start; firstClip = c;
               }
-          } else {
-              // Calculate target dimensions
-              let targetWidth = 1920;
-              let targetHeight = 1080;
-              
-              if (res === '4k') { targetWidth = 3840; targetHeight = 2160; }
-              else if (res === '1080p') { targetWidth = 1920; targetHeight = 1080; }
-              else if (res === '720p') { targetWidth = 1280; targetHeight = 720; }
-              else if (res === '480p') { targetWidth = 854; targetHeight = 480; }
-              else if (res === '360p') { targetWidth = 640; targetHeight = 360; }
-              else if (res === '144p') { targetWidth = 256; targetHeight = 144; }
-              
-              if (res === 'original' || ar === 'original') {
-                  if (primaryVideoW && primaryVideoH) {
-                      if (res === 'original') {
-                          const maxDim = Math.max(primaryVideoW, primaryVideoH);
-                          if (ar === '16:9') { targetWidth = maxDim; targetHeight = Math.round(maxDim * (9/16)); }
-                          else if (ar === '9:16') { targetHeight = maxDim; targetWidth = Math.round(maxDim * (9/16)); }
-                          else if (ar === '1:1') { targetWidth = maxDim; targetHeight = maxDim; }
-                      }
-                      if (ar === 'original') {
-                          const videoAR = primaryVideoW / primaryVideoH;
-                          if (videoAR >= 1) { 
-                              newW = targetWidth;
-                              newH = Math.round(targetWidth / videoAR);
-                          } else { 
-                              newH = targetHeight;
-                              newW = Math.round(targetHeight * videoAR);
-                          }
-                      }
-                  } else {
-                      // Fallback if no video yet
-                      if (ar === 'original') {
-                          newW = targetWidth;
-                          newH = targetHeight;
-                      }
-                  }
-              } else {
-                  const maxDim = Math.max(targetWidth, targetHeight);
-                  if (ar === '16:9') { newW = maxDim; newH = Math.round(maxDim * (9/16)); }
-                  else if (ar === '9:16') { newH = maxDim; newW = Math.round(maxDim * (9/16)); }
-                  else if (ar === '1:1') { newW = Math.min(targetWidth, targetHeight); newH = newW; }
-              }
+            });
           }
-          const canvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
-          if (canvas) {
-              setTimeout(() => {
-                  canvas.width = newW;
-                  canvas.height = newH;
-                  if (app) {
-                      app.canvas = canvas; // sync engine reference
-                      app.requestRedraw();
-                      app.log(`dY"? Canvas Resized to ${newW}x${newH}`);
-                  }
-              }, 50);
-          }
+        });
+        if (firstClip) {
+          const src = window.app.getSourceElement(firstClip);
+          if (src?.videoWidth)  { vidW = src.videoWidth;  vidH = src.videoHeight; }
+          if (src?.naturalWidth){ vidW = src.naturalWidth; vidH = src.naturalHeight; }
+        }
+      }
+
+      // ── STEP 1: Determine pixel size from Resolution (independent of AR) ──
+      let pxW: number, pxH: number;
+      if (res === 'original') {
+        // Use native video pixel size
+        pxW = vidW; pxH = vidH;
+      } else if (res === 'custom') {
+        pxW = cw; pxH = ch;
+      } else {
+        const resMap: Record<string, [number, number]> = {
+          '4k':    [3840, 2160],
+          '1080p': [1920, 1080],
+          '720p':  [1280, 720],
+          '480p':  [854,  480],
+          '360p':  [640,  360],
+          '144p':  [256,  144],
+        };
+        [pxW, pxH] = resMap[res] ?? [1920, 1080];
+      }
+
+      // ── STEP 2: Apply Aspect Ratio (reshape canvas keeping pixel area) ──
+      let newW = pxW, newH = pxH;
+      if (ar === 'original') {
+        // Use video's native ratio at the chosen pixel budget
+        const videoAR = vidW / vidH;
+        const area = pxW * pxH;
+        newW = Math.round(Math.sqrt(area * videoAR));
+        newH = Math.round(Math.sqrt(area / videoAR));
+      } else if (ar === '16:9') {
+        const long = Math.max(pxW, pxH);
+        newW = long; newH = Math.round(long * 9 / 16);
+      } else if (ar === '9:16') {
+        const long = Math.max(pxW, pxH);
+        newH = long; newW = Math.round(long * 9 / 16);
+      } else if (ar === '1:1') {
+        const side = Math.min(pxW, pxH);
+        newW = side; newH = side;
+      } else if (ar === 'custom') {
+        newW = cw; newH = ch;
+      }
+
+      const canvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
+      if (canvas) {
+        setTimeout(() => {
+          canvas.width  = newW;
+          canvas.height = newH;
+          app.canvas = canvas;
+          app.requestRedraw?.();
+          app.log?.(`Canvas → ${newW}×${newH}`);
+        }, 50);
       }
   };
 
@@ -207,15 +182,14 @@ function CanvasSettingsDropdown() {
               onChange={(e) => {
                 handleApply(aspectRatio, e.target.value, customWidth, customHeight);
               }}
-              disabled={aspectRatio === 'custom'}
             >
-              <option value="original">Original Size</option>
-              <option value="4k">4K (UHD)</option>
-              <option value="1080p">1080p (FHD)</option>
-              <option value="720p">720p (HD)</option>
-              <option value="480p">480p (SD)</option>
-              <option value="360p">360p (Low)</option>
-              <option value="144p">144p (Lowest)</option>
+              <option value="original">Native Video Size</option>
+              <option value="4k">4K (3840×2160)</option>
+              <option value="1080p">1080p (1920×1080)</option>
+              <option value="720p">720p (1280×720)</option>
+              <option value="480p">480p (854×480)</option>
+              <option value="360p">360p (640×360)</option>
+              <option value="144p">144p (256×144)</option>
             </select>
           </div>
         </div>
@@ -227,28 +201,47 @@ function CanvasSettingsDropdown() {
 function SeekBar() {
   const [localTime, setLocalTime] = React.useState(0);
   const isDragging = React.useRef(false);
+  const wasPlaying  = React.useRef(false);
   const duration = useEditorStore(state => state.duration);
-  // FIX #6: subscribe to Zustand currentTime (updated by updatePlayheadPosition)
-  // instead of a raw rAF loop that fires every frame even when idle.
   const storeTime = useEditorStore(state => state.currentTime);
 
   React.useEffect(() => {
-    if (!isDragging.current) {
-      setLocalTime(storeTime);
-    }
+    if (!isDragging.current) setLocalTime(storeTime);
   }, [storeTime]);
 
+  // While dragging: update visual only (no engine calls to avoid flood)
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
     setLocalTime(time);
     if ((window as any).app) {
+      // Just update the playhead display while dragging
       (window as any).app.currentTime = time;
-      if ((window as any).app.updatePlayheadPosition) {
-        (window as any).app.updatePlayheadPosition();
-      }
-      if (!(window as any).app.isPlaying) {
-        (window as any).app.requestRedraw();
-      }
+      (window as any).app.updatePlayheadPosition?.();
+    }
+  };
+
+  // Pause on drag start
+  const handleMouseDown = () => {
+    isDragging.current = true;
+    const app = (window as any).app;
+    if (app) {
+      wasPlaying.current = !!app.isPlaying;
+      if (app.isPlaying) app.pausePlayback();
+    }
+  };
+
+  // Accurate seek + optional resume on drag end
+  const handleMouseUp = () => {
+    isDragging.current = false;
+    const app = (window as any).app;
+    if (app?.seekToAbsolute) {
+      app.seekToAbsolute(localTime, { resume: wasPlaying.current });
+    } else if (app) {
+      app.currentTime = localTime;
+      app.seek?.(0);
+      app.renderFrame?.(localTime);
+      app.requestRedraw?.();
+      if (wasPlaying.current) app.startPlayback?.();
     }
   };
 
@@ -279,15 +272,16 @@ function SeekBar() {
         step={0.01} 
         value={localTime} 
         onChange={handleSeek}
-        onMouseDown={() => { isDragging.current = true; }}
-        onMouseUp={() => { isDragging.current = false; }}
-        onTouchStart={() => { isDragging.current = true; }}
-        onTouchEnd={() => { isDragging.current = false; }}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onTouchStart={handleMouseDown}
+        onTouchEnd={handleMouseUp}
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
       />
     </div>
   );
 }
+
 
 export default function Player() {
   const isPlaying = useEditorStore(state => state.isPlaying);

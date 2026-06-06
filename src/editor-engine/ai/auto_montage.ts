@@ -1,9 +1,9 @@
-// @ts-nocheck
+﻿// @ts-nocheck
 /**
  * 🎬 AutoMontage Engine — v2.0
  *
  * Pipeline:
- *  1. COLLECT  → جمع كل الميديا (صور + فيديو) وتجاهل bg.png / graph.png
+ *  1. COLLECT  → جمع كل الميديا (صور + فيديو) وتجاهل bg.webp / graph.webp
  *  2. ANALYZE  → Gemini Vision بالتوازي — كل أصل بـ API key مختلف
  *  3. PLAN     → Gemini يبني خطة شاملة: كليبات + SFX + نصوص + frames + transitions
  *  4. ASSEMBLE → تنفيذ الخطة على التايم لاين + الصوت لكل فيديو
@@ -111,7 +111,7 @@ class AutoMontageEngine {
                 this.log('⚠️ لا توجد ميديا مرفوعة. ارفع صور أو فيديوهات أولاً.');
                 return;
             }
-            this.log(`📦 تم جمع ${this.assets.length} أصل ميديا (تم استثناء bg.png / graph.png).`);
+            this.log(`📦 تم جمع ${this.assets.length} أصل ميديا (تم استثناء bg.webp / graph.webp).`);
 
             // 2. تحليل بالتوازي — كل أصل بـ API key مختلف
             this.progress('🧠 تحليل المحتوى المرئي بالتوازي...', 8);
@@ -141,7 +141,7 @@ class AutoMontageEngine {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // STEP 1: COLLECT — يستثني bg.png / graph.png / Chill_Beat
+    // STEP 1: COLLECT — يستثني bg.webp / graph.webp / Chill_Beat
     // ═══════════════════════════════════════════════════════════
 
     private async collectMediaAssets(): Promise<MediaAsset[]> {
@@ -173,7 +173,7 @@ class AutoMontageEngine {
         for (const clip of allClips) {
             if (!clip.src || seen.has(clip.src)) continue;
 
-            // استثناء bg.png / graph.png / Chill_Beat
+            // استثناء bg.webp / graph.webp / Chill_Beat
             // نتحقق من الاسم (name) لأن src قد يكون blob URL
             const clipName = (clip.name || '').toLowerCase();
             const clipSrcTail = (clip.src || '').split('/').pop()?.toLowerCase() || '';

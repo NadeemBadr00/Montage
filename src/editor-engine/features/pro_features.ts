@@ -1,6 +1,7 @@
 // @ts-nocheck
 /**
- * dYs? Project 43 Pro Features Module
+/**
+ * AI4Montage Pro Features Module
  * UI UPDATE: Handles Smart Sandwich Mode logic with Animation & Layer Awareness.
  * FEATURE: Apply to All sets Track Defaults for future clips.
  * FIX: ensureProProperties now auto-repairs Broken Smart Objects created by Deep Copy.
@@ -78,6 +79,11 @@ window.EditorApp.prototype.ensureProProperties = function(clip) {
     if (!clip.keyframes) {
         clip.keyframes = { scale: [], positionX: [], positionY: [], rotation: [], opacity: [], volume: [] };
     }
+
+    // ✅ Ensure AI/Ultra properties exist so ultra_features never throws
+    if (!clip.aiSegmentation) clip.aiSegmentation = { enabled: false, loading: false };
+    if (!clip.chromaKey)      clip.chromaKey      = { enabled: false, color: '#00ff00', threshold: 50 };
+    if (!clip.logoRemovers)   clip.logoRemovers   = [];
 
     if (clip.type === 'text' && !clip.textStyle) {
         clip.textStyle = {
@@ -279,12 +285,33 @@ window.EditorApp.prototype.updateSandwichLimits = function(newScale) {
 window.EditorApp.prototype.updateEffectControls = function() {
     const panel = document.getElementById('effect-controls-content');
     if (!panel) return;
-    if (this.selectedClipIds.size !== 1) {
+
+    // ✅ Smart group detection: a video+audio pair shares the same groupId.
+    // When the user clicks the video clip, both get selected (size=2).
+    // Instead of showing "No Selection", find the primary (non-audio) clip.
+    let clipId = null;
+    if (this.selectedClipIds.size === 1) {
+        clipId = Array.from(this.selectedClipIds)[0];
+    } else if (this.selectedClipIds.size > 1) {
+        // Check if all selected clips belong to the same group
+        const allSelected = Array.from(this.selectedClipIds)
+            .map(id => this.findClipById(id))
+            .filter(Boolean);
+        const groupIds = [...new Set(allSelected.map(c => c.groupId).filter(Boolean))];
+        if (groupIds.length === 1) {
+            // Single group selected → prefer video, then image, then first non-audio
+            const primary = allSelected.find(c => c.type === 'video')
+                         || allSelected.find(c => c.type === 'image')
+                         || allSelected.find(c => c.type !== 'audio');
+            if (primary) clipId = primary.id;
+        }
+    }
+
+    if (!clipId) {
         panel.innerHTML = '<div class="text-gray-500 text-center py-4 text-xs">No Selection</div>';
         return;
     }
 
-    const clipId = Array.from(this.selectedClipIds)[0];
     this.lastSelectedClipId = clipId;
     
     // Check if it's a transition

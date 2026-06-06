@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * 🌟 Project 43 Ultra Features Module
+ * 🌟 AI4Montage Ultra Features Module
  * 🚀 PERFORMANCE SUPER-CHARGE:
  * 1. FIXED: Shader transformation order (Scale -> Rotate -> Translate).
  * 2. This fixes the "Squashed Image" bug on rotation.
@@ -935,8 +935,26 @@ const prevUpdateEffectControls = window.EditorApp.prototype.updateEffectControls
 window.EditorApp.prototype.updateEffectControls = function() {
     if(prevUpdateEffectControls) prevUpdateEffectControls.call(this);
     const panel = document.getElementById('effect-controls-content');
-    if (!panel || this.selectedClipIds.size !== 1) return;
-    const clipId = Array.from(this.selectedClipIds)[0];
+    if (!panel) return;
+
+    // ✅ Same smart group logic as pro_features: handle video+audio groupId pairs
+    let clipId = null;
+    if (this.selectedClipIds.size === 1) {
+        clipId = Array.from(this.selectedClipIds)[0];
+    } else if (this.selectedClipIds.size > 1) {
+        const allSelected = Array.from(this.selectedClipIds)
+            .map(id => this.findClipById(id))
+            .filter(Boolean);
+        const groupIds = [...new Set(allSelected.map(c => c.groupId).filter(Boolean))];
+        if (groupIds.length === 1) {
+            const primary = allSelected.find(c => c.type === 'video')
+                         || allSelected.find(c => c.type === 'image')
+                         || allSelected.find(c => c.type !== 'audio');
+            if (primary) clipId = primary.id;
+        }
+    }
+    if (!clipId) return;
+
     const clip = this.findClipById(clipId);
     if (!clip || clip.type === 'audio' || clip.type === 'text') return; 
 
@@ -1216,7 +1234,7 @@ window.EditorApp.prototype.updateUltraProp = function(clipId, objName, prop, val
     this.requestRedraw();
 };
 
-window.EditorApp.prototype.renderSocialOverlays = function(ctx, renderJobs, w, h) {
+window.EditorApp.prototype.renderFrameOverlayUI = function(ctx, renderJobs, w, h) {
     renderJobs.forEach(job => {
         const processClip = (clip, opacityMult) => {
             if (!clip || !clip.src.includes('frame_') || !clip.properties.overlayUI || clip.properties.overlayUI === 'none') return;

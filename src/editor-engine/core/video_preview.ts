@@ -101,11 +101,22 @@ window.EditorApp.prototype.getImageFromCache = function(src) {
 // Playback Logic
 window.EditorApp.prototype.togglePlay = function() { 
     if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
-    if (this.playbackRate !== 0) this.pausePlayback(); 
-    else this.startPlayback(); 
+    if (this.playbackRate !== 0) {
+        this.pausePlayback();
+    } else {
+        // If at the end → restart from the beginning
+        if (this.currentTime >= this.duration - 0.05) {
+            this.currentTime = 0;
+        }
+        this.startPlayback();
+    }
 };
 
 window.EditorApp.prototype.startPlayback = function() {
+    // If already at the end → restart from beginning
+    if (this.currentTime >= this.duration - 0.05) {
+        this.currentTime = 0;
+    }
     this.playbackRate = 1; 
     this.isPlaying = true;
     // FIX #5: notify Zustand immediately so React play button updates without polling
@@ -306,13 +317,38 @@ window.EditorApp.prototype.setupCanvasInteraction = function() {
 
         if (hitClip) {
             this.selectClip(hitClip.id);
-            // ✅ Save undo snapshot before any canvas mutation
             this.saveState();
-            this.isDragging = true; 
+            this.isDragging = true;
             mode = 'move'; startX = x; startY = y; activeClip = hitClip;
             initialProps = { ...hitClip.properties, sandwich: hitClip.sandwich ? { ...hitClip.sandwich } : null };
             this.requestRedraw();
-        } else { this.deselectAll(); this.requestRedraw(); }
+        } else {
+            // ── Fallback: if no hit at currentTime, try seeking to first visible clip ──
+            let foundClip = null;
+            for (const track of this.tracks) {
+                if (track.isMuted) continue;
+                for (const c of track.clips) {
+                    if (c.type !== 'audio') { foundClip = c; break; }
+                }
+                if (foundClip) break;
+            }
+            if (foundClip && (this.currentTime < foundClip.start || this.currentTime > foundClip.start + foundClip.duration)) {
+                // Seek to where the clip is, then re-select
+                const seekTime = foundClip.start + 0.1;
+                this.currentTime = seekTime;
+                if (this.seek) this.seek(0);
+                this.requestRedraw();
+                // Try selecting after seek settles
+                setTimeout(() => {
+                    const { x: x2, y: y2 } = this.getCanvasCoordinates(e);
+                    const retryHit = this.hitTest(x2, y2);
+                    if (retryHit) { this.selectClip(retryHit.id); this.requestRedraw(); }
+                }, 80);
+            } else {
+                this.deselectAll();
+                this.requestRedraw();
+            }
+        }
     });
 
     this.canvas.addEventListener('mousemove', (e) => {
@@ -404,6 +440,7 @@ window.EditorApp.prototype.setupCanvasInteraction = function() {
         const { x, y } = this.getCanvasCoordinates(e);
         const hitClip = this.hitTest(x, y);
         if (hitClip && hitClip.type === 'text') {
+            // Double-click on text clip → open inline editor
             this.openOnCanvasTextEditor(hitClip);
         } else if (hitClip && hitClip.src && hitClip.src.includes('frame_')) {
             const input = document.createElement('input');
@@ -411,22 +448,9 @@ window.EditorApp.prototype.setupCanvasInteraction = function() {
             input.accept = 'image/*,video/*';
             input.onchange = (ev) => this.handleFrameUpload(ev, hitClip);
             input.click();
-        } else {
-            // Add a new text clip at the exact clicked position
-            if (this.addTextAtCanvasPosition) {
-                // Let's convert x, y to percentage or keeping them as absolute pixels?
-                // `addTextAtCanvasPosition` expects position offsets from center.
-                // Our `x` and `y` from `getCanvasCoordinates` are internal canvas pixels, where center is w/2, h/2.
-                const centerX = this.canvas.width / 2;
-                const centerY = this.canvas.height / 2;
-                
-                // Convert internal canvas pixels to user coordinates (offsets from center)
-                const posX = x - centerX;
-                const posY = y - centerY;
-                
-                this.addTextAtCanvasPosition(posX, posY);
-            }
         }
+        // NOTE: double-clicking empty canvas no longer adds text.
+        // Use the "Add Text" button in the right panel instead.
     });
 
     this.canvas.addEventListener('contextmenu', (e) => {
@@ -1065,13 +1089,12 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
                 ctx.drawImage(glCanvas, 0, 0);
             }
         }
-        
-        // 2.5 Render Social Media Overlays for Frames
-        if (typeof (this as any).renderSocialOverlays === 'function') {
-            (this as any).renderSocialOverlays(ctx, renderJobs, w, h);
-        }
-    } else {
-        // Fallback or Empty
+    }
+
+    // ── Always render Social Overlays (even with no video renderJobs) ──
+    // This runs AFTER the WebGL block so overlays always appear on top.
+    if (typeof (this as any).renderSocialOverlays === 'function') {
+        (this as any).renderSocialOverlays(ctx, renderJobs, w, h);
     }
 
     // 3. Render Text Clips (On CPU/2D Canvas)
@@ -1552,6 +1575,55 @@ window.EditorApp.prototype.seek = function(d) {
     this.requestRedraw(); 
 };
 
+/**
+ * seekToAbsolute(time) — the CORRECT way to seek while scrubbing.
+ * 1. Auto-pauses playback.
+ * 2. Moves all video elements to the target time.
+ * 3. Waits for browser 'seeked' events before rendering (fixes lag/stale frame bug).
+ * 4. Resumes playback only if caller requests it.
+ */
+window.EditorApp.prototype.seekToAbsolute = function(time, { resume = false } = {}) {
+    const wasPlaying = this.isPlaying;
+    if (wasPlaying) this.pausePlayback();
+
+    this.currentTime = Math.max(0, Math.min(time, this.duration));
+    if (wasPlaying && this.playbackRate === 1) {
+        this.playbackStartTime = this.audioCtx.currentTime - this.currentTime;
+    }
+    this.managePlayers();
+    this.updatePlayheadPosition();
+
+    // Wait for all active video players to finish seeking
+    const activePlayers = this.players.filter(p => p && p.getAttribute('data-key') && p.readyState >= 1);
+    if (activePlayers.length === 0) {
+        this.renderFrameToCanvas();
+        this.requestRedraw();
+        if (resume && wasPlaying) this.startPlayback();
+        return;
+    }
+
+    let done = false;
+    let seekedCount = 0;
+    const total = activePlayers.length;
+
+    const finish = () => {
+        if (done) return;
+        done = true;
+        this.renderFrameToCanvas();
+        this.requestRedraw();
+        if (resume && wasPlaying) this.startPlayback();
+    };
+
+    const onSeeked = () => {
+        seekedCount++;
+        if (seekedCount >= total) finish();
+    };
+
+    activePlayers.forEach(p => p.addEventListener('seeked', onSeeked, { once: true }));
+    // Fallback: render anyway after 400ms even if seeked never fires
+    setTimeout(finish, 400);
+};
+
 window.EditorApp.prototype.syncOverlays = function() { this.managePlayers(); this.renderFrameToCanvas(); this.requestRedraw(); }; 
 
 window.EditorApp.prototype.updatePlayheadPosition = function() {
@@ -1582,41 +1654,58 @@ window.EditorApp.prototype.setupPlayheadScrubbing = function() {
     
     if (this.timelineContent) {
         this.timelineContent.addEventListener('mousedown', (e) => {
-            // ONLY jump playhead if clicking directly on the time-ruler
             if (e.button !== 0 || !e.target.closest('.time-ruler') || e.target.closest('.playhead-marker')) return;
-            
+
             const scrollAreaRect = this.timelineScrollArea.getBoundingClientRect();
             const clickXInViewport = e.clientX - scrollAreaRect.left;
             const absoluteX = clickXInViewport + this.timelineScrollArea.scrollLeft;
-            // ✅ Use dynamic headerWidth instead of hardcoded constant
             const timeX = absoluteX - (this.headerWidth || 140);
-            
+
             if (timeX >= 0) {
-                 this.seek((timeX / this.pixelsPerSecond) - this.currentTime);
+                const targetTime = timeX / this.pixelsPerSecond;
+                // ── FIX: pause → seek → wait seeked → render ──
+                this.seekToAbsolute(targetTime, { resume: false });
             }
         });
     }
 
     this.playhead.onmousedown = (e) => {
-        e.preventDefault(); e.stopPropagation(); 
-        this.isScrubbing = true; 
+        e.preventDefault(); e.stopPropagation();
+        this.isScrubbing = true;
         document.body.style.cursor = 'grabbing';
-        
-        const wp = this.isPlaying; if (wp) this.pausePlayback();
-        const onMove = (ev) => { 
-            // ✅ Use dynamic headerWidth instead of hardcoded constant
-            const x = (ev.clientX - this.timelineContent.getBoundingClientRect().left) + this.timelineScrollArea.scrollLeft - (this.headerWidth || 140); 
-            this.currentTime = Math.max(0, Math.min(x / this.pixelsPerSecond, this.duration)); 
-            this.seek(0); 
+
+        const wp = this.isPlaying;
+        if (wp) this.pausePlayback();
+
+        // Debounce scrub seeks so we don’t flood the browser
+        let scrubTimer = null;
+        const onMove = (ev) => {
+            const x = (ev.clientX - this.timelineContent.getBoundingClientRect().left)
+                      + this.timelineScrollArea.scrollLeft
+                      - (this.headerWidth || 140);
+            const t = Math.max(0, Math.min(x / this.pixelsPerSecond, this.duration));
+            this.currentTime = t;
+            this.updatePlayheadPosition();
+            // Debounce: only call managePlayers + render every ~40ms
+            clearTimeout(scrubTimer);
+            scrubTimer = setTimeout(() => {
+                this.managePlayers();
+                this.renderFrameToCanvas();
+                this.requestRedraw();
+            }, 40);
         };
-        const onUp = () => { 
-            this.isScrubbing = false; 
-            document.body.style.cursor = 'default'; 
-            document.removeEventListener('mousemove', onMove); 
-            document.removeEventListener('mouseup', onUp); 
-            this.requestRedraw(); 
-            if (wp) this.startPlayback(); 
+
+        const onUp = () => {
+            clearTimeout(scrubTimer);
+            this.isScrubbing = false;
+            document.body.style.cursor = 'default';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            // Final accurate seek-and-render on mouse release
+            this.seekToAbsolute(this.currentTime, { resume: wp });
         };
-        document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
     };
 };

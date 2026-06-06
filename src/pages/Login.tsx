@@ -109,7 +109,7 @@ export default function Login() {
           <div className="brand">
             <div className="brand-logo"><i className="fa-solid fa-brain" /></div>
             <div>
-              <div className="brand-name">Project 43</div>
+              <div className="brand-name">AI4Montage</div>
               <div className="brand-sub">AI ULTRA EDITION</div>
             </div>
           </div>

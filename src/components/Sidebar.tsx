@@ -15,7 +15,7 @@ export default function Sidebar({ userData, onSignOut }: SidebarProps) {
       <div className="sb-brand">
         <div className="sb-icon"><i className="fa-solid fa-brain" /></div>
         <div>
-          <div className="sb-title">Project 43</div>
+          <div className="sb-title">AI4Montage</div>
           <div className="sb-sub">v4.3 · AI ULTRA</div>
         </div>
       </div>

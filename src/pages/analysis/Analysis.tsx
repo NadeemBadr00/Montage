@@ -46,7 +46,7 @@ export default function Analysis() {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0f172a', color: '#fff', fontFamily: 'Cairo, sans-serif' }}>
-      <AnalysisHeader statusBar={statusBar} color="#8b5cf6" title="Project 43 Analyzer Ultra" />
+      <AnalysisHeader statusBar={statusBar} color="#8b5cf6" title="AI4Montage Analyzer Ultra" />
       <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <AnalysisSidebar
           apiKeys={apiKeys} setApiKeys={setApiKeys}

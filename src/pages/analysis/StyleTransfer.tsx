@@ -45,7 +45,7 @@ export default function StyleTransfer() {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0f172a', color: '#fff', fontFamily: 'Cairo, sans-serif' }}>
-      <AnalysisHeader statusBar={statusBar} color="#f43f5e" title="Project 43 Style Transfer" />
+      <AnalysisHeader statusBar={statusBar} color="#f43f5e" title="AI4Montage Style Transfer" />
       <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <AnalysisSidebar
           apiKeys={apiKeys} setApiKeys={setApiKeys}

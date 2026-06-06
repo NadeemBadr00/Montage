@@ -10,10 +10,22 @@ export const injectFrameUI = () => {
         }
 
         const panelArea = document.getElementById('pro-features-area');
-        if (!panelArea || this.selectedClipIds.size !== 1) return;
+        if (!panelArea) return;
+        // ✅ Smart group: handle video+audio groupId pair
+        let clipId = null;
+        if (this.selectedClipIds.size === 1) {
+            clipId = Array.from(this.selectedClipIds)[0];
+        } else if (this.selectedClipIds.size > 1) {
+            const allSel = Array.from(this.selectedClipIds).map((id: string) => this.tracks.flatMap((t: any) => t.clips).find((c: any) => c.id === id)).filter(Boolean);
+            const grpIds = [...new Set(allSel.map((c: any) => c.groupId).filter(Boolean))];
+            if (grpIds.length === 1) {
+                const p = allSel.find((c: any) => c.type === 'video') || allSel.find((c: any) => c.type !== 'audio');
+                if (p) clipId = (p as any).id;
+            }
+        }
+        if (!clipId) return;
 
-        const clipId = Array.from(this.selectedClipIds)[0];
-        const clip = this.tracks.flatMap(t => t.clips).find((c: any) => c.id === clipId);
+        const clip = this.tracks.flatMap((t: any) => t.clips).find((c: any) => c.id === clipId);
         if (!clip) return;
 
         ensureFrameProperties(clip);

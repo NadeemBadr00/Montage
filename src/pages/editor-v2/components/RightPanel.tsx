@@ -443,6 +443,9 @@ export default function RightPanel() {
   // ── Execute badge (reference list) ────────────────────────────────────────
   const [executedBadge, setExecutedBadge] = useState<string | null>(null);
 
+  // ── Personal API Key toggle ────────────────────────────────────────────────
+  const [showApiKey, setShowApiKey] = useState(false);
+
   // Wire chat callbacks
   useEffect(() => {
     const waitForChat = () => {
@@ -787,6 +790,22 @@ export default function RightPanel() {
                   <span className="text-[8px] text-gray-500 group-hover:text-gray-400">خطة AI</span>
                 </button>
 
+                {/* 🔤 Add Text Button */}
+                <button
+                  id="ai-add-text-btn"
+                  onClick={() => {
+                    const app = (window as any).app;
+                    if (app?.addTextAtCanvasPosition) app.addTextAtCanvasPosition(0, 0);
+                    else if (app?.addTextClip) app.addTextClip();
+                  }}
+                  title="أضف نص على الكانفاز"
+                  className="flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 rounded-lg bg-[#0f172a] hover:bg-[#1a2540] border border-gray-800 hover:border-cyan-500/40 text-cyan-400 hover:text-cyan-300 transition-all group"
+                >
+                  <i className="fa-solid fa-t text-sm group-hover:scale-110 transition-transform" />
+                  <span className="text-[8px] text-gray-500 group-hover:text-gray-400">Add Text</span>
+                </button>
+
+
                 <button
                   id="ai-upload-plan-btn"
                   onClick={() => (document.getElementById('ai-panel-plan-upload') as HTMLInputElement)?.click()}
@@ -931,6 +950,44 @@ export default function RightPanel() {
                     <i className="fa-solid fa-rotate-left mr-1" />مسح المحادثة
                   </button>
                 )}
+
+                {/* 🔑 Personal API Key */}
+                <div className="mt-2 border border-gray-800/60 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setShowApiKey(prev => !prev)}
+                    className="w-full flex items-center justify-between px-3 py-1.5 text-[9px] text-gray-500 hover:text-gray-300 bg-[#0a0f1d] hover:bg-[#0f172a] transition-colors"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <i className="fa-solid fa-key text-yellow-500/70" />
+                      🔑 Personal API Key
+                    </span>
+                    <i className={`fa-solid fa-chevron-${showApiKey ? 'up' : 'down'} text-[8px]`} />
+                  </button>
+                  {showApiKey && (
+                    <div className="px-3 pb-2 pt-1 bg-[#080d1a]">
+                      <input
+                        id="ai4montage-api-key"
+                        type="password"
+                        placeholder="AIzaSy... (مفتاح Gemini الشخصي)"
+                        className="w-full bg-[#0f172a] border border-gray-700 rounded-lg px-2 py-1.5 text-[10px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-yellow-500/60 font-mono"
+                        dir="ltr"
+                      />
+                      <p className="text-[8px] text-gray-600 mt-1 leading-relaxed">
+                        احصل على مفتاح مجاني من{' '}
+                        <a
+                          href="https://aistudio.google.com/apikey"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-yellow-500/80 hover:text-yellow-400 underline"
+                        >
+                          Google AI Studio
+                        </a>
+                        {' '}— يبقى في المتصفح فقط.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
               </div>
             </div>
 

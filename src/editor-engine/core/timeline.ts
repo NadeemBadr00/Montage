@@ -336,8 +336,8 @@ window.EditorApp.prototype.addSmartDragLogic = function(element, clip, track) {
         this.saveState();
         e.stopPropagation(); e.preventDefault();
         const isMulti = e.ctrlKey || e.metaKey; 
-        if (!this.selectedClipIds.has(clip.id) && !isMulti) this.selectClip(clip.id, false);
-        else if (isMulti) this.selectClip(clip.id, true);
+        if (!isMulti) this.selectClip(clip.id, false);
+        else this.selectClip(clip.id, true);
 
         const isTrimLeft = e.target.classList.contains('left');
         const isTrimRight = e.target.classList.contains('right');
