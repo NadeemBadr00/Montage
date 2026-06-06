@@ -294,6 +294,40 @@ window.EditorApp.prototype.updateEffectControls = function() {
             </div>
         </div>`;
         panel.insertAdjacentHTML('beforeend', textHTML);
+    } else if (clip.type === 'shape') {
+        const shapeHTML = `
+        <div class="mb-4 bg-[#0a0f1d] rounded-lg">
+            <div class="flex items-center gap-2 mb-4 text-gray-200 bg-[#1e293b]/50 p-2 rounded border border-gray-800">
+                <i class="fa-solid fa-shapes text-[9px] text-red-500"></i>
+                <span class="text-xs font-bold uppercase tracking-wider">Shape Options</span>
+            </div>
+            <div class="px-2">
+                <div class="flex items-center justify-between mb-3 gap-3">
+                    <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">Shape Type</label>
+                    <select class="flex-grow bg-[#050811] text-[10px] text-gray-200 rounded border border-gray-700 px-2 py-1 outline-none focus:border-red-500 transition-colors cursor-pointer" onchange="app.updateProProperty('${clipId}', 'properties', 'shapeType', this.value)">
+                        <option value="rect" ${(!clip.properties.shapeType || clip.properties.shapeType === 'rect') ? 'selected' : ''}>Rectangle</option>
+                        <option value="circle" ${clip.properties.shapeType === 'circle' ? 'selected' : ''}>Circle / Oval</option>
+                        <option value="triangle" ${clip.properties.shapeType === 'triangle' ? 'selected' : ''}>Triangle</option>
+                        <option value="star" ${clip.properties.shapeType === 'star' ? 'selected' : ''}>Star (5-Point)</option>
+                        <option value="arrow" ${clip.properties.shapeType === 'arrow' ? 'selected' : ''}>Arrow</option>
+                        <option value="speech_bubble" ${clip.properties.shapeType === 'speech_bubble' ? 'selected' : ''}>Speech Bubble</option>
+                        <option value="line" ${clip.properties.shapeType === 'line' ? 'selected' : ''}>Line / Separator</option>
+                        <option value="waveform" ${clip.properties.shapeType === 'waveform' ? 'selected' : ''}>Audio Waveform</option>
+                        <option value="progress_bar" ${clip.properties.shapeType === 'progress_bar' ? 'selected' : ''}>Progress Bar</option>
+                    </select>
+                </div>
+                <div class="flex items-center justify-between mb-3 gap-3">
+                    <label class="text-[10px] text-gray-400 w-20 flex-shrink-0 select-none">Fill Color</label>
+                    <div class="flex items-center gap-1 flex-grow">
+                        <input type="color" value="${forceHex(clip.properties.shapeColor || '#ffffff')}" onchange="app.updateProProperty('${clipId}', 'properties', 'shapeColor', this.value)" class="flex-grow h-7 bg-[#050811] border border-gray-700 rounded cursor-pointer">
+                        <button onclick="if(window.EyeDropper){new EyeDropper().open().then(r => {app.updateProProperty('${clipId}','properties','shapeColor',r.sRGBHex);app.updateEffectControls();}).catch(e=>console.log(e));}" class="w-7 h-7 bg-[#1e293b] rounded text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Pick color from canvas"><i class="fa-solid fa-eye-dropper text-[10px]"></i></button>
+                    </div>
+                </div>
+                ${createDualControl('Width (%)', 'properties', 'widthPct', 1, 200, '%')}
+                ${createDualControl('Height (%)', 'properties', 'heightPct', 1, 200, '%')}
+            </div>
+        </div>`;
+        panel.insertAdjacentHTML('beforeend', shapeHTML);
     }
     
     // --- Logo / Object Removal ---
