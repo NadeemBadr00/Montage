@@ -1,6 +1,9 @@
 import React from 'react';
 import TimelineTracks from './TimelineTracks';
 import Playhead from './Playhead';
+import TimelineMarkers from './TimelineMarkers';
+import TimelineMiniMap from './TimelineMiniMap';
+import UndoHistoryPanel from './UndoHistoryPanel';
 import { useEditorStore } from '../../../store/useEditorStore';
 
 export default function Timeline() {
@@ -123,7 +126,7 @@ export default function Timeline() {
         {/* Zoom to Fit */}
         <button
           className="toolbar-btn bg-gray-800 rounded hover:bg-gray-700 text-gray-300 text-[9px] px-1.5 gap-0.5 w-auto"
-          title="Zoom to Fit (Shift+F)"
+          title="Zoom to Fit (Ctrl+0)"
           onClick={() => {
             const dur = (window as any).app?.duration || 30;
             const area = document.getElementById('timeline-scroll-area');
@@ -136,6 +139,9 @@ export default function Timeline() {
           <i className="fa-solid fa-compress text-[10px]" />
           <span>Fit</span>
         </button>
+
+        {/* Undo History */}
+        <UndoHistoryPanel />
 
         {/* Zoom controls */}
         <div className="flex items-center gap-1 bg-gray-900 rounded border border-gray-700/60 px-1.5 py-0.5">
@@ -191,9 +197,31 @@ export default function Timeline() {
                     window.addEventListener('mouseup', onMouseUp);
                 }}
             ></div>
-            <div className="time-ruler relative flex-grow flex items-end overflow-hidden" id="timeline-ruler"></div>
+            <div
+              className="time-ruler relative flex-grow flex items-end overflow-hidden cursor-pointer"
+              id="timeline-ruler"
+              onDoubleClick={(e) => {
+                // Double-click on ruler → add marker
+                const app = (window as any).app;
+                if (!app) return;
+                const rulerEl = e.currentTarget;
+                const rect = rulerEl.getBoundingClientRect();
+                const scrollArea = document.getElementById('timeline-scroll-area');
+                const scrollLeft = scrollArea?.scrollLeft || 0;
+                const pps = useEditorStore.getState().pixelsPerSecond;
+                const time = Math.max(0, (e.clientX - rect.left + scrollLeft) / pps);
+                if (!app.markers) app.markers = [];
+                app.markers.push({ id: 'mk_' + Date.now(), time, label: 'Marker', color: '#f59e0b', type: 'Chapter' });
+                app.commitStateToReact?.();
+              }}
+            />
           </div>
           
+          {/* Markers Layer */}
+          <div className="absolute top-0 left-0 right-0 h-[30px] z-[75] pointer-events-none" id="markers-layer">
+            <TimelineMarkers />
+          </div>
+
           {/* Tracks Container */}
           <div className="relative w-full min-h-full bg-gray-900 pt-2 pb-10" id="tracks-container">
             <TimelineTracks />
@@ -204,6 +232,8 @@ export default function Timeline() {
           
         </div>
       </div>
+      {/* Mini-Map Overview */}
+      <TimelineMiniMap />
     </div>
   );
 }

@@ -7,8 +7,10 @@ import AssetsPanel from './components/AssetsPanel';
 import EffectControls from './components/EffectControls';
 import Modals from './components/Modals';
 import RightPanel from './components/RightPanel';
+import TimelineKeyboardShortcuts from './components/TimelineKeyboardShortcuts';
+import ShortcutsOverlay from './components/ShortcutsOverlay';
 import { useEditorStore } from '../../store/useEditorStore';
-import { useFileStore } from '../../hooks/useFileStore'; // Ensures window.FileStore is always registered
+import { useFileStore } from '../../hooks/useFileStore';
 import { useEngineInit } from './panels/useEngineInit';
 
 // BUG #1 FIX: Expose Zustand store on window so the Legacy Engine
@@ -230,6 +232,10 @@ export default function EditorV2() {
       </main>
 
       <Modals />
+      {/* Global keyboard shortcuts handler */}
+      <TimelineKeyboardShortcuts />
+      {/* Shortcuts overlay (press ? to show) */}
+      <ShortcutsOverlay />
     </div>
   );
 }

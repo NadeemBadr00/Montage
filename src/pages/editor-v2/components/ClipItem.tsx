@@ -393,22 +393,36 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
       : 0;
   const currentHoverThumb = realThumbnails[thumbIndex];
 
+  // Clip type meta
+  const TYPE_META: Record<string, { icon: string; gradient: string; accent: string }> = {
+    video:  { icon: 'fa-film',            gradient: 'from-indigo-900/90 to-indigo-800/70',  accent: '#6366f1' },
+    audio:  { icon: 'fa-music',           gradient: 'from-blue-900/90 to-blue-800/70',     accent: '#3b82f6' },
+    image:  { icon: 'fa-image',           gradient: 'from-emerald-900/90 to-emerald-800/70', accent: '#10b981' },
+    text:   { icon: 'fa-font',            gradient: 'from-amber-900/90 to-amber-800/70',   accent: '#f59e0b' },
+    subtitle: { icon: 'fa-closed-captioning', gradient: 'from-purple-900/90 to-purple-800/70', accent: '#a855f7' },
+  };
+  const meta = TYPE_META[clip.type] || { icon: 'fa-shapes', gradient: 'from-gray-800/90 to-gray-700/70', accent: '#9ca3af' };
+  const clipColor = (clip as any).labelColor || meta.accent;
+  const isMuted = (clip as any).properties?.muted || (clip as any).muted;
+  const isLocked = (clip as any).locked;
+
   return (
     <div
       data-clip-id={clip.id}
-      className={`timeline-clip group absolute top-1 bottom-1 rounded-md shadow-md border flex items-center px-2 transition-none select-none
-        ${colorClass} 
-        ${isSelected ? '!border-yellow-400 !ring-2 !ring-yellow-400/50 brightness-110' : 'border-white/20 hover:border-white/50'}
-        ${isHighlighted ? 'animate-pulse ring-4 ring-green-500 scale-[1.02] transition-transform duration-200' : ''}
+      className={`timeline-clip group absolute top-1 bottom-1 rounded-md shadow-lg border transition-none select-none overflow-hidden flex flex-col
+        ${isSelected ? '!border-yellow-400 !ring-2 !ring-yellow-400/60 brightness-110' : 'border-white/10 hover:border-white/30'}
+        ${isHighlighted ? 'ring-4 ring-green-500 scale-[1.02] transition-transform duration-200' : ''}
+        ${isMuted ? 'opacity-50' : ''}
       `}
       style={{
         left: `${leftPos}px`,
         width: `${width}px`,
-        transform: dragOffsetY !== 0 ? `translateY(${dragOffsetY}px)` : 'none',
+        transform: dragOffsetY !== 0 ? `translateY(${dragOffsetY * 0.3}px)` : 'none',
         zIndex: dragOffsetY !== 0 ? 99 : (isSelected ? 70 : 60),
         pointerEvents: dragOffsetY !== 0 ? 'none' : 'auto',
-        // Dynamic cursor: col-resize when near edge, grab otherwise
         cursor: edgeHover ? 'col-resize' : (isDragging ? 'grabbing' : 'grab'),
+        background: `linear-gradient(180deg, ${clipColor}22 0%, ${clipColor}08 100%)`,
+        boxShadow: isSelected ? `0 0 0 2px ${clipColor}90, 0 4px 12px rgba(0,0,0,0.5)` : '0 2px 8px rgba(0,0,0,0.4)',
       }}
       onMouseDown={handleClipDrag}
       onMouseMove={handleMouseMove}
@@ -424,6 +438,16 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
          });
       }}
     >
+      {/* Color label strip at top */}
+      <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-md z-20 flex-shrink-0"
+           style={{ background: clipColor, opacity: 0.9 }} />
+
+      {/* Lock indicator */}
+      {isLocked && (
+        <div className="absolute inset-0 bg-yellow-400/5 z-30 pointer-events-none flex items-center justify-center">
+          <i className="fa-solid fa-lock text-yellow-400/60 text-[10px]" />
+        </div>
+      )}
       {/* Hover Line & Tooltip */}
       {hoverState && !isDragging && (
           <>
@@ -477,9 +501,27 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
           )}
       </div>
 
-      <span className="text-[9px] font-bold text-white whitespace-nowrap truncate drop-shadow-md overflow-hidden flex-1 relative z-10 px-1 py-0.5 bg-black/30 rounded">
-        {clip.name}
-      </span>
+      {/* Clip content area */}
+      <div className="relative flex items-center gap-1 px-2 flex-1 min-h-0 z-10 mt-[3px]">
+        {/* Type icon */}
+        {width > 36 && (
+          <i className={`fa-solid ${meta.icon} text-[9px] flex-shrink-0`} style={{ color: clipColor, opacity: 0.9 }} />
+        )}
+        {/* Name */}
+        <span className="text-[9px] font-semibold text-white/90 whitespace-nowrap truncate flex-1 drop-shadow-md">
+          {clip.type === 'text' ? ((clip as any).text?.slice(0, 30) || clip.name) : clip.name}
+        </span>
+        {/* Duration badge (only if wide enough) */}
+        {width > 80 && (
+          <span className="text-[8px] text-white/40 flex-shrink-0 tabular-nums">
+            {clip.duration.toFixed(1)}s
+          </span>
+        )}
+        {/* Muted icon */}
+        {isMuted && width > 50 && (
+          <i className="fa-solid fa-volume-xmark text-[8px] text-red-400/80 flex-shrink-0" />
+        )}
+      </div>
       
       {/* Trim Edge Handles — VISUAL ONLY (pointer-events:none)
           Trim logic is handled by handleClipDrag via TRIM_ZONE_PX detection */}
