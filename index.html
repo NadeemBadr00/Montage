@@ -13,5 +13,18 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Unregister stale service workers in dev to eliminate workbox warnings -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          regs.forEach(reg => {
+            // Only unregister in dev (localhost) to avoid breaking production PWA
+            if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+              reg.unregister();
+            }
+          });
+        });
+      }
+    </script>
   </body>
 </html>

@@ -4,7 +4,7 @@
 window.EditorApp.prototype.renderFrameOverlayUI = function(ctx, renderJobs, w, h) {
     renderJobs.forEach(job => {
         const processClip = (clip, opacityMult) => {
-            if (!clip || !clip.src.includes('frame_') || !clip.properties.overlayUI || clip.properties.overlayUI === 'none') return;
+            if (!clip || !clip.src || !clip.properties || !clip.src.includes('frame_') || !clip.properties.overlayUI || clip.properties.overlayUI === 'none') return;
             
             const sourceEl = this.getSourceElement(clip);
             let srcW = sourceEl ? (sourceEl.naturalWidth || sourceEl.videoWidth || w) : w;
@@ -213,6 +213,7 @@ window.EditorApp.prototype.fitMediaToFrame = function(frameClipId, mode) {
     let srcW = sourceEl ? (sourceEl.naturalWidth || canvasW) : 800;
     let srcH = sourceEl ? (sourceEl.naturalHeight || canvasH) : 1600;
     
+    if (!frameClip.src) return;
     if (frameClip.src.includes('frame_laptop')) { srcW = 1600; srcH = 1200; }
     else if (frameClip.src.includes('frame_monitor')) { srcW = 1920; srcH = 1400; }
     else if (frameClip.src.includes('frame_tv')) { srcW = 2000; srcH = 1200; }

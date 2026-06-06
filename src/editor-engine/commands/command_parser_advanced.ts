@@ -380,9 +380,9 @@ export function parseAdvancedCommand(cmd: string): any {
     const textAnimMatch = cmd.match(textAnimRegex);
     if (textAnimMatch) return { type: 'TEXT_ANIMATION', animName: textAnimMatch[1] };
 
-    const markerRegex = /^\/?marker(?:\s+(.+))?$/i;
-    const markerMatch = cmd.match(markerRegex);
-    if (markerMatch) return { type: 'ADD_MARKER', label: markerMatch[1] || 'Marker' };
+    const labeledMarkerRegex = /^\/?marker(?:\s+(.+))?$/i;
+    const labeledMarkerMatch = cmd.match(labeledMarkerRegex);
+    if (labeledMarkerMatch) return { type: 'ADD_MARKER', label: labeledMarkerMatch[1] || 'Marker' };
 
     if (/^\/?report$/i.test(cmd)) return { type: 'PROJECT_REPORT' };
 
