@@ -228,4 +228,41 @@ export const textTemplatesA: Asset[] = [
             properties: { positionX: 0, positionY: 420, scale: 80, rotation: 0, opacity: 100 }
         }
     },
+    // === 😂 EMOJI & STICKERS (إيموجي وملصقات) ===
+    {
+        id: 'tpl_emoji_laugh',
+        name: 'Laughing Emoji',
+        type: 'text',
+        src: '😂',
+        duration: 3,
+        templateData: {
+            textStyle: { fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", sans-serif', fontWeight: 'normal', fontStyle: 'normal', color: '#ffffff', backgroundColor: '#000000', backgroundOpacity: 0, strokeColor: '#000000', strokeWidth: 0, shadowBlur: 10, padding: 0, textAlign: 'center', textTransform: 'none', textDecoration: 'none' },
+            transitions: { in: 'pop', out: 'popOut', duration: 0.3 },
+            properties: { positionX: 0, positionY: 0, scale: 300, rotation: 0, opacity: 100 }
+        }
+    },
+    {
+        id: 'tpl_emoji_fire',
+        name: 'Fire Emoji',
+        type: 'text',
+        src: '🔥',
+        duration: 3,
+        templateData: {
+            textStyle: { fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", sans-serif', fontWeight: 'normal', fontStyle: 'normal', color: '#ffffff', backgroundColor: '#000000', backgroundOpacity: 0, strokeColor: '#000000', strokeWidth: 0, shadowBlur: 15, padding: 0, textAlign: 'center', textTransform: 'none', textDecoration: 'none' },
+            transitions: { in: 'slideUp', out: 'fade', duration: 0.2 },
+            properties: { positionX: -400, positionY: 200, scale: 250, rotation: -15, opacity: 100 }
+        }
+    },
+    {
+        id: 'tpl_emoji_heart',
+        name: 'Heart Emoji',
+        type: 'text',
+        src: '❤️',
+        duration: 3,
+        templateData: {
+            textStyle: { fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", sans-serif', fontWeight: 'normal', fontStyle: 'normal', color: '#ffffff', backgroundColor: '#000000', backgroundOpacity: 0, strokeColor: '#000000', strokeWidth: 0, shadowBlur: 15, padding: 0, textAlign: 'center', textTransform: 'none', textDecoration: 'none' },
+            transitions: { in: 'zoomIn', out: 'zoomOut', duration: 0.4 },
+            properties: { positionX: 0, positionY: 0, scale: 400, rotation: 0, opacity: 100 }
+        }
+    }
 ];

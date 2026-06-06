@@ -142,7 +142,7 @@ export function CanvasSettingsDropdown() {
             </select>
           </div>
           
-          <div>{aspectRatio === 'custom' && (
+          <div>{(aspectRatio === 'custom' || resolution === 'custom') && (
             <div className="flex gap-2">
               <div className="flex-1">
                 <label className="text-[10px] text-gray-400 block mb-1">Width</label>
@@ -190,6 +190,7 @@ export function CanvasSettingsDropdown() {
               <option value="480p">480p (854×480)</option>
               <option value="360p">360p (640×360)</option>
               <option value="144p">144p (256×144)</option>
+              <option value="custom">Custom</option>
             </select>
           </div>
         </div>
