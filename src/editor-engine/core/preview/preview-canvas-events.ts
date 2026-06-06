@@ -112,14 +112,43 @@ window.EditorApp.prototype.setupCanvasInteraction = function() {
         const { x, y } = this.getCanvasCoordinates(e);
         if (this.isDragging && activeClip) {
             if (mode === 'move') {
+                const cw = this.canvas.width;
+                const ch = this.canvas.height;
                 const deltaX = x - startX; const deltaY = y - startY;
                 
                 let newX = (initialProps.positionX || 0) + deltaX;
                 let newY = (initialProps.positionY || 0) + deltaY;
                 
                 this.snappedX = false; this.snappedY = false;
-                if (Math.abs(newX) < 15) { newX = 0; this.snappedX = true; }
-                if (Math.abs(newY) < 15) { newY = 0; this.snappedY = true; }
+                this.snappedEdgeX = ''; this.snappedEdgeY = ''; // 'left', 'right', 'top', 'bottom'
+
+                // Phase 34: PiP Snap Corners (Hold Shift)
+                if (e.shiftKey) {
+                    const pipScale = 30; // 30% scale
+                    activeClip.properties.scale = pipScale;
+                    // determine quadrant
+                    if (newX < 0 && newY < 0) { newX = -cw/2 + (cw * pipScale/200) + 20; newY = -ch/2 + (ch * pipScale/200) + 20; }
+                    else if (newX > 0 && newY < 0) { newX = cw/2 - (cw * pipScale/200) - 20; newY = -ch/2 + (ch * pipScale/200) + 20; }
+                    else if (newX < 0 && newY > 0) { newX = -cw/2 + (cw * pipScale/200) + 20; newY = ch/2 - (ch * pipScale/200) - 20; }
+                    else if (newX > 0 && newY > 0) { newX = cw/2 - (cw * pipScale/200) - 20; newY = ch/2 - (ch * pipScale/200) - 20; }
+                } else {
+                    // Phase 31: Smart Snapping (Center & Edges)
+                    const snapThreshold = 15;
+                    const { drawW, drawH } = this.getClipDrawRect(activeClip, cw, ch);
+                    const scale = (activeClip.properties.scale || 100) / 100;
+                    const cHalfW = (drawW * scale) / 2;
+                    const cHalfH = (drawH * scale) / 2;
+
+                    // X Snapping
+                    if (Math.abs(newX) < snapThreshold) { newX = 0; this.snappedX = true; } // Center
+                    else if (Math.abs(newX - (-cw/2 + cHalfW)) < snapThreshold) { newX = -cw/2 + cHalfW; this.snappedX = true; this.snappedEdgeX = 'left'; }
+                    else if (Math.abs(newX - (cw/2 - cHalfW)) < snapThreshold) { newX = cw/2 - cHalfW; this.snappedX = true; this.snappedEdgeX = 'right'; }
+
+                    // Y Snapping
+                    if (Math.abs(newY) < snapThreshold) { newY = 0; this.snappedY = true; } // Center
+                    else if (Math.abs(newY - (-ch/2 + cHalfH)) < snapThreshold) { newY = -ch/2 + cHalfH; this.snappedY = true; this.snappedEdgeY = 'top'; }
+                    else if (Math.abs(newY - (ch/2 - cHalfH)) < snapThreshold) { newY = ch/2 - cHalfH; this.snappedY = true; this.snappedEdgeY = 'bottom'; }
+                }
                 
                 activeClip.properties.positionX = Math.round(newX);
                 activeClip.properties.positionY = Math.round(newY);
@@ -292,4 +321,101 @@ window.EditorApp.prototype.handleFrameUpload = function(e, frameClip) {
         this.requestRedraw();
         if (this.updateEffectControls) this.updateEffectControls();
     }
+};
+
+window.EditorApp.prototype.openOnCanvasTextEditor = function(clip) {
+    if (!this.canvas.parentElement) return;
+    
+    // Calculate DOM position of the text clip relative to the canvas
+    const timeInClip = this.currentTime - clip.start;
+    const { posX, posY, scale } = this.getClipTransform(clip, timeInClip);
+    
+    const cw = this.canvas.width;
+    const ch = this.canvas.height;
+    
+    const cssW = this.canvas.clientWidth;
+    const cssH = this.canvas.clientHeight;
+    
+    const ratioX = cssW / cw;
+    const ratioY = cssH / ch;
+    
+    // Pixel coordinates in Canvas space
+    const cx = (cw / 2) + posX;
+    const cy = (ch / 2) + posY;
+    
+    // Pixel coordinates in CSS space
+    const domX = cx * ratioX;
+    const domY = cy * ratioY;
+    
+    const input = document.createElement('textarea');
+    input.value = clip.text || clip.src || '';
+    
+    // Styling to match canvas text as close as possible
+    const style = clip.textStyle || {};
+    const fontSize = ch * 0.05 * (scale || 1) * ratioY;
+    
+    Object.assign(input.style, {
+        position: 'absolute',
+        left: `${domX}px`,
+        top: `${domY}px`,
+        transform: 'translate(-50%, -50%)',
+        fontSize: `${fontSize}px`,
+        fontFamily: style.fontFamily || 'Cairo',
+        fontWeight: style.fontWeight || 'bold',
+        fontStyle: style.fontStyle || 'normal',
+        color: style.color || '#ffffff',
+        textAlign: style.textAlign || 'center',
+        background: 'rgba(0,0,0,0.4)',
+        border: '2px solid #3b82f6',
+        borderRadius: '8px',
+        padding: '10px',
+        minWidth: '200px',
+        minHeight: '60px',
+        zIndex: '1000',
+        outline: 'none',
+        resize: 'both',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+        whiteSpace: 'pre-wrap',
+        overflow: 'hidden'
+    });
+    
+    // Ensure the container is position: relative
+    this.canvas.parentElement.style.position = 'relative';
+    this.canvas.parentElement.appendChild(input);
+    
+    // Select text automatically
+    input.focus();
+    input.setSelectionRange(0, input.value.length);
+    
+    const closeAndSave = () => {
+        if (!input.parentElement) return; // already closed
+        const newText = input.value;
+        if (newText !== clip.text && newText !== clip.src) {
+            clip.text = newText;
+            clip.src = newText; // ensure fallback
+            this.commitStateToReact();
+            this.requestRedraw();
+        }
+        input.remove();
+    };
+    
+    // Close on blur or Enter (if not holding shift)
+    input.addEventListener('blur', closeAndSave);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            closeAndSave();
+        } else if (e.key === 'Escape') {
+            input.remove(); // discard changes
+        }
+    });
+    
+    // Auto-resize textarea vertically based on content
+    input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = input.scrollHeight + 'px';
+        clip.text = input.value;
+        clip.src = input.value;
+        this.requestRedraw(); // Live preview
+    });
 };

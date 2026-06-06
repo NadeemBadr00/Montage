@@ -705,18 +705,84 @@ window.EditorApp.prototype.renderFrameToCanvas = function() {
 };
 
 window.EditorApp.prototype.drawUIOverlays = function(ctx, w, h) {
-    // Draw Snapping Guides
-    if (this.isDragging && this.snappedX) {
-        ctx.save(); ctx.beginPath();
-        ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h);
-        ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]);
-        ctx.stroke(); ctx.restore();
+    const storeOpts = window.useEditorStore ? window.useEditorStore.getState() : {};
+    
+    // ═══════════════════════════════════════════════════════
+    // Phase 39 — 📐 Rule of Thirds & Grid
+    // ═══════════════════════════════════════════════════════
+    if (storeOpts.showRuleOfThirds || this.showRuleOfThirds) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        // Verticals
+        ctx.moveTo(w / 3, 0); ctx.lineTo(w / 3, h);
+        ctx.moveTo((w / 3) * 2, 0); ctx.lineTo((w / 3) * 2, h);
+        // Horizontals
+        ctx.moveTo(0, h / 3); ctx.lineTo(w, h / 3);
+        ctx.moveTo(0, (h / 3) * 2); ctx.lineTo(w, (h / 3) * 2);
+        ctx.stroke();
+        // Center Crosshair
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.beginPath();
+        ctx.moveTo(w / 2 - 10, h / 2); ctx.lineTo(w / 2 + 10, h / 2);
+        ctx.moveTo(w / 2, h / 2 - 10); ctx.lineTo(w / 2, h / 2 + 10);
+        ctx.stroke();
+        ctx.restore();
     }
-    if (this.isDragging && this.snappedY) {
-        ctx.save(); ctx.beginPath();
-        ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2);
-        ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]);
-        ctx.stroke(); ctx.restore();
+
+    // ═══════════════════════════════════════════════════════
+    // Phase 35 — 📱 Social Media Safe Zones
+    // ═══════════════════════════════════════════════════════
+    if (storeOpts.showSafeZones || this.showSafeZones) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)'; // Red-ish
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 5]);
+        // TikTok/Reels common safe area (approx 15% top, 20% bottom, 10% sides)
+        const sX = w * 0.1; const sY = h * 0.15;
+        const sW = w * 0.8; const sH = h * 0.65;
+        ctx.strokeRect(sX, sY, sW, sH);
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.8)';
+        ctx.font = '12px sans-serif';
+        ctx.fillText('TikTok/Reels Safe Zone', sX + 5, sY + 15);
+        ctx.restore();
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Phase 31 — 🧲 Smart Snapping Guides
+    // ═══════════════════════════════════════════════════════
+    if (this.isDragging) {
+        ctx.save();
+        ctx.strokeStyle = '#00ffff'; 
+        ctx.lineWidth = 1.5; 
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        if (this.snappedX) {
+            // Either snapped to center or edges. For simplicity, we just draw a center line
+            // but ideally we'd draw it at the specific edge. We'll use center as the main indicator.
+            const drawAtX = this.snappedEdgeX === 'left' ? 0 : (this.snappedEdgeX === 'right' ? w : w / 2);
+            ctx.moveTo(drawAtX, 0); ctx.lineTo(drawAtX, h);
+        }
+        if (this.snappedY) {
+            const drawAtY = this.snappedEdgeY === 'top' ? 0 : (this.snappedEdgeY === 'bottom' ? h : h / 2);
+            ctx.moveTo(0, drawAtY); ctx.lineTo(w, drawAtY);
+        }
+        ctx.stroke(); 
+        ctx.restore();
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Phase 37 — ⏯️ Canvas Playhead Mini-Bar
+    // ═══════════════════════════════════════════════════════
+    if (this.isPlaying && this.duration > 0) {
+        ctx.save();
+        const progress = this.currentTime / this.duration;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, h - 4, w, 4);
+        ctx.fillStyle = '#3b82f6';
+        ctx.fillRect(0, h - 4, w * progress, 4);
+        ctx.restore();
     }
 
     // Helper to find visible clips for UI hit testing
