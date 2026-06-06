@@ -1484,12 +1484,18 @@
                 resultVideo.src = finalUrl;
                 resultVideo.style.display = 'block';
 
+                setPhase('المرحلة ١٠/١٠: إنهاء وتجهيز الملف للتحميل! 🎉', 100);
+                window.opener?.postMessage({ type: 'done', url: finalUrl }, '*');
+
                 const a = document.createElement('a');
                 a.href = finalUrl;
-                a.download = `3_${height}p.mp4`;
+                a.download = `AI4Montage_Export_${Date.now()}.mp4`;
                 a.click();
                 
-            } catch (err) { log("❌ خطأ: " + err.message); }
+            } catch (err) { 
+                log("❌ خطأ: " + err.message); 
+                window.opener?.postMessage({ type: 'error', error: err.message }, '*');
+            }
             document.getElementById('startBtn').disabled = false;
             document.getElementById('cloudBtn').disabled = false;
         });
@@ -1603,7 +1609,7 @@
                     window.videoFile = await getFile(`${projectId}_video`);
                     if (window.videoFile) {
                         document.getElementById('hiddenPreviewVideo').src = URL.createObjectURL(window.videoFile);
-                        setPhase('المرحلة ١٠/١٠: إنهاء وتجهيز الملف للتحميل! 🎉', 100);
+                        log('📥 تم تحميل فيديو المشروع من الذاكرة بنجاح.');
                     } else {
                         document.getElementById('hiddenPreviewVideo').src = '/1.mp4';
                     }
