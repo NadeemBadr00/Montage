@@ -32,6 +32,13 @@ import './features/command_center/actions-phase17';
 import './features/command_center/actions-phase18';
 import './features/command_center/actions-phase19';
 import './features/command_center/actions-phase20';
+import './features/command_center/actions-phase21-30';
+import './features/command_center/actions-phase31-40';
+import './features/command_center/actions-phase41-50';
+import './features/command_center/actions-phase51-60';
+import './features/command_center/actions-phase61-70';
+import './features/command_center/actions-phase71-80';
+import './features/command_center/actions-phase81-100';
 
 // 5. Setup AI modules
 import './ai/gemini_chat';

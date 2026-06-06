@@ -335,6 +335,109 @@ export const injectActionsCore = () => {
                 if (this.executeResetEffects) this.executeResetEffects();
                 break;
 
+            // ═══ Phase 21-30 ═══
+            case 'SMART_TRANSITION':
+                if (this.executeSmartTransition) this.executeSmartTransition(parsed.transType);
+                break;
+            case 'PIP_MODE':
+                if (this.executePiP) this.executePiP(parsed.position);
+                break;
+            case 'MASK_SHAPE':
+                if (this.executeMask) this.executeMask(parsed.shape);
+                break;
+            case 'FLIP':
+                if (this.executeFlip) this.executeFlip(parsed.axis);
+                break;
+            case 'APPLY_LUT':
+                if (this.executeApplyLUT) this.executeApplyLUT(parsed.lutName);
+                break;
+            case 'AUDIO_COMPRESS':
+                if (this.executeAudioCompress) this.executeAudioCompress();
+                break;
+            case 'TEXT_ANIMATION':
+                if (this.executeTextAnimation) this.executeTextAnimation(parsed.animName);
+                break;
+            case 'ADD_MARKER':
+                if (this.executeAddLabeledMarker) this.executeAddLabeledMarker(parsed.label);
+                break;
+            case 'PROJECT_REPORT':
+                if (this.executeProjectReport) this.executeProjectReport();
+                break;
+
+            // ═══ Phase 31-40 ═══
+            case 'MOTION_BLUR':        if (this.executeMotionBlur) this.executeMotionBlur(parsed.amount); break;
+            case 'STABILIZE':          if (this.executeStabilize) this.executeStabilize(); break;
+            case 'AUTO_REFRAME':       if (this.executeAutoReframe) this.executeAutoReframe(parsed.ratio); break;
+            case 'SPEED_PRESET':       if (this.executeSpeedPreset) this.executeSpeedPreset(parsed.preset); break;
+            case 'EXPORT_SRT':         if (this.executeExportSRT) this.executeExportSRT(); break;
+            case 'SAFE_ZONE':          if (this.executeSafeZone) this.executeSafeZone(); break;
+            case 'FADE_ALL':           if (this.executeFadeAll) this.executeFadeAll(); break;
+            case 'RENAME_CLIP':        if (this.executeRenameClip) this.executeRenameClip(parsed.name); break;
+
+            // ═══ Phase 41-50 ═══
+            case 'AUTO_COLOR_GRADE':   if (this.executeAutoColorGrade) this.executeAutoColorGrade(); break;
+            case 'SMART_CROP':         if (this.executeSmartCrop) this.executeSmartCrop(); break;
+            case 'FADE_TO_BLACK':      if (this.executeFadeToBlack) this.executeFadeToBlack(parsed.duration || 2); break;
+            case 'FADE_FROM_BLACK':    if (this.executeFadeFromBlack) this.executeFadeFromBlack(parsed.duration || 2); break;
+            case 'TIMESTAMP_OVERLAY':  if (this.executeTimestampOverlay) this.executeTimestampOverlay(); break;
+            case 'LOOP_TOGGLE':        if (this.executeToggleLoop) this.executeToggleLoop(); break;
+            case 'AUTO_BALANCE':       if (this.executeAutoBalance) this.executeAutoBalance(); break;
+
+            // ═══ Phase 51-60 ═══
+            case 'NEON_GLOW':         if (this.executeNeonGlow) this.executeNeonGlow(parsed.color); break;
+            case 'VHS_EFFECT':        if (this.executeVHSEffect) this.executeVHSEffect(); break;
+            case 'FILM_GRAIN':        if (this.executeFilmGrain) this.executeFilmGrain(parsed.intensity); break;
+            case 'PIXELATE':          if (this.executePixelate) this.executePixelate(parsed.size); break;
+            case 'SPLIT_SCREEN':      if (this.executeSplitScreen) this.executeSplitScreen(); break;
+            case 'TRIM_SILENCE':      if (this.executeTrimSilence) this.executeTrimSilence(); break;
+            case 'OPACITY_PULSE':     if (this.executeOpacityPulse) this.executeOpacityPulse(); break;
+            case 'COLOR_TINT':        if (this.executeColorTint) this.executeColorTint(parsed.color); break;
+            case 'EXPORT_WAV':        if (this.executeExportWAV) this.executeExportWAV(); break;
+            case 'SMART_FILL_GAPS':   if (this.executeSmartFillGaps) this.executeSmartFillGaps(); break;
+
+            // ═══ Phase 61-70 ═══
+            case 'SAVE_TEMPLATE':     if (this.executeSaveTemplate) this.executeSaveTemplate(parsed.name); break;
+            case 'LOAD_TEMPLATE':     if (this.executeLoadTemplate) this.executeLoadTemplate(parsed.name); break;
+            case 'LIST_TEMPLATES':    if (this.executeListTemplates) this.executeListTemplates(); break;
+            case 'EXPORT_JSON':       if (this.executeExportJSON) this.executeExportJSON(); break;
+            case 'IMPORT_JSON':       if (this.executeImportJSON) this.executeImportJSON(); break;
+            case 'MEME_TEXT':         if (this.executeMemeText) this.executeMemeText(parsed.top, parsed.bottom); break;
+            case 'CONTENT_ANALYSIS':  if (this.executeContentAnalysis) this.executeContentAnalysis(); break;
+            case 'ADD_BG_MUSIC':      if (this.executeAddBGMusic) this.executeAddBGMusic(parsed.mood); break;
+            case 'PREVIEW_THUMBNAIL': if (this.executePreviewThumbnail) this.executePreviewThumbnail(); break;
+            case 'NORMALIZE_AUDIO':   if (this.executeNormalizeAudio) this.executeNormalizeAudio(); break;
+
+            // ═══ Phase 71-80 ═══
+            case 'ADD_BORDER':        if (this.executeAddBorder) this.executeAddBorder(parsed.color, parsed.thickness); break;
+            case 'RADIAL_BLUR':       if (this.executeRadialBlur) this.executeRadialBlur(); break;
+            case 'SLOW_MO_HIGHLIGHT': if (this.executeSlowMoHighlight) this.executeSlowMoHighlight(); break;
+            case 'RENDER_PREVIEW':    if (this.executeRenderPreview) this.executeRenderPreview(); break;
+            case 'BATCH_COLOR_GRADE': if (this.executeBatchColorGrade) this.executeBatchColorGrade(parsed.preset); break;
+            case 'JUMP_CUTS':         if (this.executeJumpCuts) this.executeJumpCuts(parsed.intervalSec); break;
+            case 'INTRO_OUTRO':       if (this.executeAddIntroOutro) this.executeAddIntroOutro(parsed.introOrOutro); break;
+            case 'DUP_TO_NEW_TRACK':  if (this.executeDuplicateToNewTrack) this.executeDuplicateToNewTrack(); break;
+            case 'REDUCE_FPS':        if (this.executeReduceFPS) this.executeReduceFPS(parsed.targetFPS); break;
+            case 'ADD_CHAPTER_CLIP':  if (this.executeAddChapterClip) this.executeAddChapterClip(parsed.title); break;
+
+            // ═══ Phase 81-100 ═══
+            case 'HDR_LOOK':           if (this.executeHDRLook) this.executeHDRLook(); break;
+            case 'DEHAZE':             if (this.executeDehaze) this.executeDehaze(); break;
+            case 'SKIN_SMOOTH':        if (this.executeSkinSmooth) this.executeSkinSmooth(); break;
+            case 'LONG_SHADOW':        if (this.executeLongShadow) this.executeLongShadow(); break;
+            case 'DUOTONE':            if (this.executeDuotone) this.executeDuotone(parsed.color1, parsed.color2); break;
+            case 'TILT_3D':            if (this.executeTilt3D) this.executeTilt3D(parsed.tiltX, parsed.tiltY); break;
+            case 'EARTHQUAKE':         if (this.executeEarthquake) this.executeEarthquake(); break;
+            case 'TIKTOK_SUBTITLES':   if (this.executeTikTokSubtitles) this.executeTikTokSubtitles(); break;
+            case 'END_SCREEN':         if (this.executeEndScreen) this.executeEndScreen(); break;
+            case 'AUTO_CHAPTERS':      if (this.executeAutoChapters) this.executeAutoChapters(); break;
+            case 'STORY_MODE':         if (this.executeStoryMode) this.executeStoryMode(); break;
+            case 'ADD_SFX':            if (this.executeSFX) this.executeSFX(parsed.sfxName); break;
+            case 'SMART_EXPORT':       if (this.executeSmartExport) this.executeSmartExport(parsed.platform); break;
+            case 'PROJECT_WIZARD':     if (this.executeProjectWizard) this.executeProjectWizard(); break;
+            case 'REVERB':             if (this.executeReverb) this.executeReverb(parsed.reverbType); break;
+            case 'ZOOM_TO_FACE':       if (this.executeZoomToFace) this.executeZoomToFace(); break;
+            case 'MULTI_LANG_CAPTIONS':if (this.executeMultiLangCaptions) this.executeMultiLangCaptions(parsed.lang); break;
+
             default:
                 this.log("❌ Unknown Command Type");
 

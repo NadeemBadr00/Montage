@@ -354,5 +354,136 @@ export function parseAdvancedCommand(cmd: string): any {
     if (/^\/?history$/i.test(cmd)) return { type: 'SHOW_HISTORY' };
     if (/^\/?reset$/i.test(cmd)) return { type: 'RESET_EFFECTS' };
 
+    // ═══ Phase 21-30 ═══
+    const transRegex = /^\/?transition?\s+([a-z]+)$/i;
+    const transMatch = cmd.match(transRegex);
+    if (transMatch) return { type: 'SMART_TRANSITION', transType: transMatch[1].toLowerCase() };
+
+    const pipRegex = /^\/?pip(?:\s+([a-z]+))?$/i;
+    const pipMatch = cmd.match(pipRegex);
+    if (pipMatch) return { type: 'PIP_MODE', position: pipMatch[1] || 'br' };
+
+    const maskRegex = /^\/?mask\s+([a-z]+)$/i;
+    const maskMatch = cmd.match(maskRegex);
+    if (maskMatch) return { type: 'MASK_SHAPE', shape: maskMatch[1] };
+
+    if (/^\/?flip\s+h$/i.test(cmd)) return { type: 'FLIP', axis: 'h' };
+    if (/^\/?flip\s+v$/i.test(cmd)) return { type: 'FLIP', axis: 'v' };
+
+    const lutRegex = /^\/?lut\s+([a-z-]+)$/i;
+    const lutMatch = cmd.match(lutRegex);
+    if (lutMatch) return { type: 'APPLY_LUT', lutName: lutMatch[1] };
+
+    if (/^\/?compress$/i.test(cmd)) return { type: 'AUDIO_COMPRESS' };
+
+    const textAnimRegex = /^\/?textanim\s+([a-z]+)$/i;
+    const textAnimMatch = cmd.match(textAnimRegex);
+    if (textAnimMatch) return { type: 'TEXT_ANIMATION', animName: textAnimMatch[1] };
+
+    const markerRegex = /^\/?marker(?:\s+(.+))?$/i;
+    const markerMatch = cmd.match(markerRegex);
+    if (markerMatch) return { type: 'ADD_MARKER', label: markerMatch[1] || 'Marker' };
+
+    if (/^\/?report$/i.test(cmd)) return { type: 'PROJECT_REPORT' };
+
+    // ═══ Phase 31-40 ═══
+    const motionBlurR = /^\/?motionblur(?:\s+(\d+))?$/i; const mbM = cmd.match(motionBlurR);
+    if (mbM) return { type: 'MOTION_BLUR', amount: parseFloat(mbM[1]) || 0.5 };
+    if (/^\/?stabilize$/i.test(cmd)) return { type: 'STABILIZE' };
+    const reframeR = /^\/?reframe\s+([0-9:]+)$/i; const rfM = cmd.match(reframeR);
+    if (rfM) return { type: 'AUTO_REFRAME', ratio: rfM[1] };
+    const speedR2 = /^\/?speed\s+(slow|half|normal|double|quad)$/i; const spM2 = cmd.match(speedR2);
+    if (spM2) return { type: 'SPEED_PRESET', preset: spM2[1] };
+    if (/^\/?exportsrt$/i.test(cmd)) return { type: 'EXPORT_SRT' };
+    if (/^\/?safezone$/i.test(cmd)) return { type: 'SAFE_ZONE' };
+    if (/^\/?fadeall$/i.test(cmd)) return { type: 'FADE_ALL' };
+    const renameR = /^\/?rename\s+(.+)$/i; const rnM = cmd.match(renameR);
+    if (rnM) return { type: 'RENAME_CLIP', name: rnM[1] };
+
+    // ═══ Phase 41-50 ═══
+    if (/^\/?autocolorgrade$/i.test(cmd)) return { type: 'AUTO_COLOR_GRADE' };
+    if (/^\/?smartcrop$/i.test(cmd)) return { type: 'SMART_CROP' };
+    if (/^\/?compress$/i.test(cmd)) return { type: 'AUDIO_COMPRESS' };
+    if (/^\/?fadeblack$/i.test(cmd)) return { type: 'FADE_TO_BLACK', duration: 2 };
+    if (/^\/?fadein$/i.test(cmd)) return { type: 'FADE_FROM_BLACK', duration: 2 };
+    if (/^\/?timestamp$/i.test(cmd)) return { type: 'TIMESTAMP_OVERLAY' };
+    if (/^\/?looptoggle$/i.test(cmd)) return { type: 'LOOP_TOGGLE' };
+    if (/^\/?autobalance$/i.test(cmd)) return { type: 'AUTO_BALANCE' };
+
+    // ═══ Phase 51-60 ═══
+    const neonR = /^\/?neon(?:\s+(.+))?$/i; const neonM = cmd.match(neonR);
+    if (neonM) return { type: 'NEON_GLOW', color: neonM[1] || '#00ffff' };
+    if (/^\/?vhs$/i.test(cmd)) return { type: 'VHS_EFFECT' };
+    const grainR = /^\/?grain(?:\s+(\d+\.?\d*))?$/i; const grainM = cmd.match(grainR);
+    if (grainM) return { type: 'FILM_GRAIN', intensity: parseFloat(grainM[1]) || 0.2 };
+    const pixR = /^\/?pixelate(?:\s+(\d+))?$/i; const pixM = cmd.match(pixR);
+    if (pixM) return { type: 'PIXELATE', size: parseInt(pixM[1]) || 20 };
+    if (/^\/?splitscreen$/i.test(cmd)) return { type: 'SPLIT_SCREEN' };
+    if (/^\/?trimsilence$/i.test(cmd)) return { type: 'TRIM_SILENCE' };
+    if (/^\/?pulse$/i.test(cmd)) return { type: 'OPACITY_PULSE' };
+    const tintR = /^\/?tint(?:\s+(.+))?$/i; const tintM = cmd.match(tintR);
+    if (tintM) return { type: 'COLOR_TINT', color: tintM[1] || '#ff0055' };
+    if (/^\/?exportwav$/i.test(cmd)) return { type: 'EXPORT_WAV' };
+    if (/^\/?fillgaps$/i.test(cmd)) return { type: 'SMART_FILL_GAPS' };
+
+    // ═══ Phase 61-70 ═══
+    const saveTplR = /^\/?savetemplate\s+(.+)$/i; const stpM = cmd.match(saveTplR);
+    if (stpM) return { type: 'SAVE_TEMPLATE', name: stpM[1] };
+    const loadTplR = /^\/?loadtemplate\s+(.+)$/i; const ltpM = cmd.match(loadTplR);
+    if (ltpM) return { type: 'LOAD_TEMPLATE', name: ltpM[1] };
+    if (/^\/?listtemplates$/i.test(cmd)) return { type: 'LIST_TEMPLATES' };
+    if (/^\/?exportjson$/i.test(cmd)) return { type: 'EXPORT_JSON' };
+    if (/^\/?importjson$/i.test(cmd)) return { type: 'IMPORT_JSON' };
+    const memeR = /^\/?meme\s+(.+)\|(.+)$/i; const memeM = cmd.match(memeR);
+    if (memeM) return { type: 'MEME_TEXT', top: memeM[1], bottom: memeM[2] };
+    if (/^\/?analyze$/i.test(cmd)) return { type: 'CONTENT_ANALYSIS' };
+    const bgmR = /^\/?bgm\s+(.+)$/i; const bgmM = cmd.match(bgmR);
+    if (bgmM) return { type: 'ADD_BG_MUSIC', mood: bgmM[1] };
+    if (/^\/?preview$/i.test(cmd)) return { type: 'PREVIEW_THUMBNAIL' };
+    if (/^\/?normalize$/i.test(cmd)) return { type: 'NORMALIZE_AUDIO' };
+
+    // ═══ Phase 71-80 ═══
+    const borderR = /^\/?border(?:\s+([#a-z]+))?(?:\s+(\d+))?$/i; const borM = cmd.match(borderR);
+    if (borM) return { type: 'ADD_BORDER', color: borM[1] || '#ffffff', thickness: parseInt(borM[2]) || 8 };
+    if (/^\/?radialblur$/i.test(cmd)) return { type: 'RADIAL_BLUR' };
+    if (/^\/?slowmo$/i.test(cmd)) return { type: 'SLOW_MO_HIGHLIGHT' };
+    if (/^\/?renderpreview$/i.test(cmd)) return { type: 'RENDER_PREVIEW' };
+    const batchGradeR = /^\/?batchgrade\s+([a-z]+)$/i; const bgM = cmd.match(batchGradeR);
+    if (bgM) return { type: 'BATCH_COLOR_GRADE', preset: bgM[1] };
+    const jumpR = /^\/?jumpcuts?(?:\s+(\d+\.?\d*))?$/i; const jcM = cmd.match(jumpR);
+    if (jcM) return { type: 'JUMP_CUTS', intervalSec: parseFloat(jcM[1]) || 2 };
+    if (/^\/?intro$/i.test(cmd)) return { type: 'INTRO_OUTRO', introOrOutro: 'intro' };
+    if (/^\/?outro$/i.test(cmd)) return { type: 'INTRO_OUTRO', introOrOutro: 'outro' };
+    if (/^\/?duptrack$/i.test(cmd)) return { type: 'DUP_TO_NEW_TRACK' };
+    const fpsR = /^\/?fps\s+(\d+)$/i; const fpsM = cmd.match(fpsR);
+    if (fpsM) return { type: 'REDUCE_FPS', targetFPS: parseInt(fpsM[1]) };
+    const chapR = /^\/?chapter\s+(.+)$/i; const chapM = cmd.match(chapR);
+    if (chapM) return { type: 'ADD_CHAPTER_CLIP', title: chapM[1] };
+
+    // ═══ Phase 81-100 ═══
+    if (/^\/?hdr$/i.test(cmd)) return { type: 'HDR_LOOK' };
+    if (/^\/?dehaze$/i.test(cmd)) return { type: 'DEHAZE' };
+    if (/^\/?skinsmooth$/i.test(cmd)) return { type: 'SKIN_SMOOTH' };
+    if (/^\/?longshadow$/i.test(cmd)) return { type: 'LONG_SHADOW' };
+    const duotoneR = /^\/?duotone(?:\s+([#a-z]+)\s+([#a-z]+))?$/i; const dtM = cmd.match(duotoneR);
+    if (dtM) return { type: 'DUOTONE', color1: dtM[1] || '#ff0055', color2: dtM[2] || '#0000ff' };
+    if (/^\/?tilt3d$/i.test(cmd)) return { type: 'TILT_3D', tiltX: 15, tiltY: 10 };
+    if (/^\/?earthquake$/i.test(cmd)) return { type: 'EARTHQUAKE' };
+    if (/^\/?tiktokstyle$/i.test(cmd)) return { type: 'TIKTOK_SUBTITLES' };
+    if (/^\/?endscreen$/i.test(cmd)) return { type: 'END_SCREEN' };
+    if (/^\/?autochapters$/i.test(cmd)) return { type: 'AUTO_CHAPTERS' };
+    if (/^\/?storymode$/i.test(cmd)) return { type: 'STORY_MODE' };
+    const sfxR = /^\/?sfx\s+([a-z]+)$/i; const sfxM = cmd.match(sfxR);
+    if (sfxM) return { type: 'ADD_SFX', sfxName: sfxM[1] };
+    const smartExpR = /^\/?smartexport\s+([a-z]+)$/i; const seM = cmd.match(smartExpR);
+    if (seM) return { type: 'SMART_EXPORT', platform: seM[1] };
+    if (/^\/?wizard$/i.test(cmd)) return { type: 'PROJECT_WIZARD' };
+    if (/^\/?renderpreview$/i.test(cmd)) return { type: 'RENDER_PREVIEW' };
+    const reverbR = /^\/?reverb(?:\s+([a-z]+))?$/i; const revM = cmd.match(reverbR);
+    if (revM) return { type: 'REVERB', reverbType: revM[1] || 'room' };
+    if (/^\/?zoomface$/i.test(cmd)) return { type: 'ZOOM_TO_FACE' };
+    const langR = /^\/?lang\s+([a-z]{2})$/i; const langM = cmd.match(langR);
+    if (langM) return { type: 'MULTI_LANG_CAPTIONS', lang: langM[1] };
+
     return null;
 }
