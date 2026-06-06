@@ -19,32 +19,72 @@ export default function TimelineKeyboardShortcuts() {
 
       const ctrl = e.ctrlKey || e.metaKey;
 
-      switch (e.key) {
         /* Playback */
         case ' ':
           e.preventDefault();
-          app?.togglePlay?.();
+          e.stopPropagation();
+          if (!app) break;
+          // Safe toggle — handle suspended AudioContext gracefully
+          try {
+            if (app.audioCtx?.state === 'suspended') app.audioCtx.resume();
+            app.togglePlay();
+          } catch {
+            // Fallback if engine not fully ready
+            const nowPlaying = (window as any).useEditorStore?.getState()?.isPlaying;
+            if (nowPlaying) {
+              app.isPlaying = false; app.playbackRate = 0;
+              (window as any).useEditorStore?.setState({ isPlaying: false });
+            } else {
+              app.isPlaying = true; app.playbackRate = 1;
+              (window as any).useEditorStore?.setState({ isPlaying: true });
+            }
+          }
           break;
+
         case 'k':
-          app?.togglePlay?.();
+          e.preventDefault();
+          if (app) {
+            try { app.togglePlay?.(); } catch {}
+          }
           break;
-        case 'j':
-          app?.seek?.(-5);
+
+        /* JKL scrub */
+        case 'j': {
+          e.preventDefault();
+          if (!app) break;
+          const t = Math.max(0, (app.currentTime || 0) - 5);
+          app.seekToAbsolute?.(t, { resume: false });
           break;
-        case 'l':
-          app?.seek?.(5);
+        }
+        case 'l': {
+          e.preventDefault();
+          if (!app) break;
+          const t2 = Math.min(app.duration || 300, (app.currentTime || 0) + 5);
+          app.seekToAbsolute?.(t2, { resume: false });
           break;
-        case 'ArrowLeft':
-          app?.seek?.(ctrl ? -10 : -1);
+        }
+
+        case 'ArrowLeft': {
+          e.preventDefault();
+          if (!app) break;
+          const step = ctrl ? 10 : 1;
+          app.seekToAbsolute?.(Math.max(0, (app.currentTime || 0) - step), { resume: app.isPlaying });
           break;
-        case 'ArrowRight':
-          app?.seek?.(ctrl ? 10 : 1);
+        }
+        case 'ArrowRight': {
+          e.preventDefault();
+          if (!app) break;
+          const step2 = ctrl ? 10 : 1;
+          app.seekToAbsolute?.(Math.min(app.duration || 300, (app.currentTime || 0) + step2), { resume: app.isPlaying });
           break;
+        }
         case 'Home':
-          app?.seek?.(-(app?.currentTime || 0));
+          e.preventDefault();
+          app?.seekToAbsolute?.(0, { resume: false });
           break;
         case 'End':
-          app?.seek?.((app?.duration || 0) - (app?.currentTime || 0));
+          e.preventDefault();
+          app?.seekToAbsolute?.(app?.duration || 0, { resume: false });
           break;
 
         /* Edit */

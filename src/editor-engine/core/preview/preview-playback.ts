@@ -1,7 +1,8 @@
 // @ts-nocheck
 // preview-playback.ts — togglePlay, startPlayback, pausePlayback, playbackLoop, handleJKL, keyboard shortcuts
 window.EditorApp.prototype.togglePlay = function() { 
-    if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+    // Safe: audioCtx might not exist if setupVideoSync hasn't run yet
+    if (this.audioCtx?.state === 'suspended') this.audioCtx.resume();
     if (this.playbackRate !== 0) {
         this.pausePlayback();
     } else {
@@ -107,22 +108,18 @@ window.EditorApp.prototype.bindKeyboardShortcuts = function() {
         // Ignore if typing in input fields
         if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-        // Block ALL playback shortcuts when CMD center is focused
+        // Block ALL shortcuts when CMD center is focused
         if (window.app && window.app.isCmdFocused) return;
 
-        // Block when there's text in the buffer
+        // Block when there's text in the command buffer
         if (window.app && window.app.commandBuffer && window.app.commandBuffer.length > 0) return;
 
-        // ✅ Only respond if this is the ACTIVE engine
+        // ✅ Only respond if this is the ACTIVE engine instance
         if (window.app !== this) return;
 
-        if (e.code === 'KeyJ') this.handleJKL('j');
-        if (e.code === 'KeyK') this.handleJKL('k');
-        if (e.code === 'KeyL') this.handleJKL('l');
-        
-        if (e.code === 'Space') { e.preventDefault(); this.togglePlay(); }
-
-        // Undo / Redo
+        // NOTE: Space / j / k / l are handled by TimelineKeyboardShortcuts React component.
+        // Handling them HERE too caused double-firing. Only keep Undo/Redo here since
+        // React can't directly call app.undo()/redo() without going through the store.
         if (e.ctrlKey || e.metaKey) {
             if (e.code === 'KeyZ') {
                 e.preventDefault();
@@ -135,7 +132,7 @@ window.EditorApp.prototype.bindKeyboardShortcuts = function() {
         }
     };
 
-    // Store bound handler for cleanup
+    // Store bound handler so it can be removed on next init
     window.__editorKeydownHandler = handler.bind(this);
     document.addEventListener('keydown', window.__editorKeydownHandler);
 };
