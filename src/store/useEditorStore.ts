@@ -38,6 +38,12 @@ interface EditorState {
   setCanvasSettings: (aspectRatio: string, resolution: string, customW?: number, customH?: number) => void;
   setFps: (fps: number) => void;
   
+  // Phase 35, 39: Canvas Overlays
+  showRuleOfThirds: boolean;
+  setShowRuleOfThirds: (show: boolean) => void;
+  showSafeZones: boolean;
+  setShowSafeZones: (show: boolean) => void;
+  
   // Playback Actions
   togglePlay: () => void;
   setCurrentTime: (time: number) => void;
@@ -104,6 +110,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   customWidth: 1920,
   customHeight: 1080,
   fps: 30,
+
+  showRuleOfThirds: false,
+  setShowRuleOfThirds: (show) => {
+      set({ showRuleOfThirds: show });
+      if ((window as any).app) (window as any).app.requestRedraw?.();
+  },
+  showSafeZones: false,
+  setShowSafeZones: (show) => {
+      set({ showSafeZones: show });
+      if ((window as any).app) (window as any).app.requestRedraw?.();
+  },
   
   logs: [{ msg: 'Ready...', time: new Date().toLocaleTimeString('ar-EG', { hour12: false, hour: 'numeric', minute: 'numeric', second: 'numeric' }) }],
   

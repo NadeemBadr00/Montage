@@ -187,7 +187,17 @@ export default function Player() {
           </button>
         </div>
         
-        <div className="w-32 flex justify-end">
+        <div className="w-32 flex justify-end gap-3 items-center">
+          <i 
+            className={`fa-solid fa-border-all cursor-pointer text-[11px] transition-colors ${useEditorStore(state => state.showRuleOfThirds) ? 'text-blue-400' : 'text-gray-400 hover:text-white'}`}
+            onClick={() => useEditorStore.getState().setShowRuleOfThirds(!useEditorStore.getState().showRuleOfThirds)}
+            title="Toggle Rule of Thirds"
+          ></i>
+          <i 
+            className={`fa-solid fa-crop-simple cursor-pointer text-[11px] transition-colors ${useEditorStore(state => state.showSafeZones) ? 'text-red-400' : 'text-gray-400 hover:text-white'}`}
+            onClick={() => useEditorStore.getState().setShowSafeZones(!useEditorStore.getState().showSafeZones)}
+            title="Toggle Safe Zones"
+          ></i>
           <i 
             className="fa-solid fa-expand text-gray-400 hover:text-white cursor-pointer text-[10px]"
             onClick={toggleFullscreen}
