@@ -108,7 +108,11 @@ export const faqs = [
   },
   {
     q: 'Can I cancel anytime?',
-    a: 'Yes, cancel anytime. No lock-in, no cancellation fee.',
+    a: 'Yes, cancel anytime. No lock-in, no cancellation fee. See our Refund Policy at /refund for full details on refund eligibility.',
+  },
+  {
+    q: 'What is your refund policy?',
+    a: 'We offer a 7-day full refund window if AI features were not used. Annual plans may be eligible for pro-rated refunds within 30 days. See /refund for complete details.',
   },
   {
     q: 'Can I use AI4Montage offline?',

@@ -18,6 +18,7 @@ const cols = [
       { to: '/privacy', label: 'Privacy Policy' },
       { to: '/terms',   label: 'Terms of Service' },
       { to: '/cookies', label: 'Cookies Policy' },
+      { to: '/refund',  label: 'Refund Policy' },
     ],
   },
   {
@@ -128,6 +129,7 @@ export function Footer() {
               ['/privacy', 'Privacy'],
               ['/terms',   'Terms'],
               ['/cookies', 'Cookies'],
+              ['/refund',  'Refund'],
             ].map(([to, label]) => (
               <Link
                 key={label}

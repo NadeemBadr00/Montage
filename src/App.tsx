@@ -15,6 +15,7 @@ import Privacy       from './pages/Privacy';
 import Terms         from './pages/Terms';
 import Contact       from './pages/Contact';
 import Cookies       from './pages/Cookies';
+import Refund        from './pages/Refund';
 import PaymentSuccess from './pages/PaymentSuccess';
 import { CookieBanner } from './components/ui/CookieBanner';
 import { UltraPromoBanner } from './components/ui/UltraPromoBanner';
@@ -40,6 +41,7 @@ export default function App() {
         <Route path="/terms"          element={<Terms />} />
         <Route path="/contact"        element={<Contact />} />
         <Route path="/cookies"        element={<Cookies />} />
+        <Route path="/refund"         element={<Refund />} />
         <Route path="/editor/:id"     element={<EditorV2 />} />
         <Route path="/editor"         element={<Navigate to="/startup" replace />} />
         <Route path="/editor-v2"      element={<Navigate to="/startup" replace />} />
