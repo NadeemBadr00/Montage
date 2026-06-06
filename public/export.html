@@ -111,11 +111,13 @@
             const startY = -(totalHeight / 2) + (lineHeight / 2);
 
             // Render Background
-            const bgOpacity = (style.backgroundOpacity !== undefined ? style.backgroundOpacity : 0) / 100;
-            if (bgOpacity > 0) {
+            const bgColor = style.backgroundColor;
+            const hasBg = bgColor && bgColor !== 'transparent' && bgColor !== '#00000000';
+            if (hasBg) {
                 ctx.save();
+                const bgOpacity = style.backgroundOpacity !== undefined ? style.backgroundOpacity / 100 : 1;
                 ctx.globalAlpha *= bgOpacity;
-                ctx.fillStyle = forceHex(style.backgroundColor);
+                ctx.fillStyle = forceHex(bgColor);
                 ctx.fillRect(-boxW/2, -boxH/2, boxW, boxH);
                 ctx.restore();
             }

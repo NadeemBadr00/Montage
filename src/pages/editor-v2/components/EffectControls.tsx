@@ -392,7 +392,12 @@ function TextTab({ clip }: any) {
       </Section>
       <Section title="Shadow & Outline">
         <PropSlider label="Shadow Blur" propKey="shadowBlur"    min={0} max={30} step={1} unit="px" color="#a78bfa" clip={clip} isText />
-        <PropSlider label="Outline"     propKey="outlineWidth"  min={0} max={20} step={1} unit="px" color="#818cf8" clip={clip} isText />
+        <PropSlider label="Outline"     propKey="strokeWidth"   min={0} max={20} step={1} unit="px" color="#818cf8" clip={clip} isText />
+        <div className="flex items-center gap-2 py-1 mt-1">
+          <span className="text-[9px] text-gray-500 w-[68px]">Outline Color</span>
+          <input type="color" value={clip?.textStyle?.strokeColor || '#000000'} onChange={e => applyTextStyle('strokeColor', e.target.value)} className="w-6 h-6 rounded cursor-pointer border border-gray-700 bg-transparent" />
+          <span className="text-[9px] text-gray-400 font-mono">{clip?.textStyle?.strokeColor || '#000000'}</span>
+        </div>
       </Section>
     </div>
   );

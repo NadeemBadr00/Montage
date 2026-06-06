@@ -205,7 +205,7 @@ const TEXT_PRESETS = [
   { id: 'subtitle',   label: 'Subtitle',    icon: 'fa-closed-captioning', color: '#94a3b8',
     apply: () => { applyTextStyle('fontSize', 28); applyTextStyle('backgroundColor', '#00000099'); applyTextStyle('textAlign', 'center'); } },
   { id: 'meme',       label: 'Meme Text',   icon: 'fa-face-laugh',   color: '#fde68a',
-    apply: () => { applyTextStyle('fontSize', 48); applyTextStyle('fontWeight', 'bold'); applyTextStyle('color', '#ffffff'); applyTextStyle('outlineWidth', 3); } },
+    apply: () => { applyTextStyle('fontSize', 48); applyTextStyle('fontWeight', 'bold'); applyTextStyle('color', '#ffffff'); applyTextStyle('strokeWidth', 3); applyTextStyle('strokeColor', '#000000'); } },
 ];
 
 /* ─── Export Formats ──────────────────────────────────────────── */
@@ -222,7 +222,7 @@ export function QuickFxPanel() {
   const hasSelection = selectedClipIds.size > 0;
   const tracks = useEditorStore(s => s.tracks);
 
-  const [activeTab, setActiveTab] = useState<'fx' | 'fix' | 'export'>('fx');
+  const [activeTab, setActiveTab] = useState<'fx' | 'fix' | 'animate' | 'export'>('fx');
   const [fxCat, setFxCat]   = useState('all');
   const [fxSearch, setFxSearch] = useState('');
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -230,11 +230,48 @@ export function QuickFxPanel() {
   const [appliedPreset, setAppliedPreset] = useState<string | null>(null);
   const [filterByType, setFilterByType] = useState(false);
 
-  // Export state
   const [expFormat, setExpFormat] = useState('mp4');
   const [expRes, setExpRes]       = useState('1080p');
   const [expFps, setExpFps]       = useState('30');
   const [expQuality, setExpQuality] = useState('high');
+
+  // Animation state
+  const [enterAnim, setEnterAnim] = useState('none');
+  const [exitAnim, setExitAnim]   = useState('none');
+  const [animDuration, setAnimDuration] = useState('1.0');
+
+  useEffect(() => {
+    if (selectedClipIds.size !== 1) return;
+    const id = Array.from(selectedClipIds)[0];
+    for (const t of tracks) {
+      const c = t.clips.find((c: any) => c.id === id);
+      if (c) {
+         setEnterAnim(c.transitions?.in || 'none');
+         setExitAnim(c.transitions?.out || 'none');
+         setAnimDuration((c.transitions?.duration || 1.0).toString());
+         break;
+      }
+    }
+  }, [selectedClipIds, tracks]);
+
+  const applyTransition = (inAnim: string, outAnim: string, dur: number) => {
+    const app = (window as any).app;
+    if (!app) return;
+    const ids = Array.from(app.selectedClipIds || []);
+    app.tracks?.forEach((t: any) => {
+      t.clips?.forEach((c: any) => {
+        if (ids.includes(c.id)) {
+          c.transitions = c.transitions || {};
+          c.transitions.in = inAnim;
+          c.transitions.out = outAnim;
+          c.transitions.duration = dur;
+        }
+      });
+    });
+    app.saveState?.();
+    app.requestRedraw?.();
+    app.commitStateToReact?.();
+  };
 
   // Detect selected clip type
   const clipType = React.useMemo(() => {
@@ -296,6 +333,7 @@ export function QuickFxPanel() {
   const TABS = [
     { id: 'fx',    label: 'Effects',  icon: 'fa-wand-magic-sparkles' },
     { id: 'fix',   label: 'Presets',  icon: 'fa-bolt' },
+    { id: 'animate', label: 'Animate', icon: 'fa-film' },
     { id: 'export',label: 'Export',   icon: 'fa-file-export' },
   ];
 
@@ -583,6 +621,57 @@ export function QuickFxPanel() {
             <i className="fa-solid fa-shuffle text-[9px]" />
             <span className="text-[8px]">Random Effect</span>
           </button>
+        </div>
+      )}
+
+      {/* ══ ANIMATE TAB ══ */}
+      {activeTab === 'animate' && (
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-3">
+          <div className="bg-[#0a0f1d] border border-gray-800 rounded-lg p-2">
+             <p className="text-[9px] font-bold text-gray-300 mb-2 border-b border-gray-800 pb-1 flex items-center gap-1">
+               <i className="fa-solid fa-arrow-right-to-bracket text-green-400" />
+               حركة الدخول (In)
+             </p>
+             <div className="grid grid-cols-2 gap-1">
+               {['none', 'fade', 'pop', 'zoomIn', 'slideInLeft', 'slideInRight'].map(anim => (
+                 <button key={anim}
+                   onClick={() => { setEnterAnim(anim); applyTransition(anim, exitAnim, parseFloat(animDuration)); }}
+                   className={`px-2 py-1.5 rounded text-[8px] transition-all capitalize ${enterAnim === anim ? 'bg-green-600/20 border border-green-500 text-green-400' : 'bg-[#0f172a] border border-gray-800 hover:border-gray-600 text-gray-400'}`}>
+                   {anim === 'none' ? 'لا شيء' : anim}
+                 </button>
+               ))}
+             </div>
+          </div>
+
+          <div className="bg-[#0a0f1d] border border-gray-800 rounded-lg p-2">
+             <p className="text-[9px] font-bold text-gray-300 mb-2 border-b border-gray-800 pb-1 flex items-center gap-1">
+               <i className="fa-solid fa-arrow-right-from-bracket text-red-400" />
+               حركة الخروج (Out)
+             </p>
+             <div className="grid grid-cols-2 gap-1">
+               {['none', 'fade', 'pop', 'zoomOut', 'slideOutLeft', 'slideOutRight'].map(anim => (
+                 <button key={anim}
+                   onClick={() => { setExitAnim(anim); applyTransition(enterAnim, anim, parseFloat(animDuration)); }}
+                   className={`px-2 py-1.5 rounded text-[8px] transition-all capitalize ${exitAnim === anim ? 'bg-red-600/20 border border-red-500 text-red-400' : 'bg-[#0f172a] border border-gray-800 hover:border-gray-600 text-gray-400'}`}>
+                   {anim === 'none' ? 'لا شيء' : anim}
+                 </button>
+               ))}
+             </div>
+          </div>
+
+          <div className="bg-[#0a0f1d] border border-gray-800 rounded-lg p-2">
+             <p className="text-[8px] text-gray-400 mb-1 flex items-center justify-between">
+               <span>المدة (Duration):</span>
+               <span className="font-mono text-purple-400">{animDuration}s</span>
+             </p>
+             <input type="range" min="0.1" max="3.0" step="0.1" value={animDuration}
+               onChange={e => {
+                 setAnimDuration(e.target.value);
+                 applyTransition(enterAnim, exitAnim, parseFloat(e.target.value));
+               }}
+               className="w-full accent-purple-500 h-1 bg-gray-800 rounded-full appearance-none mt-2"
+             />
+          </div>
         </div>
       )}
 
