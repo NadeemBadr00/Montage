@@ -408,3 +408,17 @@ input[type="number"] {
 .keyframe-lane {
   animation: fadeIn 0.15s ease-out;
 }
+
+/* Phase 22: Snap Guide Flash Animation */
+@keyframes snapGuideFlash {
+  0%   { opacity: 1; }
+  60%  { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+/* Phase 25: Clip highlight pulse (search result) */
+@keyframes highlightPulse {
+  0%   { opacity: 1; box-shadow: 0 0 0 3px #a5b4fc, 0 0 20px rgba(165,180,252,0.9); }
+  50%  { opacity: 0.8; box-shadow: 0 0 0 2px #a5b4fc, 0 0 12px rgba(165,180,252,0.6); }
+  100% { opacity: 0; box-shadow: 0 0 0 0px transparent; }
+}

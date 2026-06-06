@@ -4,6 +4,7 @@ import { Clip } from '../../../types/editor.types';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useMediaThumbnail } from '../panels/useMediaThumbnail';
 import { ClipSpeedBadge, ClipFadeOverlay } from './ClipOverlays';
+import { CompoundClipBadge } from './CompoundClip'; // Phase 27
 
 interface ClipItemProps {
   clip: Clip;
@@ -14,11 +15,11 @@ interface ClipItemProps {
 export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
   const pixelsPerSecond = useEditorStore(state => state.pixelsPerSecond);
   const selectedClipIds = useEditorStore(state => state.selectedClipIds);
-  const highlightedClipId = useEditorStore(state => state.highlightedClipId);
+  const highlightedClip = useEditorStore(state => state.highlightedClip); // Phase 25
   const activeTool = useEditorStore(state => state.activeTool);
   
   const isSelected = selectedClipIds.has(clip.id);
-  const isHighlighted = highlightedClipId === clip.id;
+  const isHighlighted = highlightedClip === clip.id; // Phase 25: use unified field
   const leftPos = clip.start * pixelsPerSecond;
   const width = clip.duration * pixelsPerSecond;
   
@@ -551,6 +552,22 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
         <div className="absolute top-1 right-4 z-20 pointer-events-none" title={(clip as any).note}>
           <i className="fa-solid fa-note-sticky text-[7px] text-yellow-400/70" />
         </div>
+      )}
+      {/* Phase 27: Compound Clip Badge */}
+      <CompoundClipBadge
+        clip={clip as any}
+        onClick={() => (window as any).app?.ungroupCompound?.(clip.id)}
+      />
+
+      {/* Phase 25: Highlight ring from search result */}
+      {isHighlighted && (
+        <div
+          className="absolute inset-0 rounded-md pointer-events-none z-40"
+          style={{
+            boxShadow: '0 0 0 2px #a5b4fc, 0 0 12px rgba(165,180,252,0.8)',
+            animation: 'highlightPulse 1.5s ease-out forwards',
+          }}
+        />
       )}
 
       {/* Lock indicator */}

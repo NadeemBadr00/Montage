@@ -138,21 +138,8 @@ export default function TimelineKeyboardShortcuts() {
           setMagneticMode(!isMagneticMode);
           break;
 
-        /* Markers */
-        case 'i':
-          if (app) {
-            if (!app.markers) app.markers = [];
-            app.markers.push({ id: 'mk_' + Date.now(), time: app.currentTime || 0, label: 'In', color: '#22c55e', type: 'Cue' });
-            app.commitStateToReact?.();
-          }
-          break;
-        case 'o':
-          if (app) {
-            if (!app.markers) app.markers = [];
-            app.markers.push({ id: 'mk_' + Date.now(), time: app.currentTime || 0, label: 'Out', color: '#ef4444', type: 'Cue' });
-            app.commitStateToReact?.();
-          }
-          break;
+        /* i/o keys are handled by Timeline.tsx for Loop Region (Phase 26) */
+        /* They set In/Out points — no duplicate marker push here */
 
         /* Zoom */
         case '=':

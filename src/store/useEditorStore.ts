@@ -52,8 +52,8 @@ interface EditorState {
   logs: { msg: string; time: string }[];
   addLog: (msg: string) => void;
 
-  // Visual Feedback
-  highlightedClipId: string | null;
+  // Visual Feedback (Phase 25)
+  highlightedClip: string | null;
   setHighlightedClip: (id: string | null) => void;
 
   // CMD Aliases (Macros)
@@ -73,10 +73,6 @@ interface EditorState {
   setMagneticMode: (mode: boolean) => void;
   collapsedTracks: Set<number>;
   toggleTrackCollapse: (trackId: number) => void;
-
-  // Phase 25: Highlighted clip (from search)
-  highlightedClip: string | null;
-  setHighlightedClip: (id: string | null) => void;
 
   // Phase 26: Loop Region
   loopRegion: { in: number; out: number } | null;
@@ -111,8 +107,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   
   logs: [{ msg: 'Ready...', time: new Date().toLocaleTimeString('ar-EG', { hour12: false, hour: 'numeric', minute: 'numeric', second: 'numeric' }) }],
   
-  highlightedClipId: null,
-  setHighlightedClip: (id) => set({ highlightedClipId: id }),
+  highlightedClip: null,
+  setHighlightedClip: (id) => set({ highlightedClip: id }),
 
   cmdAliases: {},
   setCmdAlias: (name, commands) => set((state) => ({ 
@@ -136,10 +132,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       else newSet.add(trackId);
       return { collapsedTracks: newSet };
   }),
-
-  // Phase 25
-  highlightedClip: null,
-  setHighlightedClip: (id) => set({ highlightedClip: id }),
 
   // Phase 26
   loopRegion: null,
