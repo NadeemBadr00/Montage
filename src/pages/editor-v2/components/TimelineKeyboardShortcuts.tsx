@@ -19,6 +19,7 @@ export default function TimelineKeyboardShortcuts() {
 
       const ctrl = e.ctrlKey || e.metaKey;
 
+      switch (e.key) {
         /* Playback */
         case ' ':
           e.preventDefault();
