@@ -18,6 +18,7 @@ import Cookies       from './pages/Cookies';
 import PaymentSuccess from './pages/PaymentSuccess';
 import { CookieBanner } from './components/ui/CookieBanner';
 import { UltraPromoBanner } from './components/ui/UltraPromoBanner';
+import { UpgradeModal } from './components/ui/UpgradeModal';
 import Billing           from './pages/Billing';
 
 export default function App() {
@@ -51,6 +52,7 @@ export default function App() {
       </Routes>
       <CookieBanner />
       <UltraPromoBanner />
+      <UpgradeModal />
     </BrowserRouter>
   );
 }

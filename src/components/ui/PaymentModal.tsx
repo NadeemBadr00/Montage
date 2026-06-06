@@ -169,7 +169,7 @@ export function PaymentModal({ plan, billing, onClose }: Props) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#475569', fontSize: '0.72rem' }}>
               <Shield size={11} /> Powered by Paymob
             </div>
-            <div style={{ color: '#475569', fontSize: '0.72rem' }}>🔒 Test Mode</div>
+            <div style={{ color: '#475569', fontSize: '0.72rem' }}>🔒 PCI DSS Compliant</div>
           </div>
         </motion.div>
       </motion.div>

@@ -57,6 +57,7 @@ import './core/file_store';
 import { injectTemplateManager } from './features/templates/template-manager';
 
 import { exportToMP4ClientSide } from './features/video_export';
+import { injectPlanGating } from './features/plan_gating_engine';
 
 console.log('Editor Engine Initialized via Vite');
 
@@ -67,3 +68,6 @@ injectTemplateManager(appMock);
 (window as any).EditorApp.prototype.exportVideoClientSide = function(options: any) {
     exportToMP4ClientSide(this, options);
 };
+
+// ── Plan Gating: MUST be last (wraps already-registered prototype methods) ──
+injectPlanGating();

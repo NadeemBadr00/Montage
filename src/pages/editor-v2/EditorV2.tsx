@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { usePlan } from '../../hooks/usePlan';
 import Timeline from './components/Timeline';
 import Player from './components/Player';
 import AssetsPanel from './components/AssetsPanel';
@@ -9,6 +10,7 @@ import Modals from './components/Modals';
 import RightPanel from './components/RightPanel';
 import TimelineKeyboardShortcuts from './components/TimelineKeyboardShortcuts';
 import ShortcutsOverlay from './components/ShortcutsOverlay';
+import { PlanBanner } from './components/PlanBanner';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useFileStore } from '../../hooks/useFileStore';
 import { useEngineInit } from './panels/useEngineInit';
@@ -33,6 +35,7 @@ import '../../editor-engine/main';
 export default function EditorV2() {
   const { userData } = useAuth();
   const { id } = useParams();
+  const { gate, can, plan } = usePlan();
   const [autoSaveLabel, setAutoSaveLabel] = useState<'saved'|'saving'|null>(null);
 
   useEngineInit(id);
@@ -71,27 +74,40 @@ export default function EditorV2() {
           >
             <i id="export-btn-icon" className="fa-solid fa-rocket"></i> تصدير (Export)
           </button>
+          {/* XML Export — Ultra */}
           <button 
-            className="flex items-center gap-1 bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg"
-            onClick={() => (window as any).app?.downloadXML()}
+            className={`flex items-center gap-1 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg ${
+              can('EXPORT_XML') ? 'bg-green-600 hover:bg-green-500' : 'bg-gray-700 hover:bg-gray-600 opacity-75'
+            }`}
+            onClick={() => gate('EXPORT_XML', () => (window as any).app?.downloadXML())}
+            title={can('EXPORT_XML') ? 'Export FCPXML' : '🔒 Ultra: FCPXML Export'}
           >
             <i className="fa-solid fa-file-code"></i> XML
+            {!can('EXPORT_XML') && <i className="fa-solid fa-lock text-[8px] ml-0.5 opacity-60"></i>}
           </button>
 
+          {/* Audio Export — Ultra */}
           <button 
-            className="flex items-center gap-1 bg-yellow-600 hover:bg-yellow-500 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg"
-            onClick={() => (window as any).app?.exportAudioOnly?.()}
-            title="Export Audio (WAV)"
+            className={`flex items-center gap-1 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg ${
+              can('EXPORT_WAV') ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-gray-700 hover:bg-gray-600 opacity-75'
+            }`}
+            onClick={() => gate('EXPORT_WAV', () => (window as any).app?.exportAudioOnly?.())}
+            title={can('EXPORT_WAV') ? 'Export Audio (WAV)' : '🔒 Ultra: WAV Export'}
           >
             <i className="fa-solid fa-music"></i> Audio
+            {!can('EXPORT_WAV') && <i className="fa-solid fa-lock text-[8px] ml-0.5 opacity-60"></i>}
           </button>
           
+          {/* GIF Export — Ultra */}
           <button 
-            className="flex items-center gap-1 bg-pink-600 hover:bg-pink-500 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg"
-            onClick={() => (window as any).app?.exportGIF?.()}
-            title="Export GIF (5s)"
+            className={`flex items-center gap-1 text-white px-3 py-1 rounded text-[11px] font-bold transition-colors shadow-lg ${
+              can('EXPORT_GIF') ? 'bg-pink-600 hover:bg-pink-500' : 'bg-gray-700 hover:bg-gray-600 opacity-75'
+            }`}
+            onClick={() => gate('EXPORT_GIF', () => (window as any).app?.exportGIF?.())}
+            title={can('EXPORT_GIF') ? 'Export GIF (5s)' : '🔒 Ultra: GIF Export'}
           >
             <i className="fa-solid fa-file-image"></i> GIF
+            {!can('EXPORT_GIF') && <i className="fa-solid fa-lock text-[8px] ml-0.5 opacity-60"></i>}
           </button>
 
           {/* AutoSave indicator */}
@@ -132,6 +148,15 @@ export default function EditorV2() {
             <i className="fa-solid fa-list-check"></i> System Log
           </button>
 
+          {/* Plan badge in header */}
+          <div className={`text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wide ${
+            plan === 'ultra' ? 'bg-purple-600/20 text-purple-400 border-purple-600/40' :
+            plan === 'pro'   ? 'bg-cyan-600/20 text-cyan-400 border-cyan-600/40' :
+                               'bg-gray-600/20 text-gray-400 border-gray-600/40'
+          }`}>
+            {plan === 'ultra' ? '✦ Ultra' : plan === 'pro' ? '⚡ Pro' : 'Free'}
+          </div>
+
           <Link to="/" className="text-[11px] text-gray-400 hover:text-white transition-colors bg-[#1e293b] px-3 py-1 rounded-full border border-gray-700 flex items-center gap-1 shadow-sm">
             <i className="fa-solid fa-house text-[10px]"></i> Home
           </Link>
@@ -151,7 +176,10 @@ export default function EditorV2() {
         </div>
       </header>
 
-      <main className="relative flex-grow w-full h-[calc(100vh-40px)] overflow-hidden box-border">
+      {/* Plan upgrade banner for free/expiring users */}
+      <PlanBanner />
+
+      <main className="relative flex-grow w-full overflow-hidden box-border" style={{ height: 'calc(100vh - 40px)' }}>
         
         {/* Top Left (Visual Left in RTL) -> RightPanel (CMD Center) */}
         <div className="absolute" style={{ top: '12px', bottom: 'calc(45% + 4px)', left: '12px', width: '300px' }}>
