@@ -575,16 +575,19 @@ function MotionTab({ clip }: any) {
 ───────────────────────────────────────────────────────────── */
 function ImageTab({ clip }: any) {
   const clipType = clip?.type ?? '';
-  if (clipType !== 'image') return <TypeOnlyState icon="fa-image" typeName="image" />;
 
+  // ALL hooks MUST come before any conditional return (Rules of Hooks)
   const [color1, setColor1] = useState(clip?.properties?.duotoneColor1 || '#6366f1');
   const [color2, setColor2] = useState(clip?.properties?.duotoneColor2 || '#f43f5e');
-  const duotoneEnabled = clip?.properties?.duotoneEnabled ?? false;
 
   useEffect(() => {
     setColor1(clip?.properties?.duotoneColor1 || '#6366f1');
     setColor2(clip?.properties?.duotoneColor2 || '#f43f5e');
   }, [clip?.id]);
+
+  if (clipType !== 'image') return <TypeOnlyState icon="fa-image" typeName="image" />;
+
+  const duotoneEnabled = clip?.properties?.duotoneEnabled ?? false;
 
   const kenBurnsPresets = [
     { label: 'Pan Left',  value: { startX: 0, startY: 0, startScale: 1.1, endX: -5, endY: 0,  endScale: 1.1 } },
@@ -652,25 +655,28 @@ const GRAD_DIRS   = ['→', '↓', '↗'];
 
 function TextAnimTab({ clip }: any) {
   const clipType = clip?.type ?? '';
-  if (clipType !== 'text') return <TypeOnlyState icon="fa-text-height" typeName="text" />;
 
-  const [entryAnim,  setEntryAnim]  = useState(clip?.textStyle?.entryAnim  || 'None');
-  const [exitAnim,   setExitAnim]   = useState(clip?.textStyle?.exitAnim   || 'None');
-  const [gradFrom,   setGradFrom]   = useState(clip?.textStyle?.gradientFrom || '#6366f1');
-  const [gradTo,     setGradTo]     = useState(clip?.textStyle?.gradientTo   || '#f43f5e');
-  const [gradDir,    setGradDir]    = useState(clip?.textStyle?.gradientDir  || '→');
-  const gradEnabled = clip?.textStyle?.gradientEnabled ?? false;
-  const [glowColor,  setGlowColor]  = useState(clip?.textStyle?.glowColor   || '#e879f9');
+  // ALL hooks MUST come before any conditional return (Rules of Hooks)
+  const [entryAnim, setEntryAnim] = useState(clip?.textStyle?.entryAnim   || 'None');
+  const [exitAnim,  setExitAnim]  = useState(clip?.textStyle?.exitAnim    || 'None');
+  const [gradFrom,  setGradFrom]  = useState(clip?.textStyle?.gradientFrom || '#6366f1');
+  const [gradTo,    setGradTo]    = useState(clip?.textStyle?.gradientTo   || '#f43f5e');
+  const [gradDir,   setGradDir]   = useState(clip?.textStyle?.gradientDir  || '→');
+  const [glowColor, setGlowColor] = useState(clip?.textStyle?.glowColor    || '#e879f9');
 
   useEffect(() => {
     const ts = clip?.textStyle || {};
-    setEntryAnim(ts.entryAnim  || 'None');
-    setExitAnim(ts.exitAnim    || 'None');
+    setEntryAnim(ts.entryAnim   || 'None');
+    setExitAnim(ts.exitAnim     || 'None');
     setGradFrom(ts.gradientFrom || '#6366f1');
     setGradTo(ts.gradientTo     || '#f43f5e');
     setGradDir(ts.gradientDir   || '→');
     setGlowColor(ts.glowColor   || '#e879f9');
   }, [clip?.id]);
+
+  if (clipType !== 'text') return <TypeOnlyState icon="fa-text-height" typeName="text" />;
+
+  const gradEnabled = clip?.textStyle?.gradientEnabled ?? false;
 
   return (
     <div>
