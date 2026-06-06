@@ -605,6 +605,18 @@
         const db = getFirestore(app);
         const storage = getStorage(app);
 
+        function updateProgress(p, phaseText) {
+            window.currentProgress = p;
+            if (phaseText) window.currentPhase = phaseText;
+            document.getElementById('progressText').innerText = Math.round(p) + '%';
+            window.opener?.postMessage({ type: 'progress', progress: p, phase: window.currentPhase }, '*');
+        }
+
+        function setPhase(phaseText, percentage) {
+            updateProgress(percentage !== undefined ? percentage : window.currentProgress || 0, phaseText);
+            log(phaseText);
+        }
+
         function log(msg) {
             const el = document.getElementById('log');
             el.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
@@ -886,7 +898,7 @@
             document.getElementById('startBtn').disabled = true;
             document.getElementById('cloudBtn').disabled = true;
             window.lastEncodedTimeUs = 0; // Reset state for multiple renders
-            log("🚀 جاري بدء المعالجة المحلية الاحترافية...");
+            setPhase("المرحلة ١/١٠: فحص الذاكرة وتجميع بيانات المشروع...", 5);
 
             try {
                 const { width, height, bitrate, muxerCodec, encoderCodecString, selectedCodec } = getQualitySettings();
@@ -989,6 +1001,7 @@
                             let buffer;
                             // Use window.videoFile ONLY if videoSrc is "file" or missing
                             if ((!videoSrc || videoSrc === "file") && window.videoFile) {
+                                setPhase("المرحلة ٢/١٠: سحب الميديا والصور إلى الذاكرة المؤقتة...", 10);
                                 log(`📦 تحميل الفيديو من الذاكرة المحلية (IndexedDB)...`);
                                 buffer = await window.videoFile.arrayBuffer();
                             } else {
@@ -998,6 +1011,7 @@
                                 buffer = await response.arrayBuffer();
                             }
                             buffer.fileStart = 0;
+                            setPhase("المرحلة ٣/١٠: فك التشفير الأولي للملفات الخام (Decoding)...", 15);
                             log(`📦 تم تحميل ${buffer.byteLength} بايت، جاري فك التشفير...`);
 
                             const mp4boxfile = MP4Box.createFile();
@@ -1226,6 +1240,7 @@
                                         }
                                     });
 
+                                    setPhase("المرحلة ٤/١٠: تهيئة محرك الفيديو الداخلي...", 25);
                                     log(`🚀 تشغيل VideoDecoder بنوع: ${track.codec}`);
                                     decoder.configure({
                                         codec: track.codec,
@@ -1264,6 +1279,7 @@
                             mp4boxfile.appendBuffer(buffer);
                             mp4boxfile.flush();
                             
+                            setPhase("المرحلة ٥/١٠: تحضير فريمات الفيديو...", 35);
                             log("⏳ انتظار تفريغ الـ Decoder...");
                             if (decoder) {
                                 await decoder.flush();
@@ -1368,6 +1384,7 @@
                         currentTimeUs += (1_000_000 / fps);
                         frameCount++;
                         if (frameCount % 60 === 0) {
+                            setPhase("المرحلة ٦/١٠: دمج الفريمات وتطبيق التأثيرات البصرية (جاري الرندر)...", 50);
                             log(`⏳ إطار ${frameCount} (استكمال عند ${timeInSeconds.toFixed(1)}s): تم رسم [${activeLayerNamesSynth.join(' + ')}]`);
 
                             await new Promise(r => setTimeout(r, 0));
@@ -1379,7 +1396,7 @@
                 const audioCache = {};
 
                 async function processAudioClip(clip) {
-                    log(`🔊 معالجة مقطع صوت من التايم لاين...`);
+                    setPhase("المرحلة ٧/١٠: معالجة هندسة الصوت وتوزيع القنوات...", 90);
                     let audioBuffer;
                     
                     // تحديد المصدر (فيديو أساسي أو مؤثر صوتي خارجي)
@@ -1450,7 +1467,7 @@
                 }
 
                 // انتظار تفريغ الـ AI Queue
-                log("⏳ انتظار تفريغ الـ AI والـ Encoder...");
+                setPhase("المرحلة ٨/١٠: التشفير النهائي وتطبيق الجودة (Encoding)...", 95);
                 while (true) {
                     if (window.isQueueEmpty) break; 
                     await new Promise(r => setTimeout(r, 100));
@@ -1461,7 +1478,7 @@
                 const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' });
                 const finalUrl = URL.createObjectURL(blob);
                 
-                log("✅ اكتمل الدمج المحلي!");
+                setPhase("المرحلة ٩/١٠: بناء حاوية الفيديو النهائية (Muxing)...", 98);
                 const resultVideo = document.getElementById('resultVideo');
                 resultVideo.src = finalUrl;
                 resultVideo.style.display = 'block';
@@ -1585,7 +1602,7 @@
                     window.videoFile = await getFile(`${projectId}_video`);
                     if (window.videoFile) {
                         document.getElementById('hiddenPreviewVideo').src = URL.createObjectURL(window.videoFile);
-                        log('📥 تم تحميل فيديو المشروع من الذاكرة بنجاح.');
+                        setPhase('المرحلة ١٠/١٠: إنهاء وتجهيز الملف للتحميل! 🎉', 100);
                     } else {
                         document.getElementById('hiddenPreviewVideo').src = '/1.mp4';
                     }

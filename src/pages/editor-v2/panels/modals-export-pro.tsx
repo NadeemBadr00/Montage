@@ -22,7 +22,8 @@ export function VideoExportModalPro() {
   // -- Progress State --
   const [exportStatus, setExportStatus] = useState<'idle' | 'rendering' | 'done'>('idle');
   const [progress, setProgress] = useState(0);
-  const [eta, setEta] = useState<string>('--:--');
+  const [exportPhase, setExportPhase] = useState("جاري فحص وتجميع الملفات...");
+  const [eta, setEta] = useState('جاري الحساب...');
   const [renderedUrl, setRenderedUrl] = useState<string | null>(null);
 
   // -- Summary Stats --
@@ -48,6 +49,21 @@ export function VideoExportModalPro() {
   useEffect(() => {
     calculateEstimatedSize(duration, resolution, quality);
   }, [resolution, quality, duration, format]);
+
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+        if (e.data?.type === 'progress') {
+            setProgress(e.data.progress);
+            if (e.data.phase) setExportPhase(e.data.phase);
+            if (e.data.progress >= 100) setExportStatus('done');
+        } else if (e.data?.type === 'done') {
+            setExportStatus('done');
+            if (e.data.url) setRenderedUrl(e.data.url);
+        }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   // Sync Preset to settings
   const handlePresetChange = (p: 'youtube' | 'tiktok' | 'instagram' | 'custom') => {
@@ -91,8 +107,8 @@ export function VideoExportModalPro() {
 
   const startRender = async () => {
       setExportStatus('rendering');
-      setProgress(100);
-      setEta('تم بدء التصدير في نافذة جديدة...');
+      setProgress(0);
+      setEta('جاري بدء الرندر...');
 
       const app = (window as any).app;
       if (!app) {
@@ -149,18 +165,12 @@ export function VideoExportModalPro() {
           if ((window as any).FileStore) {
               await (window as any).FileStore.save(`${id}_export_manifest`, new Blob([JSON.stringify(exportManifest)], { type: 'application/json' }));
           }
+          // Start the render
+          window.open(`/export.html?id=${id}&res=${resolution}&fps=${fps}&quality=${quality}&codec=${codec}&preset=${preset}&auto=true`, '_blank');
 
-          // Open old reliable export page
-          window.open(`/export.html?id=${id}&res=${resolution}&fps=${fps}&quality=${quality}&codec=${codec}&auto=true`, '_blank');
-          
-          setExportStatus('done');
-          useEditorStore.getState().addLog(`✅ تم إرسال مشروعك للتصدير في علامة تبويب جديدة.`);
-          triggerConfetti();
-
-      } catch (e) {
-          console.error("Export start failed", e);
-          setExportStatus('idle');
-          alert("حدث خطأ أثناء بدء التصدير.");
+      } catch (err) {
+          console.error("Export Prep Error:", err);
+          finishRender(null);
       }
   };
 
@@ -225,7 +235,10 @@ export function VideoExportModalPro() {
                     <i className="fa-solid fa-rocket absolute inset-0 m-auto w-6 h-6 text-blue-400 text-2xl flex items-center justify-center"></i>
                 </div>
                 <h2 className="text-2xl font-bold font-cairo text-white mb-2">جاري الرندر والتصدير...</h2>
-                <p className="text-gray-400 text-sm mb-8 text-center">يرجى عدم إغلاق هذه النافذة أو المتصفح حتى تنتهي العملية.</p>
+                <p className="text-gray-400 text-sm mb-4 text-center">يرجى متابعة العملية في النافذة الجديدة المفتوحة...</p>
+                <div className="bg-blue-900/30 border border-blue-500/30 text-blue-300 px-4 py-2 rounded-lg text-sm font-bold mb-8 w-full text-center">
+                    {exportPhase}
+                </div>
                 
                 <div className="w-full bg-gray-800 rounded-full h-4 mb-2 overflow-hidden border border-gray-700">
                     <div className="bg-gradient-to-r from-blue-600 to-purple-500 h-full transition-all duration-100 ease-out relative" style={{width: `${progress}%`}}>
