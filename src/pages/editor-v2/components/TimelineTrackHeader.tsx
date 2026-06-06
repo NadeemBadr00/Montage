@@ -36,18 +36,32 @@ export default function TimelineTrackHeader({ track, trackIndex, height, onHeigh
     track.isMuted = track.muted; // engine reads isMuted
     app?.requestRedraw?.(); app?.commitStateToReact?.(); 
   };
-  const toggleSolo   = () => {
+  const toggleSolo = () => {
     const wasSolo = track.solo;
-    app?.tracks?.forEach((t: any) => { t.muted = !wasSolo && t !== track; t.isMuted = t.muted; t.solo = false; t.isSolo = false; });
+    // Save each track's pre-solo muted state before changing solo
+    app?.tracks?.forEach((t: any) => { 
+      if (!wasSolo) {
+        // Entering solo: save current muted state, then mute all except this track
+        t._preSoloMuted = t.muted;
+        t.muted = t !== track;
+        t.isMuted = t.muted;
+      } else {
+        // Leaving solo: restore pre-solo muted states
+        t.muted = t._preSoloMuted !== undefined ? t._preSoloMuted : false;
+        t.isMuted = t.muted;
+        delete t._preSoloMuted;
+      }
+      t.solo = false; t.isSolo = false; 
+    });
     track.solo  = !wasSolo;
     track.isSolo = track.solo;
-    track.muted = false;
-    track.isMuted = false;
+    if (!wasSolo) { track.muted = false; track.isMuted = false; }
     app?.requestRedraw?.(); app?.commitStateToReact?.();
   };
   const toggleHide   = () => { 
     track.hidden = !track.hidden; 
-    track.isMuted = track.hidden; // hide = mute from renderer POV for video tracks
+    track.muted  = track.hidden;  // fix: sync both fields
+    track.isMuted = track.hidden; // engine reads isMuted; hide = mute for renderer
     app?.requestRedraw?.(); app?.commitStateToReact?.(); 
   };
   const setColor     = (c: string) => { track.color = c; setShowColorPicker(false); app?.commitStateToReact?.(); };
