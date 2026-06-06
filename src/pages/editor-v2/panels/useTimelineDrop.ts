@@ -93,6 +93,7 @@ export function useTimelineDrop() {
             // saveState AFTER mutation so undo correctly removes the dropped clip
             if ((window as any).app?.saveState) (window as any).app.saveState();
             if ((window as any).app.commitStateToReact) (window as any).app.commitStateToReact();
+            if ((window as any).app.requestRedraw) (window as any).app.requestRedraw(); // Phase 61: Fix Canvas update on Drop
           };
 
           if (asset.type === 'transition') {
