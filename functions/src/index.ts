@@ -735,3 +735,118 @@ export const onUserCreated = functions.auth.user().onCreate(async (user) => {
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   }, { merge: true });
 });
+
+// ── paddleWebhook ─────────────────────────────────────────────────────────
+// Receives Paddle subscription events and activates user plan in Firestore.
+// Configure in Paddle Dashboard → Developer Tools → Notifications → Add endpoint:
+//   URL: https://us-central1-ai-roadmap-nadeem.cloudfunctions.net/paddleWebhook
+//   Events: subscription.activated, subscription.updated, subscription.canceled
+// ─────────────────────────────────────────────────────────────────────────────
+export const paddleWebhook = functions
+  .runWith({ timeoutSeconds: 60 })
+  .https.onRequest(async (req, res) => {
+    // CORS
+    res.set("Access-Control-Allow-Origin", "*");
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+    try {
+      const crypto = require("crypto"); // eslint-disable-line @typescript-eslint/no-var-requires
+
+      // ── 1. Verify Paddle webhook signature ──────────────────────────────
+      // Paddle sends: Paddle-Signature header = ts=xxx;h1=xxx
+      const PADDLE_WEBHOOK_SECRET = process.env.PADDLE_WEBHOOK_SECRET || "";
+      const signatureHeader = req.headers["paddle-signature"] as string || "";
+      
+      if (PADDLE_WEBHOOK_SECRET && signatureHeader) {
+        const parts = signatureHeader.split(";");
+        const tsPart  = parts.find(p => p.startsWith("ts="))?.split("=")[1] || "";
+        const h1Part  = parts.find(p => p.startsWith("h1="))?.split("=")[1] || "";
+        const rawBody = req.rawBody ? req.rawBody.toString() : JSON.stringify(req.body);
+        const expectedSig = crypto
+          .createHmac("sha256", PADDLE_WEBHOOK_SECRET)
+          .update(`${tsPart}:${rawBody}`)
+          .digest("hex");
+        
+        if (expectedSig !== h1Part) {
+          console.warn("[Paddle Webhook] Invalid signature");
+          res.status(401).json({ error: "Invalid signature" });
+          return;
+        }
+      } else if (!PADDLE_WEBHOOK_SECRET) {
+        console.warn("[Paddle Webhook] PADDLE_WEBHOOK_SECRET not set — skipping signature check (dev mode)");
+      }
+
+      const event = req.body;
+      const eventType: string = event?.event_type || event?.notification_type || "";
+      const data = event?.data || {};
+
+      console.log(`[Paddle Webhook] Event: ${eventType}`, JSON.stringify(data).slice(0, 300));
+
+      // Log to Firestore for debugging
+      await admin.firestore().collection("paddleWebhookLogs").add({
+        eventType,
+        data,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // ── 2. Handle events ────────────────────────────────────────────────
+
+      // subscription.activated — user completed checkout
+      // subscription.updated   — user changed plan (upgrade/downgrade)
+      if (eventType === "subscription.activated" || eventType === "subscription.updated") {
+        const uid: string = data.custom_data?.uid || "";
+        const planRaw: string = data.custom_data?.plan || "";
+        const billing: string = data.custom_data?.billing || "monthly";
+        const subscriptionId: string = data.id || "";
+        const status: string = data.status || "";
+
+        if (!uid || !planRaw) {
+          console.error("[Paddle Webhook] Missing uid or plan in custom_data", data.custom_data);
+          res.status(400).json({ error: "Missing custom_data.uid or custom_data.plan" });
+          return;
+        }
+
+        const plan = planRaw === "pro" ? "pro" : "ultra";
+        const durationMs = billing === "yearly"
+          ? 365 * 24 * 60 * 60 * 1000
+          : 30  * 24 * 60 * 60 * 1000;
+
+        // Stack on top of existing expiry
+        const userRef   = admin.firestore().collection("users").doc(uid);
+        const userSnap  = await userRef.get();
+        const curExpiry = userSnap.exists ? (userSnap.data() as any).planExpiresAt ?? null : null;
+        const newExpiry = (curExpiry && curExpiry > Date.now())
+          ? curExpiry + durationMs
+          : Date.now() + durationMs;
+
+        await userRef.set({
+          plan,
+          billing,
+          planExpiresAt: newExpiry,
+          paddleSubscriptionId: subscriptionId,
+          paddleStatus: status,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+
+        console.log(`[Paddle Webhook] ✅ Activated: ${uid} → ${plan} (${billing}) until ${new Date(newExpiry).toISOString()}`);
+      }
+
+      // subscription.canceled — user cancelled
+      else if (eventType === "subscription.canceled") {
+        const uid: string = data.custom_data?.uid || "";
+        if (uid) {
+          // Don't immediately remove — let plan expire naturally (paddle handles access end)
+          await admin.firestore().collection("users").doc(uid).set({
+            paddleStatus: "canceled",
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+          console.log(`[Paddle Webhook] Subscription canceled for uid: ${uid}`);
+        }
+      }
+
+      res.status(200).json({ received: true });
+    } catch (err: any) {
+      console.error("[Paddle Webhook] Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
