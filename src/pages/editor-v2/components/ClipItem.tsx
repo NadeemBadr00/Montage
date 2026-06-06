@@ -15,6 +15,7 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
   const pixelsPerSecond = useEditorStore(state => state.pixelsPerSecond);
   const selectedClipIds = useEditorStore(state => state.selectedClipIds);
   const highlightedClipId = useEditorStore(state => state.highlightedClipId);
+  const activeTool = useEditorStore(state => state.activeTool);
   
   const isSelected = selectedClipIds.has(clip.id);
   const isHighlighted = highlightedClipId === clip.id;
@@ -29,6 +30,8 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
   const [hoverState, setHoverState] = React.useState<{x: number, y: number, clipX: number} | null>(null);
   // Edge hover state: 'left' | 'right' | null — for showing trim cursor
   const [edgeHover, setEdgeHover] = React.useState<'left' | 'right' | null>(null);
+  // Volume handle state
+  const [showVolumeTooltip, setShowVolumeTooltip] = React.useState(false);
 
   const TRIM_ZONE_PX = 12; // pixels from edge that trigger trim mode
 
@@ -38,12 +41,81 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
     if (e.button === 2) return; // Right-click handled by onContextMenu
 
     const app = (window as any).app;
+    const currentActiveTool = useEditorStore.getState().activeTool;
 
     // ✅ TRIM ZONE DETECTION: Check if mousedown is near left or right edge
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const isNearLeft = clickX <= TRIM_ZONE_PX;
     const isNearRight = clickX >= rect.width - TRIM_ZONE_PX;
+
+    // === Phase 21: ROLLING TOOL — right-edge acts as a roll edit ===
+    if (currentActiveTool === 'rolling') {
+      // Rolling always trims the right edge like a rolling cut point
+      handleTrimDrag(e, isNearLeft ? 'left' : 'right');
+      return;
+    }
+
+    // === Phase 21: SLIP TOOL — drag changes sourceIn, keeps start+duration ===
+    if (currentActiveTool === 'slip') {
+      if (app?.saveState) app.saveState();
+      const startX = e.clientX;
+      const initialSourceIn = (clip as any).sourceIn || 0;
+      const moveHandler = (moveEvent: MouseEvent) => {
+        const deltaSeconds = (moveEvent.clientX - startX) / pixelsPerSecond;
+        const newSourceIn = Math.max(0, initialSourceIn + deltaSeconds);
+        useEditorStore.getState().updateClip(clip.id, { sourceIn: newSourceIn } as Partial<Clip>);
+        const engineTrack = app?.tracks?.find((t: any) => t.clips.some((c: any) => c.id === clip.id));
+        if (engineTrack) {
+          const engineClip = engineTrack.clips.find((c: any) => c.id === clip.id);
+          if (engineClip) { engineClip.sourceIn = newSourceIn; engineTrack.rebuildTree?.(); app?.requestRedraw?.(); }
+        }
+        app?.updateClipSourceIn?.(clip.id, newSourceIn);
+      };
+      const upHandler = () => {
+        document.removeEventListener('mousemove', moveHandler);
+        document.removeEventListener('mouseup', upHandler);
+        app?.commitStateToReact?.();
+        app?.saveState?.();
+      };
+      document.addEventListener('mousemove', moveHandler);
+      document.addEventListener('mouseup', upHandler);
+      return;
+    }
+
+    // === Phase 21: SLIDE TOOL — move clip, push neighbors ===
+    if (currentActiveTool === 'slide') {
+      if (app?.saveState) app.saveState();
+      const startX = e.clientX;
+      const initialStart = clip.start;
+      const moveHandler = (moveEvent: MouseEvent) => {
+        const deltaSeconds = (moveEvent.clientX - startX) / pixelsPerSecond;
+        const newStart = Math.max(0, initialStart + deltaSeconds);
+        useEditorStore.getState().updateClip(clip.id, { start: newStart });
+        if (app) {
+          const engineTrack = app.tracks?.find((t: any) => t.clips.some((c: any) => c.id === clip.id));
+          if (engineTrack) {
+            const engineClip = engineTrack.clips.find((c: any) => c.id === clip.id);
+            if (engineClip) {
+              engineClip.start = newStart;
+              app.resolveCollisions?.(engineTrack.id, engineClip);
+              engineTrack.rebuildTree?.();
+              app.requestRedraw?.();
+            }
+          }
+          app.slideClip?.(clip.id, deltaSeconds);
+        }
+      };
+      const upHandler = () => {
+        document.removeEventListener('mousemove', moveHandler);
+        document.removeEventListener('mouseup', upHandler);
+        app?.commitStateToReact?.();
+        app?.saveState?.();
+      };
+      document.addEventListener('mousemove', moveHandler);
+      document.addEventListener('mouseup', upHandler);
+      return;
+    }
 
     if (isNearLeft || isNearRight) {
       // Route to trim handler directly — no z-index or DOM order issues
@@ -107,9 +179,9 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
       const deltaSeconds = deltaX / pixelsPerSecond;
       let newStart = Math.max(0, initialStart + deltaSeconds);
       
-      const isMagneticMode = useEditorStore.getState().isMagneticMode;
+      const isMagSnap = useEditorStore.getState().isMagneticMode;
       
-      if (isMagneticMode) {
+      if (isMagSnap) {
           const trackClips = useEditorStore.getState().tracks.find(t => t.id === trackId)?.clips || [];
           let previousClipEnd = 0;
           trackClips.forEach(c => {
@@ -123,6 +195,24 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
           // Only snap if we are within 1 second of the previous clip's end
           if (Math.abs(newStart - previousClipEnd) < 1.0) {
               newStart = previousClipEnd;
+          }
+
+          // Phase 22: Snap to playhead
+          const playheadTime = useEditorStore.getState().currentTime;
+          const snapThresholdSec = 10 / pixelsPerSecond; // 10px threshold
+          if (Math.abs(newStart - playheadTime) < snapThresholdSec) {
+            newStart = playheadTime;
+            // Fire snap guide event
+            const snapX = (playheadTime * pixelsPerSecond) + (useEditorStore.getState().headerWidth || 140);
+            window.dispatchEvent(new CustomEvent('snap-guide', {
+              detail: { guides: [{ x: snapX, label: 'Playhead' }] }
+            }));
+          } else if (Math.abs(newStart - previousClipEnd) < 1.0) {
+            // Snap to clip edge guide
+            const snapX = (previousClipEnd * pixelsPerSecond) + (useEditorStore.getState().headerWidth || 140);
+            window.dispatchEvent(new CustomEvent('snap-guide', {
+              detail: { guides: [{ x: snapX, label: 'Clip Edge' }] }
+            }));
           }
       } else {
           // Standard Snap
@@ -421,7 +511,11 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
         transform: dragOffsetY !== 0 ? `translateY(${dragOffsetY * 0.3}px)` : 'none',
         zIndex: dragOffsetY !== 0 ? 99 : (isSelected ? 70 : 60),
         pointerEvents: dragOffsetY !== 0 ? 'none' : 'auto',
-        cursor: edgeHover ? 'col-resize' : (isDragging ? 'grabbing' : 'grab'),
+        cursor: activeTool === 'slip' ? 'ew-resize'
+          : activeTool === 'slide' ? 'move'
+          : activeTool === 'rolling' ? 'col-resize'
+          : edgeHover ? 'col-resize'
+          : (isDragging ? 'grabbing' : 'grab'),
         background: (clip as any).labelColor
           ? `linear-gradient(180deg, ${(clip as any).labelColor}35 0%, ${(clip as any).labelColor}15 100%)`
           : `linear-gradient(180deg, ${clipColor}22 0%, ${clipColor}08 100%)`,
@@ -521,6 +615,59 @@ export default function ClipItem({ clip, trackId, colorClass }: ClipItemProps) {
       {/* Phase 12: Speed & Fade overlays */}
       <ClipSpeedBadge clip={clip} width={width} />
       <ClipFadeOverlay clip={clip} width={width} />
+
+      {/* Phase 23: Per-clip volume handle for audio clips */}
+      {clip.type === 'audio' && (() => {
+          const volume = (clip as any).properties?.volume ?? 100;
+          const volumePct = Math.min(200, Math.max(0, volume));
+          const lineTopPct = 100 - (volumePct / 200) * 100;
+
+          const handleVolumeDrag = (e: React.MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const app2 = (window as any).app;
+            if (app2?.saveState) app2.saveState();
+            const startY = e.clientY;
+            const startVol = volumePct;
+            const trackEl = (e.currentTarget as HTMLElement).closest('.timeline-clip') as HTMLElement;
+            const clipHeight = trackEl ? trackEl.getBoundingClientRect().height : 72;
+            const moveHandler2 = (me: MouseEvent) => {
+              const deltaY = startY - me.clientY;
+              const newVol = Math.min(200, Math.max(0, startVol + (deltaY / clipHeight) * 200));
+              if (!(clip as any).properties) (clip as any).properties = {};
+              (clip as any).properties.volume = Math.round(newVol);
+              app2?.updateClipVolume?.(clip.id, Math.round(newVol));
+              app2?.commitStateToReact?.();
+            };
+            const upHandler2 = () => {
+              document.removeEventListener('mousemove', moveHandler2);
+              document.removeEventListener('mouseup', upHandler2);
+              app2?.saveState?.();
+            };
+            document.addEventListener('mousemove', moveHandler2);
+            document.addEventListener('mouseup', upHandler2);
+          };
+
+          return (
+            <div
+              key="vol-handle"
+              className="clip-volume-line"
+              style={{ top: `${lineTopPct}%` }}
+              onMouseDown={handleVolumeDrag}
+              onMouseEnter={() => setShowVolumeTooltip(true)}
+              onMouseLeave={() => setShowVolumeTooltip(false)}
+              title={`Volume: ${Math.round(volumePct)}%`}
+            >
+              <div className="clip-volume-handle" />
+              {showVolumeTooltip && (
+                <div className="absolute right-10 top-1/2 -translate-y-1/2 bg-black/90 text-green-400 text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-[100] border border-green-500/30 pointer-events-none">
+                  🔊 {Math.round(volumePct)}%
+                </div>
+              )}
+            </div>
+          );
+        })()
+      }
 
       {/* Clip content area */}
       <div className="relative flex items-center gap-1 px-2 flex-1 min-h-0 z-10 mt-[3px]">

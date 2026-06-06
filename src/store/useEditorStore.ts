@@ -15,7 +15,7 @@ interface EditorState {
   // UI State
   zoomLevel: number;
   pixelsPerSecond: number;
-  activeTool: 'select' | 'cut' | 'text' | 'delete';
+  activeTool: 'select' | 'cut' | 'text' | 'delete' | 'slip' | 'slide' | 'rolling';
   selectedClipIds: Set<string>;
   headerWidth: number;
   
@@ -42,7 +42,7 @@ interface EditorState {
   togglePlay: () => void;
   setCurrentTime: (time: number) => void;
   setZoomPercentage: (percent: number) => void;
-  setTool: (tool: 'select' | 'cut' | 'text' | 'delete') => void;
+  setTool: (tool: 'select' | 'cut' | 'text' | 'delete' | 'slip' | 'slide' | 'rolling') => void;
   
   // Drag State
   draggedAsset: Asset | null;
@@ -73,6 +73,16 @@ interface EditorState {
   setMagneticMode: (mode: boolean) => void;
   collapsedTracks: Set<number>;
   toggleTrackCollapse: (trackId: number) => void;
+
+  // Phase 25: Highlighted clip (from search)
+  highlightedClip: string | null;
+  setHighlightedClip: (id: string | null) => void;
+
+  // Phase 26: Loop Region
+  loopRegion: { in: number; out: number } | null;
+  setLoopRegion: (region: { in: number; out: number } | null) => void;
+  isLooping: boolean;
+  setIsLooping: (v: boolean) => void;
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -126,6 +136,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       else newSet.add(trackId);
       return { collapsedTracks: newSet };
   }),
+
+  // Phase 25
+  highlightedClip: null,
+  setHighlightedClip: (id) => set({ highlightedClip: id }),
+
+  // Phase 26
+  loopRegion: null,
+  setLoopRegion: (region) => set({ loopRegion: region }),
+  isLooping: false,
+  setIsLooping: (v) => set({ isLooping: v }),
 
   syncApp: (tracks, currentTime, isPlaying) => set({ 
     // FIX #6: one-level deep copy so React detects clip-level mutations.

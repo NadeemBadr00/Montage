@@ -9,6 +9,7 @@ export default function TimelineKeyboardShortcuts() {
   const setZoomPercentage = useEditorStore(s => s.setZoomPercentage);
   const setMagneticMode   = useEditorStore(s => s.setMagneticMode);
   const isMagneticMode    = useEditorStore(s => s.isMagneticMode);
+  const setTool           = useEditorStore(s => s.setTool);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -94,6 +95,16 @@ export default function TimelineKeyboardShortcuts() {
           break;
         case 'y':
           if (ctrl) { e.preventDefault(); app?.redo?.(); }
+          else { e.preventDefault(); setTool('slip'); }
+          break;
+        case 'u':
+          if (!ctrl && !isInput) { e.preventDefault(); setTool('slide'); }
+          break;
+        case 'n':
+          if (!ctrl && !isInput) { e.preventDefault(); setTool('rolling'); }
+          break;
+        case 'f':
+          if (ctrl) { e.preventDefault(); window.dispatchEvent(new CustomEvent('timeline-search-toggle')); }
           break;
         case 'c':
           if (ctrl) { e.preventDefault(); app?.copySelectedClip?.(); }
@@ -175,7 +186,7 @@ export default function TimelineKeyboardShortcuts() {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isMagneticMode, setMagneticMode, setZoomPercentage]);
+  }, [isMagneticMode, setMagneticMode, setZoomPercentage, setTool]);
 
   return null; // purely behavioral
 }

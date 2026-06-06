@@ -6,6 +6,11 @@ import TimelineMiniMap from './TimelineMiniMap';
 import UndoHistoryPanel from './UndoHistoryPanel';
 import TimelineRuler from './TimelineRuler';
 import TransitionsPicker from './TransitionsPicker';
+import SnapGuides from './SnapGuides';
+import TimelineSearch from './TimelineSearch';
+import LoopRegion from './LoopRegion';                              // Phase 26
+import { injectCompoundClipEngine } from './CompoundClip';          // Phase 27
+import { RenderStatusBar, CommentMarkers, ShortcutsCheatsheet } from './TimelineExtras'; // P28-30
 import { useEditorStore } from '../../../store/useEditorStore';
 
 export default function Timeline() {
@@ -17,16 +22,59 @@ export default function Timeline() {
   const duration = useEditorStore(state => state.duration);
   const isMagneticMode = useEditorStore(state => state.isMagneticMode);
   const setMagneticMode = useEditorStore(state => state.setMagneticMode);
+  const activeTool = useEditorStore(state => state.activeTool);
+  const setTool = useEditorStore(state => state.setTool);
   const [localZoom, setLocalZoom] = React.useState(Math.round(zoomLevel).toString());
   const [showTransitions, setShowTransitions] = React.useState(false);
+  const [showSearch, setShowSearch] = React.useState(false);
+  const loopRegion    = useEditorStore(state => state.loopRegion);
+  const setLoopRegion = useEditorStore(state => state.setLoopRegion);
+  const [showCheatsheet, setShowCheatsheet] = React.useState(false);
 
-  // Matches engine formula in timeline.ts → calculateVisibleWindow
-  // 300px padding so clips at the end have breathing room
-  const timelineContentWidth = Math.max(2000, duration * pixelsPerSecond + 300);
+  // Phase 27: inject compound clip engine methods once on mount
+  React.useEffect(() => { injectCompoundClipEngine(); }, []);
+
+  // Phase 30: ? key opens cheatsheet
+  React.useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      if (e.key === '?') setShowCheatsheet(v => !v);
+      if (e.key === 'Escape') setShowCheatsheet(false);
+      // Phase 26: I/O keys for In/Out points
+      if (e.key === 'i' && !e.ctrlKey && !e.metaKey) {
+        const app = (window as any).app;
+        if (app) setLoopRegion({ in: app.currentTime || 0, out: loopRegion?.out ?? (app.duration || 300) });
+      }
+      if (e.key === 'o' && !e.ctrlKey && !e.metaKey) {
+        const app = (window as any).app;
+        if (app) setLoopRegion({ in: loopRegion?.in ?? 0, out: app.currentTime || 0 });
+      }
+      // Phase 29: Ctrl+M for comment marker
+      if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
+        e.preventDefault();
+        const app = (window as any).app;
+        window.dispatchEvent(new CustomEvent('add-comment-marker', { detail: { time: app?.currentTime || 0 } }));
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [loopRegion, setLoopRegion]);
+
 
   React.useEffect(() => {
     setLocalZoom(Math.round(zoomLevel).toString());
   }, [zoomLevel]);
+
+  // Matches engine formula → calculateVisibleWindow. 300px padding at end.
+  const timelineContentWidth = Math.max(2000, duration * pixelsPerSecond + 300);
+
+  // Phase 25: Listen for Ctrl+F from keyboard shortcuts
+  React.useEffect(() => {
+    const h = () => setShowSearch(v => !v);
+    window.addEventListener('timeline-search-toggle', h);
+    return () => window.removeEventListener('timeline-search-toggle', h);
+  }, []);
 
   const applyZoom = () => {
     let val = parseInt(localZoom);
@@ -85,14 +133,42 @@ export default function Timeline() {
 
         {/* Edit Tools */}
         <div className="flex bg-gray-900 rounded border border-gray-700/60">
-          <button id="tool-select" className="toolbar-btn active" title="Selection (V)" onClick={() => (window as any).app?.setTool?.('select')}>
+          <button
+            id="tool-select"
+            className={`toolbar-btn ${activeTool === 'select' ? 'active' : ''}`}
+            title="Selection (V)"
+            onClick={() => { setTool('select'); (window as any).app?.setTool?.('select'); }}
+          >
             <i className="fa-solid fa-arrow-pointer text-[11px]" />
           </button>
-          <button id="tool-cut" className="toolbar-btn border-l border-gray-700" title="Razor (C)" onClick={() => (window as any).app?.setTool?.('cut')}>
+          <button
+            id="tool-cut"
+            className={`toolbar-btn border-l border-gray-700 ${activeTool === 'cut' ? 'active' : ''}`}
+            title="Razor (C)"
+            onClick={() => { setTool('cut'); (window as any).app?.setTool?.('cut'); }}
+          >
             <i className="fa-solid fa-scissors text-[11px]" />
           </button>
-          <button className="toolbar-btn border-l border-gray-700" title="Slip Tool (Y)">
+          <button
+            className={`toolbar-btn border-l border-gray-700 transition-colors ${activeTool === 'slip' ? 'text-amber-400 bg-amber-400/10' : 'text-gray-500 hover:text-amber-400'}`}
+            title="Slip Tool (Y) — shift sourceIn while keeping position"
+            onClick={() => setTool('slip')}
+          >
             <i className="fa-solid fa-arrows-left-right-to-line text-[11px]" />
+          </button>
+          <button
+            className={`toolbar-btn border-l border-gray-700 transition-colors ${activeTool === 'slide' ? 'text-cyan-400 bg-cyan-400/10' : 'text-gray-500 hover:text-cyan-400'}`}
+            title="Slide Tool (U) — slide clip while pushing neighbors"
+            onClick={() => setTool('slide')}
+          >
+            <i className="fa-solid fa-up-down-left-right text-[11px]" />
+          </button>
+          <button
+            className={`toolbar-btn border-l border-gray-700 transition-colors ${activeTool === 'rolling' ? 'text-purple-400 bg-purple-400/10' : 'text-gray-500 hover:text-purple-400'}`}
+            title="Rolling Edit (N) — roll the cut point between two clips"
+            onClick={() => setTool('rolling')}
+          >
+            <i className="fa-solid fa-arrows-left-right text-[11px]" />
           </button>
           <button
             className={`toolbar-btn border-l border-gray-700 transition-colors ${isMagneticMode ? 'text-green-400 bg-green-400/10' : 'text-gray-500'}`}
@@ -151,6 +227,15 @@ export default function Timeline() {
           <i className="fa-solid fa-flag text-[11px]" />
         </button>
 
+        {/* Phase 25: Search Clips */}
+        <button
+          className={`toolbar-btn bg-gray-800 rounded hover:bg-gray-700 text-[10px] px-1.5 gap-0.5 w-auto ${ showSearch ? 'text-indigo-400 bg-indigo-500/10' : 'text-gray-400'}`}
+          title="Search Clips (Ctrl+F)"
+          onClick={() => setShowSearch(v => !v)}
+        >
+          <i className="fa-solid fa-magnifying-glass text-[10px]" />
+        </button>
+
         {/* Phase 19: Transitions picker toggle */}
         <button
           className={`toolbar-btn rounded text-[9px] px-1.5 gap-0.5 w-auto transition-colors ${showTransitions ? 'bg-indigo-600 text-white' : 'bg-gray-800 hover:bg-gray-700 text-indigo-400'}`}
@@ -174,6 +259,18 @@ export default function Timeline() {
           </button>
         </div>
 
+        {/* Phase 26: Loop Region indicator */}
+        {loopRegion && (
+          <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] bg-emerald-900/30 border border-emerald-500/30">
+            <span className="text-emerald-400 font-mono">IN {loopRegion.in.toFixed(1)}s</span>
+            <span className="text-gray-600 mx-0.5">→</span>
+            <span className="text-red-400 font-mono">{loopRegion.out.toFixed(1)}s OUT</span>
+            <button onClick={() => useEditorStore.getState().setLoopRegion(null)} className="ml-1 text-gray-500 hover:text-red-400">
+              <i className="fa-solid fa-xmark text-[8px]" />
+            </button>
+          </div>
+        )}
+
         {/* Spacer */}
         <div className="flex-1" />
 
@@ -196,6 +293,13 @@ export default function Timeline() {
 
         {/* Undo History */}
         <UndoHistoryPanel />
+
+        {/* Phase 30: Shortcut cheatsheet button */}
+        <button
+          className="toolbar-btn bg-gray-800 rounded hover:bg-gray-700 text-gray-500 hover:text-white font-bold text-[11px]"
+          title="Keyboard Shortcuts (?)"
+          onClick={() => setShowCheatsheet(v => !v)}
+        >?</button>
 
         {/* Zoom controls */}
         <div className="flex items-center gap-1 bg-gray-900 rounded border border-gray-700/60 px-1.5 py-0.5">
@@ -262,10 +366,16 @@ export default function Timeline() {
             <TimelineRuler />
           </div>
           
-          {/* Markers Layer */}
+          {/* Markers Layer — Phase 5 markers + Phase 26 Loop Region + Phase 28 Render Bar + Phase 29 Comments */}
           <div className="absolute top-0 left-0 right-0 h-[30px] z-[75] pointer-events-none" id="markers-layer">
             <TimelineMarkers />
           </div>
+          {/* Phase 28: Render status bar (green/yellow) */}
+          <RenderStatusBar />
+          {/* Phase 26: Loop In/Out region */}
+          <LoopRegion />
+          {/* Phase 29: Comment markers */}
+          <CommentMarkers />
 
           {/* Tracks Container */}
           <div className="relative w-full min-h-full bg-gray-900 pt-2 pb-10" id="tracks-container">
@@ -274,11 +384,20 @@ export default function Timeline() {
           
           {/* Playhead with tooltip (Phase 18) */}
           <PlayheadEnhanced />
+
+          {/* Phase 22: Snap guide lines */}
+          <SnapGuides />
+
+          {/* Phase 25: Timeline clip search */}
+          {showSearch && <TimelineSearch onClose={() => setShowSearch(false)} />}
           
         </div>
       </div>
       {/* Mini-Map Overview */}
       <TimelineMiniMap />
+
+      {/* Phase 30: Keyboard shortcuts cheatsheet */}
+      {showCheatsheet && <ShortcutsCheatsheet onClose={() => setShowCheatsheet(false)} />}
     </div>
   );
 }
